@@ -7,7 +7,7 @@ import SES from 'ses';
 
 import { makeVatEndowments, readAndHashFile } from './host';
 
-function confineVatSource(s, source) {
+export function confineVatSource(s, source) {
   const module = {};
   function log(...args) {
     console.log(...args);
