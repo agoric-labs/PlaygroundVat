@@ -22,8 +22,7 @@ function confineGuestSource(source, endowments) {
 }
 
 
-module.exports = {
-  makeVat(endowments, myVatID, initialSource, initialSourceHash) {
+export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
     const { writeOutput } = endowments;
 
     const e = confineGuestSource(initialSource);
@@ -70,5 +69,4 @@ module.exports = {
       }
     };
   }
-};
 

@@ -2,22 +2,23 @@ import fs from 'fs';
 import crypto from 'crypto';
 
 import yargs from 'yargs';
+import { rollup } from 'rollup';
 
 import SES from 'ses';
 
 import { makeVatEndowments, readAndHashFile } from './host';
 
 export function confineVatSource(s, source) {
-  const module = {};
+  const exports = {};
   function log(...args) {
     console.log(...args);
   }
-  const endow = { module, log };
+  const endow = { exports, log };
   s.evaluate(source, endow);
-  return module.exports;
+  return exports;
 }
 
-function run(argv) {
+async function run(argv) {
   console.log(`run ${argv.source} ${argv.input} ${argv.output}`);
   const s = SES.makeSESRootRealm();
   const output = fs.openSync(argv.output, 'w');
@@ -31,7 +32,12 @@ function run(argv) {
   // "import { makeVatStrings } from './bundlesomething'". Without it, we
   // need to find a filename relative to our current source file, which is
   // ugly.
-  const vatSource = fs.readFileSync(require.resolve('./vat.js'));
+
+  const bundle = await rollup({ input: require.resolve('./vat') });
+  const { code: vatSource } = await bundle.generate({ format: 'cjs' });
+  //console.log(`vatSource: ${vatSource}`);
+
+  //const vatSource = fs.readFileSync(require.resolve('./vat.js'));
   const { makeVat } = confineVatSource(s, vatSource);
 
   const vatEndowments = makeVatEndowments(argv, output);
@@ -49,14 +55,14 @@ function run(argv) {
   fs.closeSync(output);
 }
 
-export function main() {
+export async function main() {
   yargs
     .command('run [source]', 'run a service', (yargs) => {
       yargs.positional('source', {
         describe: 'initial object sourcefile',
       });
     }, (argv) => {
-      run(argv);
+      return run(argv);
     })
     .option('input', {})
     .option('output', {})
