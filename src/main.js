@@ -31,9 +31,8 @@ function run(argv) {
   // the vat code expands to live in multiple files), then this would become
   // "import { makeVatStrings } from './bundlesomething'". Without it, we
   // need to find a filename relative to our current source file, which is
-  // ugly. For now, I'll assume that the demo is always run from the root
-  // directory of the source tree.
-  const vatSource = fs.readFileSync('./src/vat.js');
+  // ugly.
+  const vatSource = fs.readFileSync(require.resolve('./vat.js'));
   const { makeVat } = confineVatSource(s, vatSource);
 
   const vatEndowments = makeVatEndowments(argv, output);
