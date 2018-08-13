@@ -17,7 +17,6 @@ function confineVatSource(s, source) {
   return module.exports;
 }
 
-
 function run(argv) {
   console.log(`run ${argv.source} ${argv.input} ${argv.output}`);
   const s = SES.makeSESRootRealm();
@@ -42,7 +41,8 @@ function run(argv) {
   const v = makeVat(vatEndowments, myVatID, initialSource, initialSourceHash);
 
   const opTranscript = fs.readFileSync(argv.input).toString('utf8');
-  v.replayOpTranscript(opTranscript);
+  v.start(opTranscript);
+
   // network listener goes here, call v.processOp() or something more like
   // dataReceived()
 

@@ -58,11 +58,15 @@ module.exports = {
     }
 
     return {
-      replayOpTranscript(opTranscript) {
+      start(opTranscript) {
         const ops = opTranscript.split('\n');
         for(let op of ops) {
           processOp(op);
         }
+      },
+
+      opReceived(op) {
+        processOp(op);
       }
     };
   }
