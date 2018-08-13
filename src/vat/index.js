@@ -23,50 +23,50 @@ function confineGuestSource(source, endowments) {
 
 
 export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
-    const { writeOutput } = endowments;
+  const { writeOutput } = endowments;
 
-    const e = confineGuestSource(initialSource);
-    writeOutput(`load: ${initialSourceHash}\n`);
+  const e = confineGuestSource(initialSource);
+  writeOutput(`load: ${initialSourceHash}\n`);
 
-    function processOp(op) {
-      if (op === '') {
-        return;
-      }
-      if (op.startsWith('load: ')) {
-        const arg = /^load: (\w+)$/.exec(op)[1];
-        if (arg !== initialSourceHash) {
-          throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
-        }
-        log(`load matches, good`);
-      } else if (op.startsWith('msg: ')) {
-        const m = msgre.exec(op);
-        const fromVat = m[1];
-        const toVat = m[2];
-        const bodyJson = m[3];
-        log(`msg ${fromVat} ${toVat}`);
-        if (toVat === myVatID) {
-          writeOutput(op);
-          writeOutput('\n');
-          const body = JSON.parse(bodyJson);
-          log(`method ${body.method}`);
-          e[body.method](body.args);
-        }
-      } else {
-        log(`unknown op: ${op}`);
-      }
+  function processOp(op) {
+    if (op === '') {
+      return;
     }
+    if (op.startsWith('load: ')) {
+      const arg = /^load: (\w+)$/.exec(op)[1];
+      if (arg !== initialSourceHash) {
+        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
+      }
+      log(`load matches, good`);
+    } else if (op.startsWith('msg: ')) {
+      const m = msgre.exec(op);
+      const fromVat = m[1];
+      const toVat = m[2];
+      const bodyJson = m[3];
+      log(`msg ${fromVat} ${toVat}`);
+      if (toVat === myVatID) {
+        writeOutput(op);
+        writeOutput('\n');
+        const body = JSON.parse(bodyJson);
+        log(`method ${body.method}`);
+        e[body.method](body.args);
+      }
+    } else {
+      log(`unknown op: ${op}`);
+    }
+  }
 
-    return {
-      start(opTranscript) {
-        const ops = opTranscript.split('\n');
-        for(let op of ops) {
-          processOp(op);
-        }
-      },
-
-      opReceived(op) {
+  return {
+    start(opTranscript) {
+      const ops = opTranscript.split('\n');
+      for(let op of ops) {
         processOp(op);
       }
-    };
-  }
+    },
+
+    opReceived(op) {
+      processOp(op);
+    }
+  };
+}
 

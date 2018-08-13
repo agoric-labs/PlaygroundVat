@@ -5,18 +5,16 @@ import SES from 'ses';
 function s1() {
   let count = 0;
 
-  module.exports = {
-    increment() {
-      count += 1;
-      log(`count is now ${count}`);
-      return count;
-    },
+  exports.increment = () => {
+    count += 1;
+    log(`count is now ${count}`);
+    return count;
+  };
 
-    decrement() {
-      count -= 1;
-      log(`count is now ${count}`);
-      return count;
-    }
+  exports.decrement = () => {
+    count -= 1;
+    log(`count is now ${count}`);
+    return count;
   };
 }
 
