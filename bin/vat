@@ -1,4 +1,4 @@
 #!/usr/bin/env node
 
 require = require('esm')(module);
-require('../src/vat.js').main();
+require('../src/main.js').main();
