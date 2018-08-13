@@ -1,6 +1,3 @@
-// ESM syntax is supported.
-export {}
-
 import fs from 'fs';
 import crypto from 'crypto';
 
@@ -8,70 +5,49 @@ import yargs from 'yargs';
 
 import SES from 'ses';
 
-function confineFile(s, fn, endowments) {
-  const source = fs.readFileSync(fn);
-  const sourceHasher = crypto.createHash('sha256');
-  sourceHasher.update(source);
-  const sourceHash = sourceHasher.digest('hex');
+import { makeVatEndowments, readAndHashFile } from './host';
+
+function confineVatSource(s, source) {
   const module = {};
   function log(...args) {
     console.log(...args);
   }
   const endow = { module, log };
-  if (endowments) {
-    Object.defineProperties(endow, 
-                            Object.getOwnPropertyDescriptors(endowments));
-  }
   s.evaluate(source, endow);
-  return { e: module.exports,
-           hash: sourceHash };
+  return module.exports;
 }
+
 
 function run(argv) {
   console.log(`run ${argv.source} ${argv.input} ${argv.output}`);
   const s = SES.makeSESRootRealm();
-  const { e, hash: sourceHash } = confineFile(s, argv.source);
-
-  const myVatID = argv.vatID;
-  const ops = fs.readFileSync(argv.input).toString('utf8').split('\n');
-  console.log(`ops is ${ops}`);
   const output = fs.openSync(argv.output, 'w');
-  fs.writeSync(output, `load: ${sourceHash}\n`);
 
-  const msgre = /^msg: (\w+)->(\w+) (.*)$/;
-  for(let op of ops) {
-    if (op === '') {
-      continue;
-    }
-    if (op.startsWith('load: ')) {
-      const arg = /^load: (\w+)$/.exec(op)[1];
-      if (arg !== sourceHash) {
-        throw Error(`err: input says to load ${arg}, but we loaded ${sourceHash} (from ${argv.source})`);
-      }
-      console.log(`load matches, good`);
-    } else if (op.startsWith('msg: ')) {
-      const m = msgre.exec(op);
-      const fromVat = m[1];
-      const toVat = m[2];
-      const bodyJson = m[3];
-      console.log(`msg ${fromVat} ${toVat}`);
-      if (toVat === myVatID) {
-        fs.writeSync(output, op);
-        fs.writeSync(output, '\n');
-        const body = JSON.parse(bodyJson);
-        console.log(`method ${body.method}`);
-        e[body.method](body.args);
-      }
-    } else {
-      console.log(`unknown op: ${op}`);
-    }
-      
-  }
+  // This needs to read the contents of vat.js, as a string. SES manages this
+  // by putting all the code (as ES6 modules) in a directory named bundle/ ,
+  // then the build process uses 'rollup' and some small editing to merge it
+  // all into a file named 'stringifiedBundle' which exports an object named
+  // 'creatorStrings'. If we did that (which might become more important as
+  // the vat code expands to live in multiple files), then this would become
+  // "import { makeVatStrings } from './bundlesomething'". Without it, we
+  // need to find a filename relative to our current source file, which is
+  // ugly. For now, I'll assume that the demo is always run from the root
+  // directory of the source tree.
+  const vatSource = fs.readFileSync('./src/vat.js');
+  const { makeVat } = confineVatSource(s, vatSource);
 
+  const vatEndowments = makeVatEndowments(argv, output);
+  const myVatID = argv.vatID;
 
+  const { source: initialSource, sourceHash: initialSourceHash } = readAndHashFile(argv.source);
+  const v = makeVat(vatEndowments, myVatID, initialSource, initialSourceHash);
+
+  const opTranscript = fs.readFileSync(argv.input).toString('utf8');
+  v.replayOpTranscript(opTranscript);
+  // network listener goes here, call v.processOp() or something more like
+  // dataReceived()
 
   fs.closeSync(output);
-
 }
 
 export function main() {
