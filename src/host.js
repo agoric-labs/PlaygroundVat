@@ -8,6 +8,7 @@ export function makeVatEndowments(argv, output) {
   return {
     writeOutput(...args) {
       fs.writeSync(output, ...args);
+      fs.writeSync(output, '\n');
     },
 
   };

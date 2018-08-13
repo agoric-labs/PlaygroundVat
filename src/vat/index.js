@@ -3,6 +3,7 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
+import Q from './nanoq';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -25,8 +26,19 @@ function confineGuestSource(source, endowments) {
 export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
   const { writeOutput } = endowments;
 
-  const e = confineGuestSource(initialSource);
-  writeOutput(`load: ${initialSourceHash}\n`);
+  // manually create an object that represents a Far reference, wire it up to
+  // write some "message" to writeOutput() when invoked, and then let the
+  // guest code invoke it. This object is a nanoq Q-style 'far' promise.
+
+  const relay = {
+    POST(_p, key, args) {
+      writeOutput(`POST: ${key}, ${args}`);
+    }
+  };
+  const ext = Q.makeFar(relay);
+
+  const e = confineGuestSource(initialSource, { ext });
+  writeOutput(`load: ${initialSourceHash}`);
 
   function processOp(op) {
     if (op === '') {
@@ -46,7 +58,6 @@ export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
       log(`msg ${fromVat} ${toVat}`);
       if (toVat === myVatID) {
         writeOutput(op);
-        writeOutput('\n');
         const body = JSON.parse(bodyJson);
         log(`method ${body.method}`);
         e[body.method](body.args);

@@ -150,4 +150,4 @@ Object.defineProperties(Q, Object.getOwnPropertyDescriptors({
   }
 }));
 
-export Q;
+export default Q;
