@@ -149,5 +149,6 @@ Object.defineProperties(Q, Object.getOwnPropertyDescriptors({
     return deferred;
   }
 }));
+def(Q);
 
 export default Q;

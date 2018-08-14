@@ -1,4 +1,5 @@
 // Copyright (C) 2012 Google Inc.
+// Copyright (C) 2018 Agoric
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-define('contract/makeMint', ['Q'], function(Q) {
-  "use strict";
-  var def = cajaVM.def;
-  var Nat = cajaVM.Nat;
 
-  var makeMint = function() {
-    var m = new WeakMap();
-    var makePurse = function() { return mint(0); };
+module.exports = {
+  makeMint() {
+    const m = new WeakMap();
+    const makePurse = function() { return mint(0); };
 
-    var mint = function(balance) {
-      var purse = def({
+    const mint = function(balance) {
+      const purse = def({
         getBalance: function() { return balance; },
         makePurse: makePurse,
+        getMakePurse() { return makePurse; },
         deposit: function(amount, srcP) {
           return Q(srcP).then(function(src) {
             Nat(balance + amount);
@@ -32,12 +31,10 @@ define('contract/makeMint', ['Q'], function(Q) {
             balance += amount;
           }); }
       });
-      var decr = function(amount) { balance = Nat(balance - amount); };
+      const decr = function(amount) { balance = Nat(balance - amount); };
       m.set(purse, decr);
       return purse;
     };
-    return mint;
-  };
-
-  return makeMint;
-});
+    return def(mint);
+  }
+};

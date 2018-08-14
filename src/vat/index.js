@@ -37,7 +37,7 @@ export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
   };
   const ext = Q.makeFar(relay);
 
-  const e = confineGuestSource(initialSource, { ext });
+  const e = confineGuestSource(initialSource, { ext, Q });
   writeOutput(`load: ${initialSourceHash}`);
 
   function processOp(op) {
