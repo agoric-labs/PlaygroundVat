@@ -41,8 +41,9 @@ export function makeVat(endowments, myVatID, initialSource) {
   const e = confineGuestSource(initialSource, { ext, Q });
   //writeOutput(`load: ${initialSourceHash}`);
 
-  function processOp(op) {
+  function processOp(op, resolver) {
     if (op === '') {
+      log(`empty op`);
       return;
     }
     if (op.startsWith('load: ')) {
@@ -56,12 +57,16 @@ export function makeVat(endowments, myVatID, initialSource) {
       const fromVat = m[1];
       const toVat = m[2];
       const bodyJson = m[3];
-      log(`msg ${fromVat} ${toVat}`);
+      log(`msg ${fromVat} ${toVat} (i am ${myVatID})`);
       if (toVat === myVatID) {
         writeOutput(op);
         const body = JSON.parse(bodyJson);
         log(`method ${body.method}`);
-        e[body.method](...body.args);
+        const result = e[body.method](...body.args);
+        if (resolver) {
+          log('calling that resolver');
+          resolver(result);
+        }
       }
     } else {
       log(`unknown op: ${op}`);
@@ -69,6 +74,9 @@ export function makeVat(endowments, myVatID, initialSource) {
   }
 
   return {
+    check() {
+      log('yes check');
+    },
     start(opTranscript) {
       const ops = opTranscript.split('\n');
       for(let op of ops) {
@@ -76,8 +84,9 @@ export function makeVat(endowments, myVatID, initialSource) {
       }
     },
 
-    opReceived(op) {
-      processOp(op);
+    opReceived(op, resolver) {
+      log(`opReceived ${op}`);
+      processOp(op, resolver);
     }
   };
 }

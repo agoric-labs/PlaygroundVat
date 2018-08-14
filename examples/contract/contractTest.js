@@ -68,5 +68,5 @@ export function contractTest() {
 }
 
 export function go() {
-  contractTest().then(result => { log(`result was ${result}, should be 10`); });
+  return contractTest().then(result => { log(`result was ${result}, should be 10`); return result; });
 }

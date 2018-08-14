@@ -22,10 +22,12 @@ export function confineVatSource(s, source) {
   return exports;
 }
 
-async function run(argv) {
-  console.log(`run ${argv.source} ${argv.input} ${argv.output}`);
+export function makeRealm() {
   const s = SES.makeSESRootRealm();
-  const output = fs.openSync(argv.output, 'w');
+  return s;
+}
+
+export async function buildVat(s, vatID, writeOutput, guestSource) {
 
   // This needs to read the contents of vat.js, as a string. SES manages this
   // by putting all the code (as ES6 modules) in a directory named bundle/ ,
@@ -37,23 +39,34 @@ async function run(argv) {
   // need to find a filename relative to our current source file, which is
   // ugly.
 
-
   const bundle = await rollup({ input: require.resolve('./vat') });
   const { code: vatSource } = await bundle.generate({ format: 'cjs' });
   //console.log(`vatSource: ${vatSource}`);
 
   //const vatSource = fs.readFileSync(require.resolve('./vat.js'));
   const { makeVat } = confineVatSource(s, vatSource);
+  const vatEndowments = { writeOutput };
+
+  return makeVat(vatEndowments, vatID, guestSource);
+}
+
+export async function buildGuestCode(filename) {
+  const guestBundle = await rollup({ input: filename });
+  const { code: guestSource } = await guestBundle.generate({ format: 'cjs' });
+  //console.log(`guestSource is: ${guestSource}`);
+  return guestSource;
+}
+
+async function run(argv) {
+  console.log(`run ${argv.source} ${argv.input} ${argv.output}`);
+  const s = makeRealm();
+
+  const output = fs.openSync(argv.output, 'w');
 
   const vatEndowments = makeVatEndowments(argv, output);
   const myVatID = argv.vatID;
-
-  const guestBundle = await rollup({ input: argv.source });
-  const { code: guestSource } = await guestBundle.generate({ format: 'cjs' });
-  //console.log(`guestSource is: ${guestSource}`);
-
-  //const { source: initialSource, sourceHash: initialSourceHash } = readAndHashFile(argv.source);
-  const v = makeVat(vatEndowments, myVatID, guestSource);
+  const guestSource = await buildGuestCode(argv.source);
+  const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
 
   const opTranscript = fs.readFileSync(argv.input).toString('utf8');
   v.start(opTranscript);
@@ -76,5 +89,5 @@ export async function main() {
     .option('input', {})
     .option('output', {})
     .option('vatID', {})
-    .argv;
+    .parse();
 }
