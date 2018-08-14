@@ -27,6 +27,23 @@ export function makeRealm() {
   return s;
 }
 
+export async function bundleCode(filename, appendSourcemap) {
+  const guestBundle = await rollup({ input: filename, treeshake: false });
+  let { code: source, map: sourceMap } = await guestBundle.generate({ format: 'cjs',
+                                                                      sourcemap: appendSourcemap });
+  // Rollup will generate inline sourceMappingURLs for you, but only if you
+  // write the output to a file. We do it manually to avoid using a tempfile.
+  //await guestBundle.write({format: 'cjs', file: 'foof', sourcemap: 'inline'});
+  if (appendSourcemap) {
+    //console.log(`sourceMap is: ${JSON.stringify(sourceMap, undefined, ' ')}`);
+    //console.log(`typeof sourceMap is: ${typeof sourceMap}`);
+    const body = Buffer.from(JSON.stringify(sourceMap)).toString('base64');
+    const dataURL = `data:application/json;charset=utf-8;base64,${body}`;
+    source += '\n//# sourceMappingURL=' + dataURL + '\n';
+  }
+  return source;
+}
+
 export async function buildVat(s, vatID, writeOutput, guestSource) {
 
   // This needs to read the contents of vat.js, as a string. SES manages this
@@ -39,8 +56,7 @@ export async function buildVat(s, vatID, writeOutput, guestSource) {
   // need to find a filename relative to our current source file, which is
   // ugly.
 
-  const bundle = await rollup({ input: require.resolve('./vat') });
-  const { code: vatSource } = await bundle.generate({ format: 'cjs' });
+  const vatSource = await bundleCode(require.resolve('./vat'));
   //console.log(`vatSource: ${vatSource}`);
 
   //const vatSource = fs.readFileSync(require.resolve('./vat.js'));
@@ -48,13 +64,6 @@ export async function buildVat(s, vatID, writeOutput, guestSource) {
   const vatEndowments = { writeOutput };
 
   return makeVat(vatEndowments, vatID, guestSource);
-}
-
-export async function buildGuestCode(filename) {
-  const guestBundle = await rollup({ input: filename });
-  const { code: guestSource } = await guestBundle.generate({ format: 'cjs' });
-  //console.log(`guestSource is: ${guestSource}`);
-  return guestSource;
 }
 
 async function run(argv) {
@@ -65,7 +74,7 @@ async function run(argv) {
 
   const vatEndowments = makeVatEndowments(argv, output);
   const myVatID = argv.vatID;
-  const guestSource = await buildGuestCode(argv.source);
+  const guestSource = await bundleCode(argv.source, true);
   const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
 
   const opTranscript = fs.readFileSync(argv.input).toString('utf8');

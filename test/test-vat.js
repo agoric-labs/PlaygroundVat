@@ -1,5 +1,5 @@
 import test from 'tape';
-import { confineVatSource, makeRealm, buildVat, buildGuestCode } from '../src/main';
+import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
 
@@ -86,7 +86,7 @@ test('contract test', async (t) => {
     outputTranscript.push(line);
   }
   const s = makeRealm();
-  const contractTestSource = await buildGuestCode(require.resolve('../examples/contract'));
+  const contractTestSource = await bundleCode(require.resolve('../examples/contract'));
   const v = await buildVat(s, 'v1', writeOutput, contractTestSource);
   let resolver2;
   let result2 = false;
