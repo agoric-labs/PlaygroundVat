@@ -47,16 +47,16 @@ export function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       }
       }
 
-      return (myPurse.send('deposit', 10, paymentP)).then(
+      return (myPurse.invoke('deposit', 10, paymentP)).then(
         function(_) { return good; });
     },
 
     tradeWell: function(aliceP) {
-      const tokensP = Q(contractHostP).send('setup', escrowSrc);
+      const tokensP = Q(contractHostP).invoke('setup', escrowSrc);
       const aliceTokenP = Q(tokensP).get(0);
       const bobTokenP   = Q(tokensP).get(1);
-      Q(aliceP).send('invite', aliceTokenP, escrowSrc, 0);
-      return Q(bob   ).send('invite', bobTokenP,   escrowSrc, 1);
+      Q(aliceP).invoke('invite', aliceTokenP, escrowSrc, 0);
+      return Q(bob   ).invoke('invite', bobTokenP,   escrowSrc, 1);
     },
 
     /**
@@ -68,22 +68,22 @@ export function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       check(allegedSrc, allegedSide);
       let cancel;
       const b = Q.passByCopy({
-        stockSrcP: Q(myStockPurse).send('makePurse'),
-        moneyDstP: Q(myMoneyPurse).send('makePurse'),
+        stockSrcP: Q(myStockPurse).invoke('makePurse'),
+        moneyDstP: Q(myMoneyPurse).invoke('makePurse'),
         moneyNeeded: 10,
         cancellationP: Q.promise(function(r) { cancel = r; })
       });
-      const ackP = Q(b.stockSrcP).send('deposit', 7, myStockPurse);
+      const ackP = Q(b.stockSrcP).invoke('deposit', 7, myStockPurse);
 
       const decisionP = Q(ackP).then(
         function(_) {
-          return Q(contractHostP).send(
+          return Q(contractHostP).invoke(
             'play', tokenP, allegedSrc, allegedSide, b);
         });
       return Q(decisionP).then(function(_) {
         return Q.delay(3000);
       }).then(function(_) {
-        return Q(b.moneyDstP).send('getBalance');
+        return Q(b.moneyDstP).invoke('getBalance');
       });
     }
   });

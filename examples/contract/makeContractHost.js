@@ -55,11 +55,11 @@
  *
  * <pre>
  *   // Contract initiator
- *   var tokensP = Q(contractHostP).send('setup', chessSrc);
+ *   var tokensP = Q(contractHostP).invoke('setup', chessSrc);
  *   var whiteTokenP = Q(tokensP).get(0);
  *   var blackTokenP = Q(tokensP).get(1);
- *   Q(whitePlayer).send('invite', whiteTokenP, chessSrc, 0);
- *   Q(blackPlayer).send('invite', blackTokenP, chessSrc, 1);
+ *   Q(whitePlayer).invoke('invite', whiteTokenP, chessSrc, 0);
+ *   Q(blackPlayer).invoke('invite', blackTokenP, chessSrc, 1);
  * </pre>
  *
  * <p>Each player, on receiving the token, alleged game source, and
@@ -74,7 +74,7 @@
  *   // Contract participant
  *   function invite(tokenP, allegedChessSrc, allegedSide) {
  *     check(allegedChessSrc, allegedSide);
- *     var outcomeP = Q(contractHostP).send(
+ *     var outcomeP = Q(contractHostP).invoke(
  *         'play', tokenP, allegedChessSrc, allegedSide, arg);
  *   }
  * </pre>
@@ -90,7 +90,7 @@ export function makeContractHost() {
       const argPs = [];
       let resolve;
       const resultP = Q.promise(function(r) { resolve = r; });
-      const contract = SES.confine(contractSrc, {Q: Q});
+      const contract = SES.confineExpr(contractSrc, {Q: Q});
 
       const addParam = function(i, token) {
         tokens[i] = token;

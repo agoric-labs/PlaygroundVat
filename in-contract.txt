@@ -1,6 +1,0 @@
-
-msg: v2->v1 {"method": "makeMint", "args": []}
-msg: v2->v1 {"method": "makeContractHost", "args": []}
-#msg: v2->v1 {"method": "escrowExchange", "args": [1, 2]}
-msg: v2->v1 {"method": "makeBob", "args": [1, 2]}
-
