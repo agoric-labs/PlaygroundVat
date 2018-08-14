@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "module": "src/main.js",
   "scripts": {
-    "test": "tape -r esm test/**/*.js"
+    "test": "tape -r esm test/**/test*.js"
   },
   "devDependencies": {
     "esm": "^3.0.74",
