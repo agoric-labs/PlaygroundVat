@@ -33,6 +33,7 @@ async function run(argv) {
   // need to find a filename relative to our current source file, which is
   // ugly.
 
+
   const bundle = await rollup({ input: require.resolve('./vat') });
   const { code: vatSource } = await bundle.generate({ format: 'cjs' });
   //console.log(`vatSource: ${vatSource}`);
@@ -43,8 +44,12 @@ async function run(argv) {
   const vatEndowments = makeVatEndowments(argv, output);
   const myVatID = argv.vatID;
 
-  const { source: initialSource, sourceHash: initialSourceHash } = readAndHashFile(argv.source);
-  const v = makeVat(vatEndowments, myVatID, initialSource, initialSourceHash);
+  const guestBundle = await rollup({ input: argv.source });
+  const { code: guestSource } = await guestBundle.generate({ format: 'cjs' });
+  //console.log(`guestSource is: ${guestSource}`);
+
+  //const { source: initialSource, sourceHash: initialSourceHash } = readAndHashFile(argv.source);
+  const v = makeVat(vatEndowments, myVatID, guestSource);
 
   const opTranscript = fs.readFileSync(argv.input).toString('utf8');
   v.start(opTranscript);

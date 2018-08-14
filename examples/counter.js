@@ -1,14 +1,16 @@
 let count = 0;
 
-module.exports = {
+export default {
   increment() {
     count += 1;
     log(`count is now ${count}`);
+    return count;
   },
 
   decrement() {
     count -= 1;
     log(`count is now ${count}`);
+    return count;
   },
 
   doCall() {
@@ -16,4 +18,5 @@ module.exports = {
     ext.invoke('methname', 'arg1', 'arg2');
     log(`did call`);
   }
-};
+}
+

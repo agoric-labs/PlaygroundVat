@@ -9,11 +9,12 @@ const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
 function confineGuestSource(source, endowments) {
   endowments = endowments || {};
-  const module = {};
+  const exports = {};
+  const module = { exports };
   function guestLog(...args) {
     log(...args);
   }
-  const endow = { module, log: guestLog };
+  const endow = { module, exports, log: guestLog };
   if (endowments) {
     Object.defineProperties(endow,
                             Object.getOwnPropertyDescriptors(endowments));
@@ -23,7 +24,7 @@ function confineGuestSource(source, endowments) {
 }
 
 
-export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
+export function makeVat(endowments, myVatID, initialSource) {
   const { writeOutput } = endowments;
 
   // manually create an object that represents a Far reference, wire it up to
@@ -38,7 +39,7 @@ export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
   const ext = Q.makeFar(relay);
 
   const e = confineGuestSource(initialSource, { ext, Q });
-  writeOutput(`load: ${initialSourceHash}`);
+  //writeOutput(`load: ${initialSourceHash}`);
 
   function processOp(op) {
     if (op === '') {
@@ -46,9 +47,9 @@ export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
     }
     if (op.startsWith('load: ')) {
       const arg = /^load: (\w+)$/.exec(op)[1];
-      if (arg !== initialSourceHash) {
-        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
-      }
+//      if (arg !== initialSourceHash) {
+//        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
+//      }
       log(`load matches, good`);
     } else if (op.startsWith('msg: ')) {
       const m = msgre.exec(op);
@@ -60,7 +61,7 @@ export function makeVat(endowments, myVatID, initialSource, initialSourceHash) {
         writeOutput(op);
         const body = JSON.parse(bodyJson);
         log(`method ${body.method}`);
-        e[body.method](body.args);
+        e[body.method](...body.args);
       }
     } else {
       log(`unknown op: ${op}`);

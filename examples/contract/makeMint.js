@@ -14,27 +14,26 @@
 // limitations under the License.
 
 
-module.exports = {
-  makeMint() {
-    const m = new WeakMap();
-    const makePurse = function() { return mint(0); };
+export function makeMint() {
+  const m = new WeakMap();
+  const makePurse = function() { return mint(0); };
 
-    const mint = function(balance) {
-      const purse = def({
-        getBalance: function() { return balance; },
-        makePurse: makePurse,
-        getMakePurse() { return makePurse; },
-        deposit: function(amount, srcP) {
-          return Q(srcP).then(function(src) {
-            Nat(balance + amount);
-            m.get(src)(Nat(amount));
-            balance += amount;
-          }); }
-      });
-      const decr = function(amount) { balance = Nat(balance - amount); };
-      m.set(purse, decr);
-      return purse;
-    };
-    return def(mint);
-  }
-};
+  const mint = function(balance) {
+    const purse = def({
+      getBalance: function() { return balance; },
+      makePurse: makePurse,
+      getMakePurse() { return makePurse; },
+      deposit: function(amount, srcP) {
+        return Q(srcP).then(function(src) {
+          Nat(balance + amount);
+          m.get(src)(Nat(amount));
+          balance += amount;
+        }); }
+    });
+    const decr = function(amount) { balance = Nat(balance - amount); };
+    m.set(purse, decr);
+    return purse;
+  };
+  return def(mint);
+}
+
