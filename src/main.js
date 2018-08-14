@@ -13,7 +13,11 @@ export function confineVatSource(s, source) {
   function log(...args) {
     console.log(...args);
   }
-  const endow = { exports, log };
+  function guestSetTimeout(f, millis) {
+    setTimeout(f, millis);
+  }
+
+  const endow = { exports, log, setTimeout: guestSetTimeout };
   s.evaluate(source, endow);
   return exports;
 }
