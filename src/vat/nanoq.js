@@ -118,11 +118,13 @@ Object.defineProperties(Q, Object.getOwnPropertyDescriptors({
   // async
   rejected: reject,
   promise(func) { return new Promise(func); },
+  /*
   delay(millis, opt_answer) {
     return new Promise(resolve => {
       setTimeout(() => { resolve(opt_answer); }, millis);
     });
   },
+  */
   /*
   memoize(oneArgFuncP, opt_memoMap) {
     var memoMap = opt_memoMap || new WeakMap();
