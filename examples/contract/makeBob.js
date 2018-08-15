@@ -79,14 +79,12 @@ export function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       });
       const ackP = Q(b.stockSrcP).invoke('deposit', 7, myStockPurse);
 
-      const decisionP = Q(ackP).then(
+      const doneP = Q(ackP).then(
         function(_) {
           return Q(contractHostP).invoke(
             'play', tokenP, allegedSrc, allegedSide, b);
         });
-      return Q(decisionP).then(function(_) {
-        return Q.delay(3000);
-      }).then(function(_) {
+      return Q(doneP).then(function(_) {
         return Q(b.moneyDstP).invoke('getBalance');
       });
     }

@@ -64,14 +64,12 @@ export function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
       });
       const ackP = Q(a.moneySrcP).invoke('deposit', 10, myMoneyPurse);
 
-      const decisionP = Q(ackP).then(
+      const doneP = Q(ackP).then(
         function(_) {
           return Q(contractHostP).invoke(
             'play', tokenP, allegedSrc, allegedSide, a);
         });
-      return Q(decisionP).then(function(_) {
-        return Q.delay(3000);
-      }).then(function(_) {
+      return Q(doneP).then(function(_) {
         return Q(a.stockDstP).invoke('getBalance');
       });
     }
