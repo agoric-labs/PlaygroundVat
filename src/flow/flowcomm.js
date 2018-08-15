@@ -10,6 +10,10 @@ function insist(condition, exception) {
   }
 }
 
+
+// TODO: remove this in favor of the global deep-freezing def() that SES
+// provides. However make sure test-flow.js can still work, which doesn't run
+// under SES.
 function def(x) {
   return Object.freeze(x);
 }
