@@ -90,7 +90,7 @@ export function makeContractHost() {
       const argPs = [];
       let resolve;
       const resultP = Q.promise(function(r) { resolve = r; });
-      const contract = SES.confineExpr(contractSrc, {Q: Q});
+      const contract = SES.confineExpr(contractSrc, {Q, log});
 
       const addParam = function(i, token) {
         tokens[i] = token;
