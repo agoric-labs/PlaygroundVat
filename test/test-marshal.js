@@ -3,17 +3,6 @@ import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
 
-function s1() {
-  let count = 0;
-
-  exports.run = (arg1, arg2) => {
-    count += 1;
-    log(`run ${arg1}`);
-    return count;
-  };
-
-}
-
 
 test('marshal', async (t) => {
   const s = SES.makeSESRootRealm();
@@ -56,6 +45,35 @@ test('marshal', async (t) => {
   // far ref
   t.deepEqual(m.unserialize('{"@qclass":"webkey","webkey":"fr1"}'),
               { farref: 123 });
+
+  t.end();
+});
+
+
+function funcToSource(f) {
+  let code = `${f}`;
+  code = code.replace(/^function .* {/, '');
+  code = code.replace(/}$/, '');
+  return code;
+}
+
+function s1() {
+  exports.run = (arg1, arg2) => {
+    return arg1;
+  };
+
+}
+
+test('deliver farref to vat', async (t) => {
+  const s = makeRealm();
+  const v = await buildVat(s, 'v1', () => {}, funcToSource(s1));
+  const args = JSON.stringify({method: 'run',
+                               args: [{'@qclass': 'webkey',
+                                       webkey: 'wk1'
+                                      }]});
+
+  const r = await v.sendReceived(`msg: v2->v1 ${args}`);
+  t.deepEqual(r, { farref: 'wk1' });
 
   t.end();
 });

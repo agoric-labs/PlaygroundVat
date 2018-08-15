@@ -39,15 +39,15 @@ export function makeVat(endowments, myVatID, initialSource) {
   };
   const ext = Q.makeFar(relay);
 
+  let localWebKeyCounter = 0;
   function makeLocalWebKey(localObject) {
-    throw 'not implemented';
-    return 'webkey';
+    localWebKeyCounter += 1;
+    return `wk${localWebKeyCounter}`;
   }
 
   function makeFarResourceMaker(serialize, unserialize) {
     function makeFarResource(webkey) {
-      throw 'not implemented';
-      return 'farref object';
+      return { farref: webkey };
     }
     return makeFarResource;
   }
