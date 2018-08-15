@@ -11,7 +11,7 @@ export function escrowExchange(a, b) {  // a from Alice , b from Bob
   }
 
   function failOnly(cancellationP) {
-    Q(cancellationP).then(cancellation => { throw cancellation; });
+    return Q(cancellationP).then(cancellation => { throw cancellation; });
   }
 
   const aT = makeTransfer(a.moneySrcP, b.moneyDstP, b.moneyNeeded);
