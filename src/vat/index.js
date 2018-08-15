@@ -39,6 +39,22 @@ export function makeVat(endowments, myVatID, initialSource) {
   };
   const ext = Q.makeFar(relay);
 
+  function makeLocalWebKey(localObject) {
+    throw 'not implemented';
+    return 'webkey';
+  }
+
+  function makeFarResourceMaker(serialize, unserialize) {
+    function makeFarResource(webkey) {
+      throw 'not implemented';
+      return 'farref object';
+    }
+    return makeFarResource;
+  }
+
+  const marshal = makeWebkeyMarshal(makeLocalWebKey, makeFarResourceMaker);
+  // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
+
   const e = confineGuestSource(initialSource, { ext, Q });
   //writeOutput(`load: ${initialSourceHash}`);
 
@@ -61,7 +77,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       log(`msg ${fromVat} ${toVat} (i am ${myVatID})`);
       if (toVat === myVatID) {
         writeOutput(op);
-        const body = JSON.parse(bodyJson);
+        const body = marshal.unserialize(bodyJson);
         log(`method ${body.method}`);
         const result = e[body.method](...body.args);
         if (resolver) {
