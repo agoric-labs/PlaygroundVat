@@ -4,8 +4,10 @@ import { makeContractHost } from './makeContractHost';
 import { escrowExchange } from './escrowExchange';
 import { makeAlice } from './makeAlice';
 import { makeBob } from './makeBob';
-import { contractTest, go } from './contractTest';
+import { trivialContractTest, betterContractTestAliceFirst,
+         betterContractTestBobFirst } from './contractTest';
 
-export { go };
+export { trivialContractTest, betterContractTestAliceFirst,
+         betterContractTestBobFirst };
 
 //export { makeMint, makeContractHost, escrowExchange, makeAlice, makeBob };

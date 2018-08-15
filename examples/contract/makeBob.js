@@ -51,12 +51,16 @@ export function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
         function(_) { return good; });
     },
 
-    tradeWell: function(aliceP) {
+    tradeWell: function(aliceP, bobLies=false) {
       const tokensP = Q(contractHostP).invoke('setup', escrowSrc);
       const aliceTokenP = Q(tokensP).get(0);
       const bobTokenP   = Q(tokensP).get(1);
-      Q(aliceP).invoke('invite', aliceTokenP, escrowSrc, 0);
-      return Q(bob   ).invoke('invite', bobTokenP,   escrowSrc, 1);
+      let escrowSrcWeTellAlice = escrowSrc;
+      if (bobLies) {
+        escrowSrcWeTellAlice += 'NOT';
+      }
+      return Q.all([Q(aliceP).invoke('invite', aliceTokenP, escrowSrcWeTellAlice, 0),
+                    Q(bob).invoke('invite', bobTokenP, escrowSrc, 1)]);
     },
 
     /**

@@ -85,7 +85,7 @@ export function makeContractHost() {
 
   return def({
     setup: function(contractSrc) {
-      contractSrc = ''+contractSrc;
+      contractSrc = `${contractSrc}`;
       const tokens = [];
       const argPs = [];
       let resolve;

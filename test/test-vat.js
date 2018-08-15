@@ -79,20 +79,3 @@ test('methods can return a promise', async (t) => {
   t.equal(result2, 10);
   t.end();
 });
-
-test('contract test', async (t) => {
-  const outputTranscript = [];
-  function writeOutput(line) {
-    outputTranscript.push(line);
-  }
-  const s = makeRealm();
-  const contractTestSource = await bundleCode(require.resolve('../examples/contract'));
-  const v = await buildVat(s, 'v1', writeOutput, contractTestSource);
-  let resolver2;
-  let result2 = false;
-  const p2 = new Promise((resolve, reject) => resolver2 = resolve);
-  v.opReceived('msg: v2->v1 {"method": "go", "args": []}', resolver2);
-  const contractResult = await p2;
-  t.equal(contractResult, 10);
-  t.end();
-});

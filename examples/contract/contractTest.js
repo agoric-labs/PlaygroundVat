@@ -19,11 +19,10 @@
 
 import { makeContractHost } from './makeContractHost';
 import { makeMint } from './makeMint';
-import { escrowExchange } from './escrowExchange';
 import { makeAlice } from './makeAlice';
 import { makeBob } from './makeBob';
 
-export function contractTest() {
+export function trivialContractTest() {
   const contractHostP = Q(makeContractHost).fcall();
 
   function trivContract(whiteP, blackP) {
@@ -40,10 +39,11 @@ export function contractTest() {
   const eightP = Q(contractHostP).invoke('play', blackTokenP, contractSrc, 1, {});
   // check that eightP fulfills with 8.
   // (At the time of this writing, did the right thing under debugger)
+  return eightP;
+}
 
-
-
-
+export function betterContractTestAliceFirst() {
+  const contractHostP = Q(makeContractHost).fcall();
   const moneyMintP = Q(makeMint).fcall();
   const aliceMoneyPurseP = Q(moneyMintP).fcall(1000);
   const bobMoneyPurseP = Q(moneyMintP).fcall(1001);
@@ -58,15 +58,24 @@ export function contractTest() {
                               contractHostP);
 
   const ifItFitsP = Q(aliceP).invoke('payBobWell', bobP);
-  // check that ifItFitsP fulfills correctly, and that
-  // payBobBadly1 and payBobBadly2 reject correctly.
-  // (At the time of this writing, did the right thing under debugger)
-
-
-  return Q(bobP).invoke('tradeWell', aliceP);
-//  return Q(aliceP).invoke('tradeWell', bobP);
+  return ifItFitsP;
 }
 
-export function go() {
-  return contractTest().then(result => { log(`result was ${result}, should be 10`); return result; });
+export function betterContractTestBobFirst(bobLies=false) {
+  const contractHostP = Q(makeContractHost).fcall();
+  const moneyMintP = Q(makeMint).fcall();
+  const aliceMoneyPurseP = Q(moneyMintP).fcall(1000);
+  const bobMoneyPurseP = Q(moneyMintP).fcall(1001);
+
+  const stockMintP = Q(makeMint).fcall();
+  const aliceStockPurseP = Q(stockMintP).fcall(2002);
+  const bobStockPurseP = Q(stockMintP).fcall(2003);
+
+  const aliceP = Q(makeAlice).fcall(aliceMoneyPurseP, aliceStockPurseP,
+                                  contractHostP);
+  const bobP = Q(makeBob).fcall(bobMoneyPurseP, bobStockPurseP,
+                              contractHostP);
+
+  return Q(bobP).invoke('tradeWell', aliceP, bobLies);
+//  return Q(aliceP).invoke('tradeWell', bobP);
 }
