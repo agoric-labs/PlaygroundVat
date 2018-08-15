@@ -160,7 +160,7 @@ class InnerFlow {
       scheduleTodo(shortTarget.value, todo);
       return true;
     } else {
-      // the target of the next message is unresolved so 
+      // the target of the next message is unresolved so
       // this flow is now waiting for shortTarget
       shortTarget.blockedFlows.push(this);
       return false;
@@ -233,7 +233,7 @@ function makeResolver(innerResolver) {
     } else {
       innerResolver.fulfill(value);
     }
-  }
+  };
   // resolver.toString = () => `Resolver{ resolved: ${getHandler(resolver)} }`;
   return def(resolver);
 }
@@ -266,7 +266,7 @@ class InnerVow {
     def(this);
   }
   get(target, op, receiver) {
-    return isSymbol(op) 
+    return isSymbol(op)
       ? Reflect.get(target, op, receiver)
       : (...args) => {
         const newResolver = new InnerResolver();
