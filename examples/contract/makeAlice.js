@@ -57,8 +57,8 @@ export function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
 
       let cancel;
       const a = Q.passByCopy({
-        moneySrcP: Q(myMoneyPurse).invoke('makePurse'),
-        stockDstP: Q(myStockPurse).invoke('makePurse'),
+        moneySrcP: Q(myMoneyPurse).invoke('makePurse', 'aliceMoneySrc'),
+        stockDstP: Q(myStockPurse).invoke('makePurse', 'aliceStockDst'),
         stockNeeded: 7,
         cancellationP: Q.promise(function(r) { cancel = r; })
       });

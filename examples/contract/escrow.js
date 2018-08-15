@@ -2,7 +2,7 @@ export function escrowExchange(a, b) {  // a from Alice , b from Bob
   function makeTransfer(srcPurseP, dstPurseP, amount) {
     const makeEscrowPurseP = Q.join(srcPurseP.invoke("getMakePurse"),
                                     dstPurseP.invoke("getMakePurse"));
-    const escrowPurseP = makeEscrowPurseP.fcall();
+    const escrowPurseP = makeEscrowPurseP.fcall("escrow");
     return def({
       phase1() { return escrowPurseP.invoke("deposit", amount, srcPurseP); },
       phase2() { return dstPurseP.invoke("deposit", amount, escrowPurseP); },

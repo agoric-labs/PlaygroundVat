@@ -64,17 +64,17 @@ export function betterContractTestAliceFirst() {
 export function betterContractTestBobFirst(bobLies=false) {
   const contractHostP = Q(makeContractHost).fcall();
   const moneyMintP = Q(makeMint).fcall();
-  const aliceMoneyPurseP = Q(moneyMintP).fcall(1000);
-  const bobMoneyPurseP = Q(moneyMintP).fcall(1001);
+  const aliceMoneyPurseP = Q(moneyMintP).fcall(1000, 'aliceMainMoney');
+  const bobMoneyPurseP = Q(moneyMintP).fcall(1001, 'bobMainMoney');
 
   const stockMintP = Q(makeMint).fcall();
-  const aliceStockPurseP = Q(stockMintP).fcall(2002);
-  const bobStockPurseP = Q(stockMintP).fcall(2003);
+  const aliceStockPurseP = Q(stockMintP).fcall(2002, 'aliceMainStock');
+  const bobStockPurseP = Q(stockMintP).fcall(2003, 'bobMainStock');
 
   const aliceP = Q(makeAlice).fcall(aliceMoneyPurseP, aliceStockPurseP,
-                                  contractHostP);
+                                    contractHostP);
   const bobP = Q(makeBob).fcall(bobMoneyPurseP, bobStockPurseP,
-                              contractHostP);
+                                contractHostP);
 
   return Q(bobP).invoke('tradeWell', aliceP, bobLies);
 //  return Q(aliceP).invoke('tradeWell', bobP);

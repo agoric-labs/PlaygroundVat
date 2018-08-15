@@ -14,23 +14,32 @@
 // limitations under the License.
 
 
+let counter = 0;
 export function makeMint() {
   const m = new WeakMap();
-  const makePurse = function() { return mint(0); };
+  const makePurse = function(name) { return mint(0, name); };
 
-  const mint = function(balance) {
+  const mint = function(balance, name) {
     const purse = def({
       getBalance: function() { return balance; },
       makePurse: makePurse,
       getMakePurse() { return makePurse; },
       deposit: function(amount, srcP) {
+        counter += 1;
+        const c = counter;
+        //log(`deposit[${name}]#${c}: bal=${balance} amt=${amount}`);
         return Q(srcP).then(function(src) {
+          //log(` dep[${name}]#${c} (post-P): bal=${balance} amt=${amount}`);
           Nat(balance + amount);
-          m.get(src)(Nat(amount));
+          m.get(src)(Nat(amount), c);
           balance += amount;
-        }); }
+        });
+      }
     });
-    const decr = function(amount) { balance = Nat(balance - amount); };
+    const decr = function(amount, c) {
+      //log(`-decr[${name}]#${c}: bal=${balance} amt=${amount}`);
+      balance = Nat(balance - amount);
+    };
     m.set(purse, decr);
     return purse;
   };

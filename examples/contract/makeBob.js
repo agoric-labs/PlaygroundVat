@@ -72,8 +72,8 @@ export function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       check(allegedSrc, allegedSide);
       let cancel;
       const b = Q.passByCopy({
-        stockSrcP: Q(myStockPurse).invoke('makePurse'),
-        moneyDstP: Q(myMoneyPurse).invoke('makePurse'),
+        stockSrcP: Q(myStockPurse).invoke('makePurse', 'bobStockSrc'),
+        moneyDstP: Q(myMoneyPurse).invoke('makePurse', 'bobMoneyDst'),
         moneyNeeded: 10,
         cancellationP: Q.promise(function(r) { cancel = r; })
       });
