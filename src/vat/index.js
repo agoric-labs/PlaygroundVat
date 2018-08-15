@@ -77,16 +77,19 @@ export function makeVat(endowments, myVatID, initialSource) {
     check() {
       log('yes check');
     },
-    start(opTranscript) {
-      const ops = opTranscript.split('\n');
-      for(let op of ops) {
-        processOp(op);
-      }
+
+    sendOnlyReceived(op) {
+      log(`sendOnlyReceived ${op}`);
+      processOp(op);
     },
 
-    opReceived(op, resolver) {
-      log(`opReceived ${op}`);
+    sendReceived(op) {
+      // returns a promise
+      log(`sendReceived ${op}`);
+      let resolver;
+      const p = new Promise((resolve, reject) => resolver = resolve);
       processOp(op, resolver);
+      return p;
     }
   };
 }

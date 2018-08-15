@@ -73,8 +73,12 @@ async function run(argv) {
   const guestSource = await bundleCode(argv.source, true);
   const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
 
+  // replay transcript to resume from previous state
   const opTranscript = fs.readFileSync(argv.input).toString('utf8');
-  v.start(opTranscript);
+  const ops = opTranscript.split('\n');
+  for(let op of ops) {
+    v.sendOnlyReceived(op);
+  }
 
   // network listener goes here, call v.processOp() or something more like
   // dataReceived()

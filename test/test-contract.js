@@ -3,14 +3,6 @@ import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
 
-function invokeToPromise(v, op) {
-  let resolver2;
-  let result2 = false;
-  const p2 = new Promise((resolve, reject) => resolver2 = resolve);
-  v.opReceived(op, resolver2);
-  return p2;
-}
-
 async function buildContractVat() {
   const outputTranscript = [];
   function writeOutput(line) {
@@ -24,7 +16,7 @@ async function buildContractVat() {
 
 test('trivial contract test', async (t) => {
   const v = await buildContractVat();
-  const p = invokeToPromise(v, 'msg: v2->v1 {"method": "trivialContractTest", "args": []}');
+  const p = v.sendReceived('msg: v2->v1 {"method": "trivialContractTest", "args": []}');
   const contractResult = await p;
   t.equal(contractResult, 8);
   t.end();
@@ -32,7 +24,7 @@ test('trivial contract test', async (t) => {
 
 test('contract test Alice first', async (t) => {
   const v = await buildContractVat();
-  const p = invokeToPromise(v, 'msg: v2->v1 {"method": "betterContractTestAliceFirst", "args": []}');
+  const p = v.sendReceived('msg: v2->v1 {"method": "betterContractTestAliceFirst", "args": []}');
   const contractResult = await p;
   t.equal(contractResult, 'If it fits, ware it.');
   t.end();
@@ -40,7 +32,7 @@ test('contract test Alice first', async (t) => {
 
 test('contract test Bob first', async (t) => {
   const v = await buildContractVat();
-  const p = invokeToPromise(v, 'msg: v2->v1 {"method": "betterContractTestBobFirst", "args": []}');
+  const p = v.sendReceived('msg: v2->v1 {"method": "betterContractTestBobFirst", "args": []}');
   const contractResult = await p;
   t.deepEqual(contractResult, [7, 10]);
   t.end();
@@ -48,7 +40,7 @@ test('contract test Bob first', async (t) => {
 
 test('contract test Bob lies', async (t) => {
   const v = await buildContractVat();
-  const p = invokeToPromise(v, 'msg: v2->v1 {"method": "betterContractTestBobFirst", "args": [true]}');
+  const p = v.sendReceived('msg: v2->v1 {"method": "betterContractTestBobFirst", "args": [true]}');
   await p.then(e => t.fail('should have broken'),
                ex => {
                  t.ok(ex.message.startsWith('unexpected contract'));
