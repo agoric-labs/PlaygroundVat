@@ -263,7 +263,7 @@ class InnerVow {
   constructor(innerFlow, innerResolver) {
     this.flow = innerFlow;
     this.resolver = innerResolver;
-    def(this);
+    //def(this);
   }
   get(target, op, receiver) {
     return isSymbol(op)
