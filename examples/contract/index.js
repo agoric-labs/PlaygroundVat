@@ -1,7 +1,7 @@
 
 import { makeMint } from './makeMint';
 import { makeContractHost } from './makeContractHost';
-import { escrowExchange } from './escrowExchange';
+import { escrowExchange } from './escrow';
 import { makeAlice } from './makeAlice';
 import { makeBob } from './makeBob';
 import { trivialContractTest, betterContractTestAliceFirst,
