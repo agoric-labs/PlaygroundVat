@@ -4,6 +4,7 @@
 // be exposed to guest code.
 
 import Q from './nanoq';
+import { makeWebkeyMarshal } from './webkey';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 

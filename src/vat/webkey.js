@@ -1,6 +1,5 @@
 
-import {Q} from 'nanoq';
-import {def, Nat} from 'SES';
+import Q from './nanoq';
 
 // Special property name that indicates an encoding that needs special
 // decoding.
