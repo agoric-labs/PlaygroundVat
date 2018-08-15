@@ -7,6 +7,9 @@ test('tape works', t => {
 
 import Flow from '../src/flow/flowcomm';
 
+// TODO: move most of the Promises from this file into a single utility
+// function which schedules a new turn
+
 test('async tests pass', async (t) => {
   const a = await Promise.resolve(42);
   t.equal(a, 42);

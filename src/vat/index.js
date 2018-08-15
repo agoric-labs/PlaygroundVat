@@ -3,8 +3,8 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
-import Q from './nanoq';
 import { makeWebkeyMarshal } from './webkey';
+import Flow from '../flow/flowcomm';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -37,7 +37,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       writeOutput(`POST: ${key}, ${args}`);
     }
   };
-  const ext = Q.makeFar(relay);
+  //const ext = Q.makeFar(relay);
 
   let localWebKeyCounter = 0;
   function makeLocalWebKey(localObject) {
@@ -55,7 +55,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   const marshal = makeWebkeyMarshal(makeLocalWebKey, makeFarResourceMaker);
   // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
-  const e = confineGuestSource(initialSource, { ext, Q });
+  const e = confineGuestSource(initialSource, { Flow });
   //writeOutput(`load: ${initialSourceHash}`);
 
   function processOp(op, resolver) {
@@ -90,6 +90,8 @@ export function makeVat(endowments, myVatID, initialSource) {
     }
   }
 
+  const f = new Flow();
+
   return {
     check() {
       log('yes check');
@@ -104,7 +106,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       // returns a promise
       log(`sendReceived ${op}`);
       let resolver;
-      const p = new Promise((resolve, reject) => resolver = resolve);
+      const p = f.makeVow((resolve, reject) => resolver = resolve);
       processOp(op, resolver);
       return p;
     }

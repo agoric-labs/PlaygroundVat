@@ -1,4 +1,4 @@
-import test from 'tape';
+import { test } from 'tape-promise/tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
@@ -17,11 +17,14 @@ function s1() {
     log(`count is now ${count}`);
     return count;
   };
+}
 
+function s2() {
   let resolver1;
 
   //log('i am here');
-  const p1 = new Promise((resolve, reject) => resolver1 = resolve);
+  const f = new Flow();
+  const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
   //log('i got here');
 
   exports.wait = () => {
@@ -33,7 +36,6 @@ function s1() {
     resolver1(arg);
     //log(' ran resolver');
   };
-
 }
 
 function funcToSource(f) {
@@ -62,7 +64,7 @@ test('methods can return a promise', async (t) => {
     outputTranscript.push(line);
   }
   const s = makeRealm();
-  const v = await buildVat(s, 'v1', writeOutput, funcToSource(s1));
+  const v = await buildVat(s, 'v1', writeOutput, funcToSource(s2));
 
   let result = false;
   const p = v.sendReceived('msg: v2->v1 {"method": "wait", "args": []}');

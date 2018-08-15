@@ -1,5 +1,22 @@
 
-import Q from './nanoq';
+const passByCopyRecords = new WeakSet();
+
+export function isPassByCopy(record) {
+  return Object(record) !== record || passByCopyRecords.has(record);
+}
+
+export function passByCopy(record) {
+  if (isPassByCopy(record)) { return record; }
+  if (Object.isFrozen(record)) {
+    throw new TypeError(`already frozen`);
+  }
+  Object.freeze(record);
+  if (!Object.isFrozen(record)) {
+    throw new TypeError(`failed to freeze`);
+  }
+  passByCopyRecords.add(record);
+  return record;
+}
 
 // Special property name that indicates an encoding that needs special
 // decoding.
@@ -104,7 +121,7 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
       ibidMap.set(val, ibidCount);
       ibidCount += 1;
       
-      if (Q.isPassByCopy(val)) {
+      if (isPassByCopy(val)) {
         // Purposely in-band for readability, but creates need for
         // Hilbert hotel.
         return val;
@@ -173,7 +190,7 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
         }
       } else {
         // The unserialized copy also becomes pass-by-copy
-        Q.passByCopy(data);
+        passByCopy(data);
       }
       // The ibids case returned early to avoid this.
       ibids.push(data);
