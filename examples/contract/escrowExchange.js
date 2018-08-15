@@ -19,7 +19,7 @@ export function escrowExchange(a, b) {          // a from Alice, b from Bob
 
   const transfer = function(srcPurseP, dstPurseP, amount) {
     const makeEscrowPurseP = Q.join(Q(srcPurseP).invoke('getMakePurse'),
-                                  Q(dstPurseP).invoke('getMakePurse'));
+                                    Q(dstPurseP).invoke('getMakePurse'));
     const escrowPurseP = Q(makeEscrowPurseP).fcall();
 
     Q(decisionP).then(                                    // setup phase 2
