@@ -5,7 +5,7 @@ test('tape works', t => {
   t.end();
 });
 
-import Flow from '../src/flowcomm';
+import Flow from '../src/flow/flowcomm';
 
 test('async tests pass', async (t) => {
   const a = await Promise.resolve(42);
