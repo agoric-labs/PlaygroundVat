@@ -42,12 +42,51 @@ export function makeVat(endowments, myVatID, initialSource) {
   let localWebKeyCounter = 0;
   function makeLocalWebKey(localObject) {
     localWebKeyCounter += 1;
-    return `wk${localWebKeyCounter}`;
+    // We'll never see a Presence here, because they originate from other
+    // Vats, so they're assigned a webkey on the way in. We'll never see a
+    // farVow or remoteVow for the same reason.
+
+    // So if it's a Vow, it must be a LocalVow
+    if (isVow(localObject)) {
+      // this will appear as a farVow
+      return def({type: 'farVow',
+                  vatID: myVatID,
+                  count: localWebKeyCounter});
+    }
+
+    // Otherwise, this must be a local object. We don't assign webkeys for
+    // pass-by-copy objects, so this must be pass-by-presence, and will
+    // appear on the far side as a Presence
+    return def({type: 'presence',
+                vatID: myVatID,
+                count: localWebKeyCounter});
+  }
+
+
+  // fake implementations for now
+  function FarVow(vatID, count) {
+    this.vatID = vatID;
+    this.count = count;
+    // v.e.NAME(ARGS) causes serialized sendOp or sendOnlyOp messages to be
+    // sent to the target vat
+  }
+
+  function Presence(vatID, count) {
+    this.vatID = vatID;
+    this.count = count;
+    // Vow.resolve(p) on a Presence turns into a FarVow with the same values
   }
 
   function makeFarResourceMaker(serialize, unserialize) {
     function makeFarResource(webkey) {
-      return { farref: webkey };
+      // receiving a pass-by-presence non-Vow object turns into a Presence
+      if (webkey.type === 'farVow') {
+        return new FarVow(webkey.vatID, webkey.count);
+      }
+      if (webkey.type === 'presence') {
+        return new Presence(webkey.vatID, webkey.count);
+      }
+      throw new Error(`makeFarResource() unknown webkey ${webkey}`);
     }
     return makeFarResource;
   }

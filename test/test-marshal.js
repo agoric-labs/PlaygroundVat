@@ -69,11 +69,15 @@ test('deliver farref to vat', async (t) => {
   const v = await buildVat(s, 'v1', () => {}, funcToSource(s1));
   const args = JSON.stringify({method: 'run',
                                args: [{'@qclass': 'webkey',
-                                       webkey: 'wk1'
+                                       webkey: { type: 'presence',
+                                                 vatID: 'vat2',
+                                                 count: 123
+                                               }
                                       }]});
 
   const r = await v.sendReceived(`msg: v2->v1 ${args}`);
-  t.deepEqual(r, { farref: 'wk1' });
+  // that should be a Presence instance. for now we only look at the contents
+  t.deepEqual(r, { vatID: 'vat2', count: 123 });
 
   t.end();
 });
