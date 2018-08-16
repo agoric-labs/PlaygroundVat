@@ -22,6 +22,9 @@ function isSymbol (x) {
   return typeof x === 'symbol';
 }
 
+let whichTodoCounter = 0;
+const whichTodo = new WeakMap();
+
 // TODO handle errors and broken targets
 // TODO what happens to the then result?
 function scheduleTodo(target, todo) {
@@ -29,20 +32,30 @@ function scheduleTodo(target, todo) {
 }
 // TODO handle errors
 function PendingDelivery(op, args, resultR) {
+  const which = whichTodoCounter++;
   const todo = function Delivery(target) {
-    // console.log(`SEND ${target} . ${op} (#${args.length})`);
-    // console.log(`SEND ${op}`);
+    //log(`SEND [${which}] ${target} . ${op} (#${args.length})`);
+    //log(`SEND ${op}`);
+    //if (!Reflect.getOwnPropertyDescriptor(target, op)) {
+      //log(`target[${op}] is missing for ${target}`);
+    //}
     resultR(target[op](...args));
   };
+  //log(`PendingDelivery[${which}] ${op}, ${args}`);
+  whichTodo[todo] = which;
   // todo.toString = () => `${resultR.name} => <target>.${op}(${args})`;
   return todo;
 }
 
 // TODO handle errors
-function PendingThen(func, resultR) {
+function PendingThen(onFulfill, onReject, resultR) {
+  const which = whichTodoCounter++;
   const todo = function (target) {
-    resultR(func(target));
+    //log(`THEN [${which}]`);
+    resultR(onFulfill(target));
   };
+  //log(`PendingThen[${which}] ${func}`);
+  whichTodo[todo] = which;
   return todo;
 }
 
@@ -127,18 +140,23 @@ class InnerFlow {
   // add a message to the end of the flow
   // todo shorten and clean up shorten
   enqueue(innerVow, todo) {
+    //log('enqueue entering');
     const firstR = innerVow.resolver;
     const shortTarget = shortenForwards(firstR, innerVow);
     if (this.pending.length === 0) {
+      //log(`InnerFlow.enqueue found an empty queue`);
       // This will be the first pending action, so it's either ready to schedule or
       // is what this flow will be waiting on
       const processed = this.processShort(shortTarget, todo);
       if (processed) {
         // fastpath; the action was scheduled immediately since it was ready and the flow was empty
+        //log(`InnerFlow.enqueue exiting on fast path`);
         return;
       }
     }
     this.pending.push([shortTarget, todo]);
+    //log(`InnerFlow.enqueue exiting with ${this.pending.length} entries`);
+    //log(`  e[0] is ${whichTodo.get(this.pending[0][1])}`);
   }
 
   // The blocking resolver has been resolved. Schedule all unlocked pending flows, in order
@@ -257,6 +275,10 @@ function getInnerVow(value) {
   return vowToInner.get(value);
 }
 
+export function isVow(value) {
+  return vowToInner.has(value);
+}
+
 function validVow(value) {
   const result = vowToInner.get(value);
   insist(result, "Valid instance required");
@@ -276,7 +298,12 @@ class InnerVow {
         const newResolver = new InnerResolver();
         const resultR = makeResolver(newResolver);
         this.flow.enqueue(this, PendingDelivery(op, args, resultR));
-        return new Vow(this.flow, newResolver);
+        if (0) {
+          // ordering hack, want to remove this
+          return new Vow(this.flow, newResolver);
+        } else {
+          return new Vow(new InnerFlow(), newResolver);
+        }
       };
   }
 
@@ -284,11 +311,16 @@ class InnerVow {
     console.log(name);
   }
 
-  enqueueThen(fn) {
+  enqueueThen(onFulfill, onReject) {
     const newResolver = new InnerResolver();
     const resultR = makeResolver(newResolver);
-    this.flow.enqueue(this, PendingThen(fn, resultR));
-    return new Vow(this.flow, newResolver);
+    this.flow.enqueue(this, PendingThen(onFulfill, onReject, resultR));
+    if (0) {
+      // didn't need the ordering hack here, not sure why
+      return new Vow(this.flow, newResolver);
+    } else {
+      return new Vow(new InnerFlow(), newResolver);
+    }
   }
 }
 
@@ -302,12 +334,66 @@ class Vow {
   }
 
   // TODO need second argument for `then`
-  then(fn) {
+  then(onFulfill, onReject) {
     const inner = validVow(this);
-    return inner.enqueueThen(fn);
+    return inner.enqueueThen(onFulfill, onReject);
   }
+
+  fork() {
+    const old = validVow(this);
+    const f = new InnerFlow();
+    return new Vow(f, old.resolver);
+  }
+
+
+  static all(answerPs) {
+    let countDown = answerPs.length;
+    const answers = [];
+    if (countDown === 0) { return Vow.resolve(answers); }
+    return new Flow().makeVow((resolve) => {
+      answerPs.forEach((answerP, index) => {
+        Vow.resolve(answerP).then(answer => {
+          answers[index] = answer;
+          if (--countDown === 0) { resolve(answers); }
+        });
+      });
+    });
+  };
+
+  static join(xP, yP) {
+    return Vow.all([xP, yP]).then(([x, y]) => {
+      if (Object.is(x, y)) {
+        return x;
+      } else {
+        throw new Error("not the same");
+      }
+    });
+  };
+
+  static race(answerPs) {
+    return new Flow().makeVow((resolve,reject) => {
+      for (let answerP of answerPs) {
+        Vow.resolve(answerP).then(resolve,reject);
+      };
+    });
+  };
+
+  static resolve(val) {
+    if (isVow(val)) {
+      return val;
+    }
+    const f = new Flow();
+    return f.makeVow((resolve, reject) => resolve(val));
+  }
+
+  static fromFn(fn) {
+    return Vow.resolve().then(() => fn());
+  }
+
 }
 def(Vow);
 
-export { Flow, Vow, makeResolver };
+const asVow = Vow.resolve;
+
+export { Flow, Vow, makeResolver, asVow };
 export default Flow;
