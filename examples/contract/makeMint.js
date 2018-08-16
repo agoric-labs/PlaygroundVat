@@ -13,22 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 let counter = 0;
-export function makeMint() {
+function makeMint() {
   const m = new WeakMap();
-  const makePurse = function(name) { return mint(0, name); };
+  const maker = def({
+    makeEmptyPurse(name) { return mint(0, name); }
+  });
 
   const mint = function(balance, name) {
     const purse = def({
       getBalance: function() { return balance; },
-      makePurse: makePurse,
-      getMakePurse() { return makePurse; },
+      getPurseMaker() { return maker; },
+      makeEmptyPurse(name) { return maker.makeEmptyPurse(name); },
       deposit: function(amount, srcP) {
         counter += 1;
         const c = counter;
         //log(`deposit[${name}]#${c}: bal=${balance} amt=${amount}`);
-        return Q(srcP).then(function(src) {
+        return Vow.resolve(srcP).then(src => {
           //log(` dep[${name}]#${c} (post-P): bal=${balance} amt=${amount}`);
           Nat(balance + amount);
           m.get(src)(Nat(amount), c);
@@ -43,6 +44,9 @@ export function makeMint() {
     m.set(purse, decr);
     return purse;
   };
-  return def(mint);
+  return def({ mint });
 }
 
+export const mintMaker = {
+  makeMint
+};

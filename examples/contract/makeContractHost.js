@@ -89,19 +89,20 @@ export function makeContractHost() {
       const tokens = [];
       const argPs = [];
       let resolve;
-      const resultP = Q.promise(function(r) { resolve = r; });
-      const contract = SES.confineExpr(contractSrc, {Q, log});
+      const f = new Flow();
+      const resultP = f.makeVow((r) => resolve = r);
+      const contract = SES.confineExpr(contractSrc, {Flow, Vow, log});
 
       const addParam = function(i, token) {
         tokens[i] = token;
         let resolveArg;
-        argPs[i] = Q.promise(function(r) { resolveArg = r; });
+        argPs[i] = f.makeVow((r) => resolveArg = r);
         m.set(token, function(allegedSrc, allegedI, arg) {
           if (contractSrc !== allegedSrc) {
-            throw new Error('unexpected contract: '+contractSrc);
+            throw new Error(`unexpected contract: ${contractSrc}`);
           }
           if (i !== allegedI) {
-            throw new Error('unexpected side: '+i);
+            throw new Error(`unexpected side: ${i}`);
           }
           m.delete(token);
           resolveArg(arg);
@@ -111,11 +112,12 @@ export function makeContractHost() {
       for (let i = 0; i < contract.length; i++) {
         addParam(i, def({}));
       }
-      resolve(Q.all(argPs).then(
+      resolve(Vow.all(argPs).then(
         function(args) { return contract.apply(undefined, args); }));
       return tokens;
     },
-    play: function(tokenP, allegedSrc, allegedI, arg) { return Q(tokenP).then(
-      function(token) { return m.get(token)(allegedSrc, allegedI, arg); }); }
+    play: function(tokenP, allegedSrc, allegedI, arg) {
+      return Vow.resolve(tokenP).then(
+        function(token) { return m.get(token)(allegedSrc, allegedI, arg); }); }
   });
 }

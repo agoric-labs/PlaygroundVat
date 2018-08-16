@@ -3,8 +3,8 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
-import { makeWebkeyMarshal } from './webkey';
-import Flow from '../flow/flowcomm';
+import { makeWebkeyMarshal, passByCopy, isPassByCopy } from './webkey';
+import { isVow, asVow, Flow, Vow } from '../flow/flowcomm';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -55,7 +55,9 @@ export function makeVat(endowments, myVatID, initialSource) {
   const marshal = makeWebkeyMarshal(makeLocalWebKey, makeFarResourceMaker);
   // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
-  const e = confineGuestSource(initialSource, { Flow });
+  const e = confineGuestSource(initialSource,
+                               { isVow, asVow, Flow, Vow,
+                                 webkey: { passByCopy, isPassByCopy }});
   //writeOutput(`load: ${initialSourceHash}`);
 
   function processOp(op, resolver) {

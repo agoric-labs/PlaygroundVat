@@ -1,18 +1,28 @@
-import test from 'tape';
+import { test } from 'tape-promise/tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
 
-async function buildContractVat() {
+function NOTtest() {}
+
+async function buildContractVat(source='../examples/contract') {
   const outputTranscript = [];
   function writeOutput(line) {
     outputTranscript.push(line);
   }
   const s = makeRealm();
-  const contractTestSource = await bundleCode(require.resolve('../examples/contract'));
+  const contractTestSource = await bundleCode(require.resolve(source));
   const v = await buildVat(s, 'v1', writeOutput, contractTestSource);
   return v;
 }
+
+test('mint test', async (t) => {
+  const v = await buildContractVat('../examples/contract/contractTest');
+  const p = v.sendReceived('msg: v2->v1 {"method": "mintTest", "args": []}');
+  const contractResult = await p;
+  t.deepEqual(contractResult, [ 950, 50 ]);
+  t.end();
+});
 
 test('trivial contract test', async (t) => {
   const v = await buildContractVat();

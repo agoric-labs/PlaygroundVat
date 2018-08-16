@@ -18,64 +18,76 @@
  */
 
 import { makeContractHost } from './makeContractHost';
-import { makeMint } from './makeMint';
-import { makeAlice } from './makeAlice';
-import { makeBob } from './makeBob';
+import { mintMaker } from './makeMint';
+import { aliceMaker } from './makeAlice';
+import { bobMaker } from './makeBob';
+
+export async function mintTest() {
+  const mP = Vow.resolve(mintMaker).e.makeMint();
+  const alicePurseP = mP.e.mint(1000, 'alice');
+  const depositPurseP = alicePurseP.e.makeEmptyPurse('deposit');
+  const v = depositPurseP.e.deposit(50, alicePurseP.fork()); // hack
+  // this ordering should be guaranteed by the fact that this is all in the
+  // same Flow
+  const aBal = v.then(() => alicePurseP.e.getBalance());
+  const dBal = v.then(() => depositPurseP.e.getBalance());
+  return Vow.all([aBal, dBal]);
+}
 
 export function trivialContractTest() {
-  const contractHostP = Q(makeContractHost).fcall();
+  const contractHostP = Vow.fromFn(makeContractHost);
 
   function trivContract(whiteP, blackP) {
     return 8;
   }
   const contractSrc = `${trivContract}`;
 
-  const tokensP = Q(contractHostP).invoke('setup', contractSrc);
+  const tokensP = Vow.resolve(contractHostP).e.setup(contractSrc);
 
-  const whiteTokenP = Q(tokensP).get(0);
-  Q(contractHostP).invoke('play', whiteTokenP, contractSrc, 0, {});
+  const whiteTokenP = tokensP.then(tokens => tokens[0]);
+  contractHostP.e.play(whiteTokenP, contractSrc, 0, {});
 
-  const blackTokenP = Q(tokensP).get(1);
-  const eightP = Q(contractHostP).invoke('play', blackTokenP, contractSrc, 1, {});
+  const blackTokenP = tokensP.then(tokens => tokens[1]);
+  const eightP = contractHostP.e.play(blackTokenP, contractSrc, 1, {});
   // check that eightP fulfills with 8.
   // (At the time of this writing, did the right thing under debugger)
   return eightP;
 }
 
 export function betterContractTestAliceFirst() {
-  const contractHostP = Q(makeContractHost).fcall();
-  const moneyMintP = Q(makeMint).fcall();
-  const aliceMoneyPurseP = Q(moneyMintP).fcall(1000);
-  const bobMoneyPurseP = Q(moneyMintP).fcall(1001);
+  const contractHostP = Vow.fromFn(makeContractHost);
+  const moneyMintP = Vow.resolve(mintMaker).e.makeMint();
+  const aliceMoneyPurseP = moneyMintP.e.mint(1000);
+  const bobMoneyPurseP = moneyMintP.e.mint(1001);
 
-  const stockMintP = Q(makeMint).fcall();
-  const aliceStockPurseP = Q(stockMintP).fcall(2002);
-  const bobStockPurseP = Q(stockMintP).fcall(2003);
+  const stockMintP = Vow.resolve(mintMaker).e.makeMint();
+  const aliceStockPurseP = stockMintP.e.mint(2002);
+  const bobStockPurseP = stockMintP.e.mint(2003);
 
-  const aliceP = Q(makeAlice).fcall(aliceMoneyPurseP, aliceStockPurseP,
-                                  contractHostP);
-  const bobP = Q(makeBob).fcall(bobMoneyPurseP, bobStockPurseP,
-                              contractHostP);
+  const aliceP = Vow.resolve(aliceMaker).
+        e.makeAlice(aliceMoneyPurseP, aliceStockPurseP, contractHostP);
+  const bobP = Vow.resolve(bobMaker).
+        e.makeBob(bobMoneyPurseP, bobStockPurseP, contractHostP);
 
-  const ifItFitsP = Q(aliceP).invoke('payBobWell', bobP);
+  const ifItFitsP = aliceP.e.payBobWell(bobP);
   return ifItFitsP;
 }
 
 export function betterContractTestBobFirst(bobLies=false) {
-  const contractHostP = Q(makeContractHost).fcall();
-  const moneyMintP = Q(makeMint).fcall();
-  const aliceMoneyPurseP = Q(moneyMintP).fcall(1000, 'aliceMainMoney');
-  const bobMoneyPurseP = Q(moneyMintP).fcall(1001, 'bobMainMoney');
+  const contractHostP = Vow.fromFn(makeContractHost);
+  const moneyMintP = Vow.resolve(mintMaker).e.makeMint();
+  const aliceMoneyPurseP = moneyMintP.e.mint(1000, 'aliceMainMoney');
+  const bobMoneyPurseP = moneyMintP.e.mint(1001, 'bobMainMoney');
 
-  const stockMintP = Q(makeMint).fcall();
-  const aliceStockPurseP = Q(stockMintP).fcall(2002, 'aliceMainStock');
-  const bobStockPurseP = Q(stockMintP).fcall(2003, 'bobMainStock');
+  const stockMintP = Vow.resolve(mintMaker).e.makeMint();
+  const aliceStockPurseP = stockMintP.e.mint(2002, 'aliceMainStock');
+  const bobStockPurseP = stockMintP.e.mint(2003, 'bobMainStock');
 
-  const aliceP = Q(makeAlice).fcall(aliceMoneyPurseP, aliceStockPurseP,
-                                    contractHostP);
-  const bobP = Q(makeBob).fcall(bobMoneyPurseP, bobStockPurseP,
-                                contractHostP);
+  const aliceP = Vow.resolve(aliceMaker).
+        e.makeAlice(aliceMoneyPurseP, aliceStockPurseP, contractHostP);
+  const bobP = Vow.resolve(bobMaker).
+        e.makeBob(bobMoneyPurseP, bobStockPurseP, contractHostP);
 
-  return Q(bobP).invoke('tradeWell', aliceP, bobLies);
-//  return Q(aliceP).invoke('tradeWell', bobP);
+  return bobP.e.tradeWell(aliceP, bobLies);
+//  return aliceP.e.tradeWell(bobP);
 }
