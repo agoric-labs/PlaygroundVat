@@ -33,14 +33,14 @@ function scheduleTodo(target, todo) {
 function PendingDelivery(op, args, resultR) {
   const which = whichTodoCounter++;
   const todo = function Delivery(target) {
-    console.log(`SEND [${which}] ${target} . ${op} (#${args.length})`);
-    console.log(`SEND ${op}`);
+    //console.log(`SEND [${which}] ${target} . ${op} (#${args.length})`);
+    //console.log(`SEND ${op}`);
     if (Object(target) === target) {
       if (!Reflect.getOwnPropertyDescriptor(target, op)) {
-        console.log(`target[${op}] is missing for ${target}`);
+        //console.log(`target[${op}] is missing for ${target}`);
       }
      } else if (typeof target !== 'string') {
-      console.log(`target IS WONKY: ${target}`);
+      //console.log(`target IS WONKY: ${target}`);
     }
     resultR(target[op](...args));
   };
@@ -99,7 +99,7 @@ class UnresolvedHandler {
   }
   
   processBlockedFlows(blockedFlows) {
-    console.log(`Appending blocked flow ${blockedFlows}`);
+    //console.log(`Appending blocked flow ${blockedFlows}`);
 
     insist(!this.forwardedTo, "INTERNAL: Must be unforwarded to acept flows.")
     this.blockedFlows.push(...blockedFlows);
@@ -136,7 +136,7 @@ class FulfilledHandler {
 
   processBlockedFlows(blockedFlows) {
     for (const flow of blockedFlows) {
-      console.log(`Processing blocked flow ${flow}`);
+      //console.log(`Processing blocked flow ${flow}`);
       flow.scheduleUnblocked();
     }
   }
@@ -352,7 +352,7 @@ class InnerVow {
   }
 
   getOwnPropertyDescriptor(target, name, receiver) {
-    console.log(name);
+    //console.log(name);
   }
 
   enqueueThen(onFulfill, onReject) {
