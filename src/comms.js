@@ -9,11 +9,11 @@ import defaultsDeep from '@nodeutils/defaults-deep';
 import pullStream from 'pull-stream';
 import pullSplit from 'pull-split';
 
-class VatNode extends Node {
+class CommsNode extends Node {
   constructor(_options) {
     const defaults = {
       modules: {
-        transport: [ TCP, 
+        transport: [ TCP,
                      WS ]
       }
       // config
@@ -40,25 +40,52 @@ function asp(numVals) {
   return { p, cb };
 }
 
-export async function makeComms(vinfoJson) {
+export async function makeComms(vinfoJson, vat) {
   const id = await promisify(PeerId.createFromJSON)(JSON.parse(vinfoJson));
   //const peer = await PeerInfo.create();
   console.log(`id: ${id}`);
   const peer = new PeerInfo(id);
   peer.multiaddrs.add('/ip4/127.0.0.1/tcp/5001');
   console.log(`peer is ${peer}`);
-    
-  const n = new VatNode({ peerInfo: peer,
+
+  const n = new CommsNode({ peerInfo: peer,
                         });
   n.on('peer:connect', (peerInfo) => {
+    // never printed
     console.log(`received dial to me from: ${peerInfo.id.toB58String()}`);
   });
-  n.handle('/echo/1.0.0', (protocol, conn) => {
-    console.log(`got echo, ${protocol}, ${conn}`);
-    pullStream(conn, pullSplit('\n'),
+  n.handle('/vattp-hack/0.1', (protocol, conn) => {
+    console.log(`got ${protocol} connection`);
+    /*conn.getPeerInfo((err, pi) => {
+      // I think plain TCP sockets don't have peerinfo
+      if (err) {
+        console.log(` from ERR ${err}`);
+      } else {
+        console.log(` from ${pi.id.toB58String()}`);
+      }
+    });*/
+    conn.getObservedAddrs((err, ma) => {
+      console.log(` from ${ma}`);
+    });
+
+    pullStream(conn,
+               pullSplit('\n'),
                pullStream.map(line => {
                  console.log(`got line ${line}`);
-               }));
+                 vat.sendOnlyReceived(line);
+               }),
+              pullStream.drain(() => {
+                console.log('executed');
+              })
+              );
+
+    /*function blahread(err, val) {
+      console.log(`blahread got err ${err}, val ${val}`);
+      if (err === undefined) {
+        conn.read(blahread);
+      }
+    }
+    conn.read(blahread);*/
   });
   let a = asp(0);
   //await n.start();

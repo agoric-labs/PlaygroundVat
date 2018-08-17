@@ -10,6 +10,7 @@ import TCP from 'libp2p-tcp';
 import WS from 'libp2p-websockets';
 import defaultsDeep from '@nodeutils/defaults-deep';
 import pullStream from 'pull-stream';
+import Pushable from 'pull-pushable';
 
 class VatNode extends Node {
   constructor(_options) {
@@ -66,22 +67,45 @@ export async function connect(addr) {
   await a.p;
   console.log(`dialer node is started`);
   a = asp(1, true);
-  n.dialProtocol(addr, '/echo/1.0.0', a.cb);
+  n.dialProtocol(addr, '/vattp-hack/0.1', a.cb);
   //n.dial(addr, a.cb);
   const conn = await a.p;
   //const conn = await promisify(n.dialProtocol)(addr, '/echo/1.0.0.0');
 
   console.log(`connected: ${conn} ${Object.getOwnPropertyNames(conn.conn.source).join(',')}`);
-  pullStream(pullStream.values(['line\n', 'line2\n']),
-             conn,
-             pullStream.collect((err, data) => {
-               if (err) { throw err; }
-               console.log('received echo:', data.toString());
-             })
-            );
-  a = asp(1);
-  await a.p;
+  const source = pullStream.values(['line1\n',
+                                'line2\n',
+                                'msg: v2->v1 {"method": "increment", "args": []}\n'
+                               ]);
+  let doner;
+  const donep = new Promise((resolve, reject) => doner = resolve);
+  const s2 = Pushable(err => {console.log('done');
+                              //conn.end();
+                              doner();
+                             });
+  s2.push('line1\n');
+  s2.push('msg: v2->v1 {"method": "increment", "args": []}\n');
+  s2.end();
+  pullStream(//source,
+    s2,
+    pullStream.map(line => {
+      console.log(`sending line ${line}`);
+      return line;
+    }),
+    conn,
+    pullStream.collect((err, data) => {
+      if (err) { throw err; }
+      console.log('received echo:', data.toString());
+    })
+  );
 
+  console.log('awaiting donep');
+  await donep;
+
+  //await promisify(n.stop)(); // TypeError: Cannot read property '_modules' of undefined
+  a = asp(0);
+  n.stop(a.cb);
+  await a.p;
 
   return {};
 }

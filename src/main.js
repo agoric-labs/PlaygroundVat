@@ -85,7 +85,7 @@ async function run(argv) {
   // by running 'node node_modules/.bin/peer-id > vinfo', then run
   // bin/vat with --vinfo=vinfo
   const vinfoJson = fs.readFileSync(argv.vinfo).toString('utf8');
-  const c = await makeComms(vinfoJson);
+  const c = await makeComms(vinfoJson, v);
 
   // network listener goes here, call v.processOp() or something more like
   // dataReceived()

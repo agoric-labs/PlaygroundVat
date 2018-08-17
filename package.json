@@ -20,7 +20,8 @@
     "libp2p": "^0.23.1",
     "libp2p-tcp": "^0.12.0",
     "@nodeutils/defaults-deep": "^1.1.0",
-    "pull-split": "^0.2.0"
+    "pull-split": "^0.2.0",
+    "pull-pushable": "^2.2.0"
   },
   "repository": {
     "type": "git",
