@@ -1,6 +1,7 @@
 #! /usr/bin/env node
 
 import { promisify } from 'util';
+import fs from 'fs';
 import yargs from 'yargs';
 
 import Node from 'libp2p';
@@ -49,7 +50,8 @@ function asp(numVals, errFirst=false) {
   return { p, cb };
 }
 
-export async function connect(addr) {
+export async function connect(addr, commandfile) {
+  console.log(`connect(${addr}), ${commandfile}`);
   const id = await promisify(PeerId.create)();
   console.log(`id: ${id}`);
   const myPI = new PeerInfo(id);
@@ -83,14 +85,20 @@ export async function connect(addr) {
                               //conn.end();
                               doner();
                              });
-  s2.push('line1\n');
-  s2.push('msg: v2->v1 {"method": "increment", "args": []}\n');
+  s2.push('line1');
+  if (commandfile) {
+    const opTranscript = fs.readFileSync(commandfile).toString('utf8');
+    const ops = opTranscript.split('\n');
+    for(let op of ops) {
+      s2.push(op + '\n');
+    }
+  }
   s2.end();
   pullStream(//source,
     s2,
     pullStream.map(line => {
       console.log(`sending line ${line}`);
-      return line;
+      return line+'\n';
     }),
     conn,
     pullStream.collect((err, data) => {
@@ -112,14 +120,11 @@ export async function connect(addr) {
 
 export async function main() {
   yargs
-    .command('run <addr>', 'connect to a vat server', (y) => {
-      y.positional('addr', {
-        type: 'string',
-        describe: 'initial object sourcefile'
-      });
-    }, (args) => {
-      connect(args.addr);
-    })
+    .command('run <addr> [commandfile]', 'connect to a vat server',
+             (y) => {},
+             (args) => {
+               connect(args.addr, args.commandfile);
+             })
     .parse();
   // done
 }
