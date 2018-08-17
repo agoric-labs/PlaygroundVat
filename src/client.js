@@ -73,7 +73,12 @@ export async function connect(addr) {
 
   console.log(`connected: ${conn} ${Object.getOwnPropertyNames(conn.conn.source).join(',')}`);
   pullStream(pullStream.values(['line\n', 'line2\n']),
-             conn);
+             conn,
+             pullStream.collect((err, data) => {
+               if (err) { throw err; }
+               console.log('received echo:', data.toString());
+             })
+            );
   a = asp(1);
   await a.p;
 
