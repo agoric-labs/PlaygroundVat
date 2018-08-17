@@ -11,6 +11,7 @@ import TCP from 'libp2p-tcp';
 import WS from 'libp2p-websockets';
 import defaultsDeep from '@nodeutils/defaults-deep';
 import pullStream from 'pull-stream';
+import pullSplit from 'pull-split';
 import Pushable from 'pull-pushable';
 
 class VatNode extends Node {
@@ -90,7 +91,9 @@ export async function connect(addr, commandfile) {
     const opTranscript = fs.readFileSync(commandfile).toString('utf8');
     const ops = opTranscript.split('\n');
     for(let op of ops) {
-      s2.push(op + '\n');
+      if (op) {
+        s2.push(op);
+      }
     }
   }
   s2.end();
@@ -100,11 +103,16 @@ export async function connect(addr, commandfile) {
       console.log(`sending line ${line}`);
       return line+'\n';
     }),
+    conn
+  );
+
+  pullStream(
     conn,
-    pullStream.collect((err, data) => {
-      if (err) { throw err; }
-      console.log('received echo:', data.toString());
-    })
+    pullSplit('\n'),
+    pullStream.map(line => {
+      console.log(`rx '${line}'`);
+    }),
+    pullStream.drain()
   );
 
   console.log('awaiting donep');

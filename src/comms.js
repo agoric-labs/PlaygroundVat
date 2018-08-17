@@ -8,6 +8,7 @@ import WS from 'libp2p-websockets';
 import defaultsDeep from '@nodeutils/defaults-deep';
 import pullStream from 'pull-stream';
 import pullSplit from 'pull-split';
+import Pushable from 'pull-pushable';
 
 class CommsNode extends Node {
   constructor(_options) {
@@ -71,21 +72,22 @@ export async function makeComms(vinfoJson, vat) {
     pullStream(conn,
                pullSplit('\n'),
                pullStream.map(line => {
-                 console.log(`got line ${line}`);
-                 vat.sendOnlyReceived(line);
+                 console.log(`got line '${line}'`);
+                 if (line) {
+                   vat.sendOnlyReceived(line);
+                 }
                }),
-              pullStream.drain(() => {
-                console.log('executed');
-              })
+               pullStream.drain()
               );
 
-    /*function blahread(err, val) {
-      console.log(`blahread got err ${err}, val ${val}`);
-      if (err === undefined) {
-        conn.read(blahread);
-      }
-    }
-    conn.read(blahread);*/
+    const push = Pushable();
+    vat.registerPush(push);
+    pullStream(push, conn,
+               /*pullStream.collect((err, data) => {
+                 if (err) { throw err; }
+                 console.log('received echo:', data.toString());
+               }*/);
+
   });
   let a = asp(0);
   //await n.start();

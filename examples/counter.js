@@ -15,7 +15,7 @@ export default {
 
   doCall() {
     log(`doing call`);
-    ext.invoke('methname', 'arg1', 'arg2');
+    ext.e.foo('arg1', 'arg2');
     log(`did call`);
   }
 }
