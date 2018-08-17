@@ -37,7 +37,6 @@ export function makeVat(endowments, myVatID, initialSource) {
       writeOutput(`POST: ${key}, ${args}`);
     }
   };
-  //const ext = Q.makeFar(relay);
 
   let localWebKeyCounter = 0;
   function makeLocalWebKey(localObject) {
@@ -63,13 +62,27 @@ export function makeVat(endowments, myVatID, initialSource) {
   }
 
 
+  let outbound;
+
   // fake implementations for now
   function FarVow(vatID, count) {
+    log(`new FarVow ${vatID} ${count}`);
     this.vatID = vatID;
     this.count = count;
     // v.e.NAME(ARGS) causes serialized sendOp or sendOnlyOp messages to be
     // sent to the target vat
+    this.e = {};
+    this.e.foo = function(...args) {
+      log('e.foo called');
+      // todo: without both passByCopy wrappers, this causes an infinite replacer() loop
+      const argString = marshal.serialize(passByCopy({method: 'foo', args: passByCopy(args)}));
+      if (outbound) {
+        outbound.push(`msg: ${myVatID}->${vatID} ${argString}\n`);
+      }
+    };
   }
+
+  const ext = new FarVow('v2', 1);
 
   function Presence(vatID, count) {
     this.vatID = vatID;
@@ -96,7 +109,9 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   const e = confineGuestSource(initialSource,
                                { isVow, asVow, Flow, Vow,
-                                 webkey: { passByCopy, isPassByCopy }});
+                                 webkey: { passByCopy, isPassByCopy },
+                                 ext
+                               });
   //writeOutput(`load: ${initialSourceHash}`);
 
   function processOp(op, resolver) {
@@ -136,6 +151,10 @@ export function makeVat(endowments, myVatID, initialSource) {
   return {
     check() {
       log('yes check');
+    },
+
+    registerPush(p) {
+      outbound = p;
     },
 
     sendOnlyReceived(op) {

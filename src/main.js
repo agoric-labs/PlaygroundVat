@@ -6,6 +6,7 @@ import { rollup } from 'rollup';
 
 import SES from 'ses';
 
+import { makeComms } from './comms';
 import { makeVatEndowments, readAndHashFile } from './host';
 
 export function confineVatSource(s, source) {
@@ -80,6 +81,12 @@ async function run(argv) {
     v.sendOnlyReceived(op);
   }
 
+  // create a JSON peer-id record (private key, public key, id=hash(pubkey))
+  // by running 'node node_modules/.bin/peer-id > vinfo', then run
+  // bin/vat with --vinfo=vinfo
+  const vinfoJson = fs.readFileSync(argv.vinfo).toString('utf8');
+  const c = await makeComms(vinfoJson, v);
+
   // network listener goes here, call v.processOp() or something more like
   // dataReceived()
 
@@ -98,5 +105,6 @@ export async function main() {
     .option('input', {})
     .option('output', {})
     .option('vatID', {})
+    .option('vinfo', {})
     .parse();
 }
