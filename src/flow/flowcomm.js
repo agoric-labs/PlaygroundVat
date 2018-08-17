@@ -10,7 +10,6 @@ function insist(condition, exception) {
   }
 }
 
-
 // TODO: remove this in favor of the global deep-freezing def() that SES
 // provides. However make sure test-flow.js can still work, which doesn't run
 // under SES.
@@ -34,11 +33,15 @@ function scheduleTodo(target, todo) {
 function PendingDelivery(op, args, resultR) {
   const which = whichTodoCounter++;
   const todo = function Delivery(target) {
-    //log(`SEND [${which}] ${target} . ${op} (#${args.length})`);
-    //log(`SEND ${op}`);
-    //if (!Reflect.getOwnPropertyDescriptor(target, op)) {
-      //log(`target[${op}] is missing for ${target}`);
-    //}
+    console.log(`SEND [${which}] ${target} . ${op} (#${args.length})`);
+    console.log(`SEND ${op}`);
+    if (Object(target) === target) {
+      if (!Reflect.getOwnPropertyDescriptor(target, op)) {
+        console.log(`target[${op}] is missing for ${target}`);
+      }
+     } else if (typeof target !== 'string') {
+      console.log(`target IS WONKY: ${target}`);
+    }
     resultR(target[op](...args));
   };
   //log(`PendingDelivery[${which}] ${op}, ${args}`);
@@ -62,74 +65,122 @@ function PendingThen(onFulfill, onReject, resultR) {
 /**
  * Among objects, all and only promises have handlers.
  */
-// a reserved internal placeholder that represents an unresolved value
-const UNRESOLVED = {};
-const FORWARDED = {};
-const AT_EDGE = {};
 
-class InnerResolver {
-  constructor(value = UNRESOLVED) {
-    this.value = value;
-    this.forwardedTo = undefined;
+class UnresolvedHandler {
+  constructor() {
+    this.forwardedTo = null;
     this.blockedFlows = [];
   }
 
   get isResolved() {
-    return this.value !== UNRESOLVED;
+    return false;
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
   fulfill(value) {
-    insist(this.value === UNRESOLVED);
-    this.value = value;
-    for (const flow of this.blockedFlows) {
-      flow.scheduleUnblocked();
+    return this.directForward(new FulfilledHandler(value));
+  }
+
+  // Fulfill the vow. Reschedule any flows that were blocked on this vow.
+  // TODO get rid of resolver argument?
+  forwardTo(valueInner) {
+    const valueR = shortenForwards(valueInner.resolver, valueInner);
+    return this.directForward(valueR);
+  }
+  
+  directForward(valueR) {
+    this.forwardedTo = valueR;
+    if (this.blockedFlows.length) {
+      // There are waiting flows; move them to the end of the chain
+      valueR.processBlockedFlows(this.blockedFlows);
+      this.blockedFlows = null;
     }
-    // TODO clear along the way rather than at the end
-    this.blockedFlows.length = 0;
+    return valueR;
+  }
+  
+  processBlockedFlows(blockedFlows) {
+    console.log(`Appending blocked flow ${blockedFlows}`);
+
+    insist(!this.forwardedTo, "INTERNAL: Must be unforwarded to acept flows.")
+    this.blockedFlows.push(...blockedFlows);
+  }
+
+  processSingle(todo, flow) {
+    // the target of the next message is unresolved so
+    // this flow is now waiting for shortTarget
+    this.blockedFlows.push(flow);
+    return false;
+  }
+}
+def(UnresolvedHandler);
+class FulfilledHandler {
+  constructor(value) {
+    this.forwardedTo = null;
+    this.value = value;
+  }
+
+  get isResolved() {
+    return true;
+  }
+
+  // Fulfill the vow. Reschedule any flows that were blocked on this vow.
+  fulfill(value) {
+    insist(false, 'Fulfill only applies to unresolved promise');
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
   // TODO get rid of resolver argument?
   forwardTo(valueInner, resolver) {
-    insist(this.value === UNRESOLVED);
+    insist(false, 'Forward only applies to unresolved promise');
+  }
 
-    const valueR = shortenForwards(valueInner.resolver, valueInner);
-
-    this.forwardedTo = valueR;
-    const resValue = valueR.value;
-    if (resValue === UNRESOLVED) {
-      // TODO check that this works
-      this.value = FORWARDED;
-      if (this.blockedFlows.length) {
-        // There are waiting flows; move them to the end of the chain
-        valueR.blockedFlows.push(...this.blockedFlows);
-        this.blockedFlows.length = 0;
-      }
-    } if (resValue === FORWARDED) {
-      throw "VOW INTERNAL: shortest node must not be forwarded";
-    } if (resValue === AT_EDGE) {
-      throw "VOW INTERNAL: UNIMPLEMENTED AT_EDGE";
-    } else {
-      // it's settled; scheduled waiting flows
-      this.value = resValue;
-
-      for (const flow of this.blockedFlows) {
-        flow.scheduleUnblocked();
-      }
-      // TODO clear along the way rather than at the end
-      this.blockedFlows.length = 0;
+  processBlockedFlows(blockedFlows) {
+    for (const flow of blockedFlows) {
+      console.log(`Processing blocked flow ${flow}`);
+      flow.scheduleUnblocked();
     }
   }
 
-  toStringX() {
-    return `VowH {
-      value: ${this.value},
-      blockedFlows: ${this.blockedFlows.join("  \n")}
-    }`;
-  }
+  processSingle(todo, flow) {
+    scheduleTodo(this.value, todo);
+    return true;
+  } 
 }
-def(InnerResolver);
+def(FulfilledHandler);
+
+def(UnresolvedHandler);
+class FarHandler {
+  constructor(serializer) {
+    this.forwardedTo = null;
+    this.serializer = value;
+  }
+
+  get isResolved() {
+    return true;
+  }
+
+  // Fulfill the vow. Reschedule any flows that were blocked on this vow.
+  fulfill(value) {
+    insist(false, 'Fulfill only applies to unresolved promise');
+  }
+
+  // Fulfill the vow. Reschedule any flows that were blocked on this vow.
+  // TODO get rid of resolver argument?
+  forwardTo(valueInner, resolver) {
+    insist(false, 'Forward only applies to unresolved promise');
+  }
+
+  processBlockedFlows(blockedFlows) {
+    throw "Dean thinks this never happens";
+  }
+
+  processSingle(todo, flow) {
+    // TODO do the serialization thing
+    throw "UNIMPLEMENTED: Brian";
+    return true;
+  } 
+}
+def(FarHandler);
 
 class InnerFlow {
   constructor() {
@@ -147,7 +198,7 @@ class InnerFlow {
       //log(`InnerFlow.enqueue found an empty queue`);
       // This will be the first pending action, so it's either ready to schedule or
       // is what this flow will be waiting on
-      const processed = this.processShort(shortTarget, todo);
+      const processed = shortTarget.processSingle(todo, this);
       if (processed) {
         // fastpath; the action was scheduled immediately since it was ready and the flow was empty
         //log(`InnerFlow.enqueue exiting on fast path`);
@@ -166,7 +217,7 @@ class InnerFlow {
       const msg = this.pending[0];
       const [target, todo] = msg;
       const shortTarget = shortenForwards(target);
-      const processed = this.processShort(shortTarget, todo);
+      const processed = shortTarget.processSingle(todo, this);
       if (processed) {
         // The todo was processed; remove it from pending
         this.pending.shift();
@@ -174,18 +225,6 @@ class InnerFlow {
         // the target of the next message is unresolved, so break
         break;
       }
-    }
-  }
-
-  processShort(shortTarget, todo) {
-    if (shortTarget.isResolved) {
-      scheduleTodo(shortTarget.value, todo);
-      return true;
-    } else {
-      // the target of the next message is unresolved so
-      // this flow is now waiting for shortTarget
-      shortTarget.blockedFlows.push(this);
-      return false;
     }
   }
 
@@ -212,10 +251,16 @@ class Flow {
 
   makeVow(resolveFn) {
     const flow = realInnerFlow(this);
-    const innerResolver = new InnerResolver();
+    const innerResolver = new UnresolvedHandler();
     const resultR = makeResolver(innerResolver);
     resolveFn(resultR);
     return new Vow(flow, innerResolver);
+  }
+
+  makeFarVow(serializer) {
+    const flow = realInnerFlow(this);
+    const handler = new FarHandler(serializer);
+    return new Vow(flow, handler);
   }
 }
 def(Flow);
@@ -246,14 +291,13 @@ function shortenForwards(firstResolver, optVow) {
 function makeResolver(innerResolver) {
   const resolver = function (value) {
     // TODO how do we detect cycles
-    // TODO how do we detect already-resolved?
     // TODO use 'this' for the identity
     const valueInner = getInnerVow(value);
     if (valueInner) {
       // the value is a promise; forward to it
-      innerResolver.forwardTo(valueInner, resolver);
+      innerResolver = innerResolver.forwardTo(valueInner);
     } else {
-      innerResolver.fulfill(value);
+      innerResolver = innerResolver.fulfill(value);
     }
   };
   // resolver.toString = () => `Resolver{ resolved: ${getHandler(resolver)} }`;
@@ -295,7 +339,7 @@ class InnerVow {
     return isSymbol(op)
       ? Reflect.get(target, op, receiver)
       : (...args) => {
-        const newResolver = new InnerResolver();
+        const newResolver = new UnresolvedHandler();
         const resultR = makeResolver(newResolver);
         this.flow.enqueue(this, PendingDelivery(op, args, resultR));
         if (0) {
@@ -312,7 +356,7 @@ class InnerVow {
   }
 
   enqueueThen(onFulfill, onReject) {
-    const newResolver = new InnerResolver();
+    const newResolver = new UnresolvedHandler();
     const resultR = makeResolver(newResolver);
     this.flow.enqueue(this, PendingThen(onFulfill, onReject, resultR));
     if (0) {

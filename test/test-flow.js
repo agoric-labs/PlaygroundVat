@@ -7,6 +7,10 @@ test('tape works', t => {
 
 import Flow from '../src/flow/flowcomm';
 
+function delay(fn) {
+  Promise.resolve(null).then(fn);
+}
+
 // TODO: move most of the Promises from this file into a single utility
 // function which schedules a new turn
 
@@ -24,7 +28,7 @@ test('unresolved send queues in order', async (t) => {
   //const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
   const v2 = v1.e.concat(" MORE"); //v1!concat(" MORE")
 
-  Promise.resolve(null).then(ignore => r1("some"));
+  delay(() => r1("some"));
 
   const res = await v2;
 
@@ -37,7 +41,7 @@ test('resolved send queues in order', async (t) => {
   const f1 = new Flow();
   let r1;
   const v1 = f1.makeVow(r => r1 = r);
-  Promise.resolve(null).then(ignore => r1("some"));
+  delay(() => r1("some"));
   const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
   const res = await v2;
   t.equal(res, 'some MORE');
@@ -56,17 +60,21 @@ test('pre-resolved send queues in order', async (t) => {
 });
 
 test('order across forwarding', async (t) => {
+  let c = 0;
+  console.log(`s ${c++}`);
   const f1 = new Flow();
   let r1;
   const v1 = f1.makeVow(r => r1 = r);
   const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
-
+  console.log(`s ${c++}`);
   let r3;
   const v3 = f1.makeVow(r => r3 = r);
   r1(v3);
   r3("some");
+  console.log(`s ${c++}`);
 
   const res = await v2;
+  console.log(`s ${c++}`);
   t.equal(res, 'some MORE');
   t.end();
 });
@@ -79,7 +87,7 @@ test('all flow', t => {
   const x1 = f1.makeVow(r => r2 = r);
 
   const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
-  Promise.resolve(null).then(ignore => r1("some"));
+  delay(() => r1("some"));
   // console.log(v1);
 
   v1.then(s => console.log(`THEN1 ${s}`));
