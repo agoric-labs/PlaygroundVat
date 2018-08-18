@@ -25,7 +25,8 @@ function canPassByCopy(val) {
   if (typeof val !== 'object') {
     return false;
   }
-  for (let name of Object.getOwnPropertyNames(val)) {
+  const names = Object.getOwnPropertyNames(val);
+  for (let name of names) {
     if (typeof val[name] === 'function') {
       return false;
     }
@@ -33,6 +34,10 @@ function canPassByCopy(val) {
   const p = Object.getPrototypeOf(val);
   if (p !== null && p !== Object.prototype && p !== Array.prototype) {
     // todo: arrays should also be Array.isArray(val)
+    return false;
+  }
+  if (names.length === 0) {
+    // empty objects are pass-by-presence, not pass-by-copy
     return false;
   }
   return true;

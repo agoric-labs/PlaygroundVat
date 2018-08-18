@@ -12,6 +12,7 @@ test('marshal', async (t) => {
   function helpers() {
     const ref1 = { a() { return 1; } };
     const val = {
+      empty: {},
       array1: [1,2],
       ref1,
       ref2: { a() { return 2; } },
@@ -22,8 +23,12 @@ test('marshal', async (t) => {
   const h = s.evaluate(`${helpers}; helpers()`);
 
   function makeLocalWebKey(localObject) {
-    // for testing, assume the object has a .a() method
-    return `wk${localObject.a()}`;
+    if ("a" in localObject) {
+      // for testing, assume the object has a .a() method
+      return `wk${localObject.a()}`;
+    } else {
+      return 'wk0';
+    }
   }
 
   function makeFarResourceMaker(serialize, unserialize) {
@@ -57,6 +62,8 @@ test('marshal', async (t) => {
 
   // this stashes the array in the marshal's tables
   t.equal(m.serialize(h.ref1), '{"@qclass":"webkey","webkey":"wk1"}');
+
+  t.equal(m.serialize(h.empty), '{"@qclass":"webkey","webkey":"wk0"}');
 
   t.equal(m.unserialize('1'), 1);
   t.equal(m.unserialize('"abc"'), 'abc');
