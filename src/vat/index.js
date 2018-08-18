@@ -40,22 +40,36 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   let localWebKeyCounter = 0;
   function makeLocalWebKey(localObject) {
-    localWebKeyCounter += 1;
     // We'll never see a Presence here, because they originate from other
     // Vats, so they're assigned a webkey on the way in. We'll never see a
     // farVow or remoteVow for the same reason.
 
+    let count;
+
     // So if it's a Vow, it must be a LocalVow
     if (isVow(localObject)) {
+      // we don't assign a new counter if we've seen the corresponding
+      // presence before
+      const p = getPresenceForVow(localObject);
+      if (p) {
+        count = p.count;
+      } else {
+        localWebKeyCounter += 1;
+        count = localWebKeyCounter;
+      }
       // this will appear as a farVow
       return def({type: 'farVow',
                   vatID: myVatID,
-                  count: localWebKeyCounter});
+                  count: count});
     }
 
     // Otherwise, this must be a local object. We don't assign webkeys for
     // pass-by-copy objects, so this must be pass-by-presence, and will
     // appear on the far side as a Presence
+
+    // we don't assign a new count if we've seen the corresponding Vow before
+    TODODODODODO
+    localWebKeyCounter += 1;
     return def({type: 'presence',
                 vatID: myVatID,
                 count: localWebKeyCounter});
@@ -65,6 +79,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   let outbound;
 
   // fake implementations for now
+/*
   function FarVow(vatID, count) {
     log(`new FarVow ${vatID} ${count}`);
     this.vatID = vatID;
@@ -81,8 +96,8 @@ export function makeVat(endowments, myVatID, initialSource) {
       }
     };
   }
-
-  const ext = new FarVow('v2', 1);
+*/
+  const ext = new Flow().makeFarVow(vatIDToSerializer.get('v2'), 1);
 
   function Presence(vatID, count) {
     this.vatID = vatID;
@@ -90,14 +105,26 @@ export function makeVat(endowments, myVatID, initialSource) {
     // Vow.resolve(p) on a Presence turns into a FarVow with the same values
   }
 
+  const vatIDToSerializer = new Map();
+  vatIDToSerializer.put('v2', { sendOp(count, op, args) {
+    if (outbound) {
+      const argString = marshal.serialize(def({method: op, args: args}));
+      outbound.push(`msg: ${myVatID}->v2 ${argString}\n`);
+    }
+  } });
+
   function makeFarResourceMaker(serialize, unserialize) {
     function makeFarResource(webkey) {
       // receiving a pass-by-presence non-Vow object turns into a Presence
+      const serializer = vatIDToSerializer.get(webkey.vatID);
+      const p = def({});
+      const v = new Flow().makeFarVow(serializer, webkey.count, p);
+      // p and v should know about each other
       if (webkey.type === 'farVow') {
-        return new FarVow(webkey.vatID, webkey.count);
+        return v;
       }
       if (webkey.type === 'presence') {
-        return new Presence(webkey.vatID, webkey.count);
+        return p;
       }
       throw new Error(`makeFarResource() unknown webkey ${webkey}`);
     }

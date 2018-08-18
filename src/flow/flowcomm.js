@@ -64,6 +64,7 @@ function PendingDelivery(op, args, resultR) {
   //log(`PendingDelivery[${which}] ${op}, ${args}`);
   whichTodo[todo] = which;
   // todo.toString = () => `${resultR.name} => <target>.${op}(${args})`;
+  todo.remote = () => ({ op, args });
   return todo;
 }
 
@@ -172,9 +173,11 @@ class FulfilledHandler {
 def(FulfilledHandler);
 
 class FarHandler {
-  constructor(serializer) {
+  constructor(serializer, remoteData, presence) {
     this.forwardedTo = null;
     this.serializer = serializer;
+    this.remoteData = remoteData;
+    this.presence = presence;
   }
 
   get isResolved() { // todo: this goes away
@@ -193,12 +196,30 @@ class FarHandler {
   }
 
   processBlockedFlows(blockedFlows) {
-    throw new Error("UNIMPLEMENTED: Brian");
+    for (const flow of blockedFlows) {
+      flow.scheduleUnblocked();
+    }
   }
 
   processSingle(todo, flow) {
-    // TODO do the serialization thing
-    throw new Error("UNIMPLEMENTED: Brian");
+    function isMessageSend(t) {
+      if (todo.remote) { // hack
+        return true;
+      } else {
+        return false;
+      }
+    }
+    if (isMessageSend(todo)) {
+      const { op, args } = todo.remote();
+      this.serializer.sendOp(this.remoteData, op, args);
+    } else {
+      // this could be a then() on a RemoteVow, which should cause a round
+      // trip to flush all the previous messages, but doesn't actually target
+      // the specific object
+
+      // todo: send roundtrip, not immediate
+      scheduleTodo(this.presence, todo);
+    }
     return true;
   }
 }
@@ -266,6 +287,8 @@ function realInnerFlow(value) {
   return result;
 }
 
+const farVows = new WeakMap();
+
 class Flow {
   constructor() {
     flowToInner.set(this, new InnerFlow());
@@ -279,10 +302,12 @@ class Flow {
     return new Vow(flow, innerResolver);
   }
 
-  makeFarVow(serializer) {
+  makeFarVow(serializer, remoteData, p) {
     const flow = realInnerFlow(this);
-    const handler = new FarHandler(serializer);
-    return new Vow(flow, handler);
+    const handler = new FarHandler(serializer, remoteData, p);
+    const v = new Vow(flow, handler);
+    farVows.set(p, v);
+    return v;
   }
 }
 def(Flow);
@@ -447,6 +472,9 @@ class Vow {
   static resolve(val) {
     if (isVow(val)) {
       return val;
+    }
+    if (farVows.has(val)) {
+      return farVows.get(val); // presence
     }
     const f = new Flow();
     return f.makeVow((resolve, reject) => resolve(val));
