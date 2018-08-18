@@ -29,12 +29,21 @@ const whichTodo = new WeakMap();
 function scheduleTodo(target, todo) {
   Promise.resolve(target).then(todo);
 }
+
+function isBroken(target) { // todo
+  return false;
+}
+
 // TODO handle errors
 function PendingDelivery(op, args, resultR) {
   const which = whichTodoCounter++;
   const todo = function Delivery(target) {
     //console.log(`SEND [${which}] ${target} . ${op} (#${args.length})`);
     //console.log(`SEND ${op}`);
+    if (isBroken(target)) {
+      resultR(target); // broken Vow contagion
+      return;
+    }
     if (Object(target) === target) {
       if (!Reflect.getOwnPropertyDescriptor(target, op)) {
         //console.log(`target[${op}] is missing for ${target}`);
@@ -42,7 +51,15 @@ function PendingDelivery(op, args, resultR) {
      } else if (typeof target !== 'string') {
       //console.log(`target IS WONKY: ${target}`);
     }
-    resultR(target[op](...args));
+    let res;
+    try {
+      res = target[op](...args);
+    } catch (ex) {
+      res = Promise.reject(ex); // todo: make this a Vow.reject, once that exists
+    }
+    // resultR shouldn't ever throw an exception, but just in case let's look
+    // at it separately
+    resultR(res);
   };
   //log(`PendingDelivery[${which}] ${op}, ${args}`);
   whichTodo[todo] = which;
@@ -55,7 +72,13 @@ function PendingThen(onFulfill, onReject, resultR) {
   const which = whichTodoCounter++;
   const todo = function (target) {
     //log(`THEN [${which}]`);
-    resultR(onFulfill(target));
+    let res;
+    try {
+      res = isBroken(target) ? onReject(target) : onFulfill(target);
+    } catch (ex) {
+      res = Promise.reject(ex); // todo: Vow.reject
+    }
+    resultR(res);
   };
   //log(`PendingThen[${which}] ${func}`);
   whichTodo[todo] = which;
@@ -72,7 +95,7 @@ class UnresolvedHandler {
     this.blockedFlows = [];
   }
 
-  get isResolved() {
+  get isResolved() { // todo: this goes away
     return false;
   }
 
@@ -87,7 +110,7 @@ class UnresolvedHandler {
     const valueR = shortenForwards(valueInner.resolver, valueInner);
     return this.directForward(valueR);
   }
-  
+
   directForward(valueR) {
     this.forwardedTo = valueR;
     if (this.blockedFlows.length) {
@@ -97,11 +120,11 @@ class UnresolvedHandler {
     }
     return valueR;
   }
-  
+
   processBlockedFlows(blockedFlows) {
     //console.log(`Appending blocked flow ${blockedFlows}`);
 
-    insist(!this.forwardedTo, "INTERNAL: Must be unforwarded to acept flows.")
+    insist(!this.forwardedTo, "INTERNAL: Must be unforwarded to acept flows.");
     this.blockedFlows.push(...blockedFlows);
   }
 
@@ -113,13 +136,14 @@ class UnresolvedHandler {
   }
 }
 def(UnresolvedHandler);
+
 class FulfilledHandler {
   constructor(value) {
     this.forwardedTo = null;
     this.value = value;
   }
 
-  get isResolved() {
+  get isResolved() { // todo: this goes away
     return true;
   }
 
@@ -129,8 +153,7 @@ class FulfilledHandler {
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
-  // TODO get rid of resolver argument?
-  forwardTo(valueInner, resolver) {
+  forwardTo(valueInner) {
     insist(false, 'Forward only applies to unresolved promise');
   }
 
@@ -144,18 +167,17 @@ class FulfilledHandler {
   processSingle(todo, flow) {
     scheduleTodo(this.value, todo);
     return true;
-  } 
+  }
 }
 def(FulfilledHandler);
 
-def(UnresolvedHandler);
 class FarHandler {
   constructor(serializer) {
     this.forwardedTo = null;
-    this.serializer = value;
+    this.serializer = serializer;
   }
 
-  get isResolved() {
+  get isResolved() { // todo: this goes away
     return true;
   }
 
@@ -171,14 +193,14 @@ class FarHandler {
   }
 
   processBlockedFlows(blockedFlows) {
-    throw "Dean thinks this never happens";
+    throw new Error("UNIMPLEMENTED: Brian");
   }
 
   processSingle(todo, flow) {
     // TODO do the serialization thing
-    throw "UNIMPLEMENTED: Brian";
+    throw new Error("UNIMPLEMENTED: Brian");
     return true;
-  } 
+  }
 }
 def(FarHandler);
 
