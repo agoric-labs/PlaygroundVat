@@ -255,6 +255,8 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
       } else {
         // The unserialized copy also becomes pass-by-copy, but we don't need
         // to mark it specially
+
+        // todo: what if the unserializer is given "{}"?
       }
       // The ibids case returned early to avoid this.
       ibids.push(data);

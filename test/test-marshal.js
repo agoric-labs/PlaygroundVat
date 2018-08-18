@@ -64,6 +64,9 @@ test('marshal', async (t) => {
   t.equal(m.serialize(h.ref1), '{"@qclass":"webkey","webkey":"wk1"}');
 
   t.equal(m.serialize(h.empty), '{"@qclass":"webkey","webkey":"wk0"}');
+  t.equal(m.unserialize('{"@qclass":"webkey","webkey":"wk0"}'), h.empty);
+
+  // todo: what if the unserializer is given "{}"
 
   t.equal(m.unserialize('1'), 1);
   t.equal(m.unserialize('"abc"'), 'abc');
