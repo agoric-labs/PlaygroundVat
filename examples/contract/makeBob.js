@@ -72,7 +72,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
     invite: function(tokenP, allegedSrc, allegedSide) {
       check(allegedSrc, allegedSide);
       let cancel;
-      const b = webkey.passByCopy({
+      const b = def({
         stockSrcP: Vow.resolve(myStockPurse).e.makeEmptyPurse('bobStockSrc'),
         moneyDstP: Vow.resolve(myMoneyPurse).e.makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,

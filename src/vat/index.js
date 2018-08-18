@@ -3,7 +3,7 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
-import { makeWebkeyMarshal, passByCopy, isPassByCopy } from './webkey';
+import { makeWebkeyMarshal } from './webkey';
 import { isVow, asVow, Flow, Vow } from '../flow/flowcomm';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
@@ -75,7 +75,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     this.e.foo = function(...args) {
       log('e.foo called');
       // todo: without both passByCopy wrappers, this causes an infinite replacer() loop
-      const argString = marshal.serialize(passByCopy({method: 'foo', args: passByCopy(args)}));
+      const argString = marshal.serialize(def({method: 'foo', args: args}));
       if (outbound) {
         outbound.push(`msg: ${myVatID}->${vatID} ${argString}\n`);
       }
@@ -109,7 +109,6 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   const e = confineGuestSource(initialSource,
                                { isVow, asVow, Flow, Vow,
-                                 webkey: { passByCopy, isPassByCopy },
                                  ext
                                });
   //writeOutput(`load: ${initialSourceHash}`);

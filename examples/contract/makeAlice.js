@@ -57,7 +57,7 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
       check(allegedSrc, allegedSide);
 
       let cancel;
-      const a = webkey.passByCopy({
+      const a = def({
         moneySrcP: Vow.resolve(myMoneyPurse).e.makeEmptyPurse('aliceMoneySrc'),
         stockDstP: Vow.resolve(myStockPurse).e.makeEmptyPurse('aliceStockDst'),
         stockNeeded: 7,
