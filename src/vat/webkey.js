@@ -1,3 +1,4 @@
+import isVow from '../flow/flowcomm';
 
 // objects can only be passed in one of two/three forms:
 // 1: pass-by-presence: all properties (own and inherited) are methods,
@@ -77,7 +78,7 @@ const QCLASS = '@qclass';
 // makeFarResourceMaker(serialize, unserialize) -> makeFarResource
 // makeFarResource(webkey) -> far reference to another vat
 //
-export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
+export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker, resolutionOf) {
 
   // val might be a primitive, a pass by (shallow) copy object, a
   // remote reference, or other.  We treat all other as a local object
@@ -91,13 +92,15 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
   }
 
   const val2webkey = new WeakMap();
-  const webkey2val = new Map();
+  const webkeyString2val = new Map();
 
   function makeReplacer() {
     const ibidMap = new Map();
     let ibidCount = 0;
-    
+
     return function replacer(_, val) {
+      // First we handle all primitives. Some can be represented directly as
+      // JSON, and some must be encoded as [QCLASS] composites.
       switch (typeof val) {
         case 'object': {
           if (val === null) {
@@ -157,19 +160,17 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
         }
       }
 
-      // We only get here for non-null objects. We can serialize two forms:
-      // pass-by-copy or pass-by-presence (which includes empty objects). We
-      // refuse to serialize anything non-frozen, or hybrid objects (with
-      // both data and method properties).
+      // Now that we've handled all the primitives, it is time to deal with
+      // objects. The only things which can pass this point are frozen and
+      // non-null.
 
-      // todo: we might have redundantly done an isFrozen test above, but
-      // it's safer than forgetting to do it for the other cases.
-      
       if (QCLASS in val) {
         // TODO Hilbert hotel
         throw new Error(`property "${QCLASS}" reserved`);
       }
-      
+
+      // if we've seen this object before, serialize a backref
+
       if (ibidMap.has(val)) {
         throw new Error('ibid disabled for now');
         // Backreference to prior occurrence
@@ -181,6 +182,9 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
       ibidMap.set(val, ibidCount);
       ibidCount += 1;
 
+      // We can serialize some things as plain pass-by-copy: arrays (todo:
+      // serialize them as arrays) and objects with one or more data
+      // properties and no method properties.
 
       if (canPassByCopy(val)) {
         // Purposely in-band for readability, but creates need for
@@ -188,13 +192,84 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
         return val;
       }
 
+      // The remaining objects are pass-by-reference. This includes Vows,
+      // Presences, and objects with method properties (we reject entirely
+      // hybrid objects that have both data and method properties). The empty
+      // object is pass-by-reference because it is useful to compare its
+      // identity.
+
       mustPassByPresence(val);
+
+      // todo: we might have redundantly done an isFrozen test above, but
+      // it's safer than forgetting to do it for the other cases.
+
+      // We might we asked to do brand new serialization of any of these, or
+      // we might discover that we've already serialized them once and can
+      // just re-use the webkey from before:
+      // * BrokenVow
+      // * local regular object
+      // * NearVow: Vow.resolve(obj)
+      // * LocalVow: queues messages locally
+
+      // We might also see our own references (created during some earlier
+      // deserialization call) to any of the following. We don't have to
+      // serialize these: we'll find them in the val2webkey table and just
+      // send the webkey that the deserializer recorded for them.
+
+      // * Presence: remote reference to a regular object in a different vat
+      // * FarVow: Vow.resolve(presence), used for invocation
+      // * RemoteVow: forwards messages to next-best Vat
+
+      // We have one serializer/deserializer for each locally-hosted Vat, so
+      // it shared among all peer Vats.
+
+      // Presences will be found in the val2webkey table (even if it was
+      // received as a FarVow). For FarVows we use our special access to the
+      // Vow internals (passed as an extra argument to serialize()) to query
+      // the resolution of the vow: if this is a Presence, it must in our
+      // table, from which we extract the presence-style webkey and convert
+      // it into a farvow-style webkey (by setting the 'type' to 'farvow').
+
+      // We check the resolution of NearVows in the same way, but the object
+      // to which it resolves might not be in the val2webkey table yet. If it
+      // is, we extract the previously-assigned swissnum and convert it into
+      // a 'farvow' webkey. If not, we assign a swissnum first.
+
+      // If the object isn't a Vow at all, we check val2webkey, assign a
+      // swissnum if necessary, and send a 'presence' webkey.
+
+      // | sending this   | arrives on other vat as | or on home vat as |
+      // |----------------+-------------------------+-------------------|
+      // | regular object | Presence                | original object   |
+      // | NearVow        | FarVow                  | original NearVow  |
+      // | BrokenVow      | BrokenVow               | BrokenVow         |
+      // | Presence       | Presence                | original object   |
+      // | FarVow         | FarVow                  | NearVow           |
+      // | LocalVow       | RemoteVow               | original LocalVow |
+      // | RemoteVow      | RemoteVow               | original LocalVow |
+
+      // makeLocalWebkey() is entirely responsible for figuring out how to
+      // serialize pass-by-reference objects. It has control over the
+      // 'webkey' property, which must be JSON-serializable so we use it as a
+      // lookup key in the map.
+
+      let webkey;
+      if (isVow(val)) {
+        const r = resolutionOf(val);
+        if (r) {
+          const wk = val2webkey.get(r);
+          if (wk) {
+            if (wk.type === 'presence') {
+              webkey = { type: 'farvow', vatid: wk.vatid, swissnum: wk.swissnum };
+            } else if (wk.type ===
 
       if (!val2webkey.has(val)) {
         // Export a local pass-by-reference object
         const webkey = makeLocalWebkey(val);
+        // todo: we rely upon consistent JSON here, is that guaranteed?
+        const webkeyString = JSON.serialize(webkey);
         val2webkey.set(val, webkey);
-        webkey2val.set(webkey, val);
+        webkeyString2val.set(webkeyString, val);
       }
 
       // Could be local or remote
@@ -206,7 +281,7 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
   }
 
   const makeFarResource = makeFarResourceMaker(serialize, unserialize);
-  
+
   function makeReviver() {
     const ibids = [];
 
@@ -237,14 +312,29 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
           }
 
           case 'webkey': {
+
+            // Each Presence/FarVow pair is permanently tied to a specific
+            // peer Vat (whose vatid is included in the webkey), and can only
+            // be created in response to a remote message of some sort
+            // (either from their home vat, or todo as a third-party
+            // reference from someone else). That remote message might have
+            // referred to either the Presence (if the sender serialized a
+            // regular object) or the FarVow (if they serialized a NearVow),
+            // but both use the same swissnum. In either case, we check the
+            // table with the presence-style webkey, creating a new Presence
+            // object if necessary. Then we either deliver the Presence or
+            // convert it into a new FarVow depending upon the 'type'
+            // provided by the sender.
+
+            // if the VatID matches our own, the webkeyString2val table will
+            // point to the original object (or NearVow) which we sent in an
+            // earlier outbound call. We don't need to compare VatIDs (todo,
+            // really?).
+
             const webkey = data.webkey;
-            if (!webkey2val.has(webkey)) {
-              const val = makeFarResource(webkey);
-              webkey2val.set(webkey, val);
-              val2webkey.set(val, webkey);
-            }
+            // makeFarResource is responsible for caching
+            data = makeFarResource(webkey, webkeyString2val, val2webkey);
             // overwrite data and break to ibid registration.
-            data = webkey2val.get(webkey);
             break;
           }
           default: {

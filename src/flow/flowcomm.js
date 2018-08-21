@@ -177,7 +177,7 @@ class FarHandler {
     this.forwardedTo = null;
     this.serializer = serializer;
     this.remoteData = remoteData;
-    this.presence = presence;
+    this.value = presence;
   }
 
   get isResolved() { // todo: this goes away
@@ -211,14 +211,16 @@ class FarHandler {
     }
     if (isMessageSend(todo)) {
       const { op, args } = todo.remote();
-      this.serializer.sendOp(this.remoteData, op, args);
+      // the serializer gets private access to resolutionOf(), which it uses
+      // to build the right webkeys
+      this.serializer.sendOp(this.remoteData, op, args, resolutionOf);
     } else {
       // this could be a then() on a RemoteVow, which should cause a round
       // trip to flush all the previous messages, but doesn't actually target
       // the specific object
 
       // todo: send roundtrip, not immediate
-      scheduleTodo(this.presence, todo);
+      scheduleTodo(this.value, todo);
     }
     return true;
   }
@@ -364,6 +366,16 @@ function validInnerResolver(value) {
 
 function getInnerVow(value) {
   return vowToInner.get(value);
+}
+
+function resolutionOf(value) {
+  const inner = getInnerVow(value);
+  if (!inner) {
+    return undefined;
+  }
+  const firstR = inner.resolver;
+  const shortHandler = shortenForwards(firstR, inner);
+  return shortHandler.value;
 }
 
 export function isVow(value) {
