@@ -203,79 +203,15 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker, resolut
       // todo: we might have redundantly done an isFrozen test above, but
       // it's safer than forgetting to do it for the other cases.
 
-      // We might we asked to do brand new serialization of any of these, or
-      // we might discover that we've already serialized them once and can
-      // just re-use the webkey from before:
-      // * BrokenVow
-      // * local regular object
-      // * NearVow: Vow.resolve(obj)
-      // * LocalVow: queues messages locally
-
-      // We might also see our own references (created during some earlier
-      // deserialization call) to any of the following. We don't have to
-      // serialize these: we'll find them in the val2webkey table and just
-      // send the webkey that the deserializer recorded for them.
-
-      // * Presence: remote reference to a regular object in a different vat
-      // * FarVow: Vow.resolve(presence), used for invocation
-      // * RemoteVow: forwards messages to next-best Vat
-
-      // We have one serializer/deserializer for each locally-hosted Vat, so
-      // it shared among all peer Vats.
-
-      // Presences will be found in the val2webkey table (even if it was
-      // received as a FarVow). For FarVows we use our special access to the
-      // Vow internals (passed as an extra argument to serialize()) to query
-      // the resolution of the vow: if this is a Presence, it must in our
-      // table, from which we extract the presence-style webkey and convert
-      // it into a farvow-style webkey (by setting the 'type' to 'farvow').
-
-      // We check the resolution of NearVows in the same way, but the object
-      // to which it resolves might not be in the val2webkey table yet. If it
-      // is, we extract the previously-assigned swissnum and convert it into
-      // a 'farvow' webkey. If not, we assign a swissnum first.
-
-      // If the object isn't a Vow at all, we check val2webkey, assign a
-      // swissnum if necessary, and send a 'presence' webkey.
-
-      // | sending this   | arrives on other vat as | or on home vat as |
-      // |----------------+-------------------------+-------------------|
-      // | regular object | Presence                | original object   |
-      // | NearVow        | FarVow                  | original NearVow  |
-      // | BrokenVow      | BrokenVow               | BrokenVow         |
-      // | Presence       | Presence                | original object   |
-      // | FarVow         | FarVow                  | NearVow           |
-      // | LocalVow       | RemoteVow               | original LocalVow |
-      // | RemoteVow      | RemoteVow               | original LocalVow |
-
       // makeLocalWebkey() is entirely responsible for figuring out how to
-      // serialize pass-by-reference objects. It has control over the
-      // 'webkey' property, which must be JSON-serializable so we use it as a
-      // lookup key in the map.
+      // serialize pass-by-reference objects, including cache/table
+      // management
 
-      let webkey;
-      if (isVow(val)) {
-        const r = resolutionOf(val);
-        if (r) {
-          const wk = val2webkey.get(r);
-          if (wk) {
-            if (wk.type === 'presence') {
-              webkey = { type: 'farvow', vatid: wk.vatid, swissnum: wk.swissnum };
-            } else if (wk.type ===
-
-      if (!val2webkey.has(val)) {
-        // Export a local pass-by-reference object
-        const webkey = makeLocalWebkey(val);
-        // todo: we rely upon consistent JSON here, is that guaranteed?
-        const webkeyString = JSON.serialize(webkey);
-        val2webkey.set(val, webkey);
-        webkeyString2val.set(webkeyString, val);
-      }
-
-      // Could be local or remote
+      let webkey = makeLocalWebkey(val, val2webkey, webkeyString2val, 
+                                   resolutionOf);
       return def({
         [QCLASS]: 'webkey',
-        webkey: val2webkey.get(val)
+        webkey: webkey
       });
     };
   }
