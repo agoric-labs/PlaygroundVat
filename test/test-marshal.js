@@ -22,7 +22,7 @@ test('marshal', async (t) => {
   }
   const h = s.evaluate(`${helpers}; helpers()`);
 
-  function makeLocalWebKey(localObject) {
+  function makeLocalWebKey(localObject, val2webkey, webkeyString2val, resolutionOf) {
     if ("a" in localObject) {
       // for testing, assume the object has a .a() method
       return `wk${localObject.a()}`;
@@ -32,14 +32,14 @@ test('marshal', async (t) => {
   }
 
   function makeFarResourceMaker(serialize, unserialize) {
-    function makeFarResource(webkey) {
+    function makeFarResource(webkey, webkeyString2val, val2webkey) {
       if (webkey === 'fr1') {
         return {farref: 123};
       }
       if (webkey === 'fr2') {
         return {farref: 456};
       }
-      throw 'not found';
+      throw new Error(`webkey not found: ${webkey}`);
     }
     return makeFarResource;
   }

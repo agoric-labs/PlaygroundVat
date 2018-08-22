@@ -261,9 +261,11 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   const vatIDToSerializer = new Map();
 
-  const ext = new Flow().makeFarVow(vatIDToSerializer.get('v2'), 1);
+  const ext = new Flow().makeFarVow(vatIDToSerializer.get('v2'),
+                                    { vatID: 'v2', swissnum: 'swiss1' },
+                                    new Presence('v2', 'swiss1'));
 
-  vatIDToSerializer.put('v2', { sendOp(count, op, args) {
+  vatIDToSerializer.set('v2', { sendOp(count, op, args) {
     if (outbound) {
       const argString = marshal.serialize(def({method: op, args: args}));
       outbound.push(`msg: ${myVatID}->v2 ${argString}\n`);
@@ -357,6 +359,7 @@ export function makeVat(endowments, myVatID, initialSource) {
         const body = marshal.unserialize(bodyJson);
         log(`method ${body.method}`);
         const result = e[body.method](...body.args);
+        //Vow.resolve(result).then(r => comms.sendResolve(sourceVatID, swissnum, marshal.serialize(r));
         if (resolver) {
           log('calling that resolver');
           resolver(result);

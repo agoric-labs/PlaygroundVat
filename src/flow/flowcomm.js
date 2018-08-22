@@ -214,6 +214,12 @@ class FarHandler {
       // the serializer gets private access to resolutionOf(), which it uses
       // to build the right webkeys
       this.serializer.sendOp(this.remoteData, op, args, resolutionOf);
+      /*
+      const v = new Flow().makeVow(new RemoteHandler(this.serializer, XXX, XXX));
+      const swissbase = allocateSwissbase();
+      const swissnum = hash(swissbase);
+      this.serializer.sendOp(this.remoteData, op. args, swissbase, resolutionOf);
+      */
     } else {
       // this could be a then() on a RemoteVow, which should cause a round
       // trip to flush all the previous messages, but doesn't actually target
@@ -226,6 +232,80 @@ class FarHandler {
   }
 }
 def(FarHandler);
+
+/*
+class RemoteHandler {
+  constructor(serializer, remoteData, presence) {
+    this.forwardedTo = null;
+    this.serializer = serializer;
+    this.remoteData = remoteData;
+    this.value = presence;
+
+    // prepare for the reply
+    const swissbase = allocateSwissbase();
+    const swissnum = hash(swissbase);
+    serializer.registerResolver(swissnum, xx);
+
+    // create a synthetic RemoteVow, as if we'd received swissnum from targetvat
+
+    function XXX(targetVatID, swissnum, webkeyString2val, val2webkey) {
+      const val = new Flow().makeRemoteVow(XXX);
+      const webkey = { type: 'unresolved vow',
+                       vatID: targetVatID,
+                       swissnum: swissnum };
+      const webkeyString = JSON.serialize(webkey);
+      webkeyString2val.put(webkeyString, val);
+      val2webkey.put(val, webkey);
+      return val;
+    }
+
+  }
+
+  get isResolved() { // todo: this goes away
+    return true;
+  }
+
+  fulfill(value) {
+    insist(false, 'XXX');
+  }
+
+  forwardTo(valueInner, resolver) {
+    insist(false, 'XXX');
+  }
+
+  processBlockedFlows(blockedFlows) {
+    for (const flow of blockedFlows) {
+      flow.scheduleUnblocked();
+    }
+  }
+
+  processSingle(todo, flow) {
+    function isMessageSend(t) {
+      if (todo.remote) { // hack
+        return true;
+      } else {
+        return false;
+      }
+    }
+    if (isMessageSend(todo)) {
+      const { op, args } = todo.remote();
+      // the serializer gets private access to resolutionOf(), which it uses
+      // to build the right webkeys
+      this.serializer.sendOp(this.remoteData, op, args, resolutionOf);
+    } else {
+      // this could be a then() on a RemoteVow, which should cause a round
+      // trip to flush all the previous messages, but doesn't actually target
+      // the specific object
+
+      // todo: send roundtrip, not immediate
+      scheduleTodo(this.value, todo);
+    }
+    return true;
+  }
+}
+def(RemoteHandler);
+*/
+
 
 class InnerFlow {
   constructor() {

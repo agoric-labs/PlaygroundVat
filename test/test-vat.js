@@ -45,7 +45,6 @@ function funcToSource(f) {
   return code;
 }
 
-
 test('confineVatSource', (t) => {
   const s = SES.makeSESRootRealm();
   const s1code = funcToSource(s1);
@@ -56,7 +55,6 @@ test('confineVatSource', (t) => {
   t.equal(e.decrement(), 1);
   t.end();
 });
-
 
 test('methods can return a promise', async (t) => {
   const outputTranscript = [];
