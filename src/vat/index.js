@@ -4,15 +4,9 @@
 // be exposed to guest code.
 
 import { makeWebkeyMarshal } from './webkey';
-import { isVow, asVow, Flow, Vow } from '../flow/flowcomm';
+import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
-
-function insist(condition, exception) {
-  if (!condition) {
-    throw exception;
-  }
-}
 
 function confineGuestSource(source, endowments) {
   endowments = endowments || {};
@@ -30,12 +24,6 @@ function confineGuestSource(source, endowments) {
   return module.exports;
 }
 
-function Presence(vatID, swissnum) {
-  this.vatID = vatID;
-  this.swissnum = swissnum;
-  // Vow.resolve(p) on a Presence turns into a FarVow with the same values
-}
-
 export function makeVat(endowments, myVatID, initialSource) {
   const { writeOutput } = endowments;
 
@@ -51,126 +39,6 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   // We have one serializer/deserializer for each locally-hosted Vat, so
   // it shared among all peer Vats.
-
-  let localWebKeyCounter = 0;
-  function allocateSwissnum() {
-    localWebKeyCounter += 1;
-    const swissnum = localWebKeyCounter; // todo: random, of course
-    return swissnum;
-  }
-
-  function makeLocalWebKey(val, val2webkey, webkeyString2val, resolutionOf) {
-    // We are responsible for serializing (or finding previous serializations
-    // of) all pass-by-presence objects, and maintaining the bidirectional
-    // tables we share with the deserializer. There are seven categories. The
-    // first two are not Vows (but can be obtained from Vows by using a
-    // .then() callback):
-    //
-    // | resolved? | home   | .then()  | webkey.type |
-    // |-----------+--------+----------+-------------|
-    // | yes       | local  | object   | presence    |
-    // | yes       | remote | Presence | presence    |
-    //
-    // Local objects might already be in the table (if we sent them earlier),
-    // but if not we must assign them a swissnum and deliver them as a
-    // "presence" webkey, which will appear on the remote side as a Presence
-    // object. All local Presences got here from somewhere else (either as a
-    // Presence or a FarVow), so they were created by our deserializer, so
-    // they will already be in the table, and we should use the webkey from
-    // there.
-
-    if (val2webkey.has(val)) {
-      // this covers previously-serialized regular objects, all Presences,
-      // and all Vows in the FarVow and RemoteVow states.
-      return val2webkey.get(val);
-    }
-
-    function allocateWebkey(type, obj) {
-      // webkeys must be JSON-serializable so we can use it as a lookup key
-      // in the map
-      const webkey = { type: type,
-                       vatID: myVatID,
-                       swissnum: allocateSwissnum() };
-      // todo: we rely upon consistent JSON here, is that guaranteed?
-      const webkeyString = JSON.serialize(webkey);
-      val2webkey.set(obj, webkey);
-      webkeyString2val.set(webkeyString, obj);
-      return webkey;
-    }
-
-    function nearVowForPresence(wk) {
-      insist(wk.type === 'presence', "resolution wasn't a presence");
-      return { type: 'resolved vow',
-               vatid: wk.vatid,
-               swissnum: wk.swissnum };
-    }
-
-    if (!isVow(val)) {
-      // must be a regular object that we haven't serialized before
-      return allocateWebkey('presence', val);
-    }
-
-    // It must be a Vow.
-
-    // Vows can be in one of five states:
-
-    // | resolved? | home   | Vow.resolve | webkey.type    | resolutionOf() |
-    // |-----------+--------+-------------+----------------+----------------|
-    // | yes       | local  | NearVow     | resolved vow   | object         |
-    // | yes       | remote | FarVow      | resolved vow   | Presence       |
-    // | no        | local  | LocalVow    | unresolved vow |                |
-    // | no        | remote | RemoteVow   | unresolved vow |                |
-    // | yes       | broken | BrokenVow   | broken vow     |                |
-
-    // We have private access to the Vow resolutionOf() function, which will
-    // tell us (immediately) whether a given Vow has already been resolved,
-    // and to what. We use this to find NearVows/FarVows, and use their
-    // underlying object/Presense for serialization.
-
-    // Vows with a remote "home" (FarVow and RemoteVow) were created by our
-    // deserializer, like Presences. However we don't store FarVows in the
-    // table: we only store the associated Presence. If we're asked to
-    // serialize a FarVow, we use resolutionOf() to get the Presence, look up
-    // the Presence in the table (which must already be present), extract the
-    // vatid and swissnum, and build a "resolved vow" webkey around those
-    // values. On the way in, if we receive a "resolved vow" webkey for a
-    // different vat, we create and store a Presence in the table, then
-    // deliver a FarVow to the target.
-
-    // TODO: BrokenVow. Maybe add rejectionOf() helper?
-
-    const r = resolutionOf(val);
-    if (r) {
-      // Must be NearVow or FarVow. If it was a FarVow, 'r' will be a
-      // Presence, which will be in the table. If it was a NearVow, then 'r'
-      // will be a local object, which may or may not already be in the table
-      // (but will have type 'presence' if it is).
-      const wk = val2webkey.get(r);
-      if (wk) {
-        // send the corresponding "resolved vow" webkey
-        return nearVowForPresence(wk);
-      }
-      // must be NearVow, and we've never sent either the NearVow nor the
-      // underlying object
-
-      const webkey = allocateWebkey('presence', val);
-      return nearVowForPresence(webkey);
-    }
-
-    // must be a LocalVow that has never been sent before
-    return allocateWebkey('unresolved vow', val);
-
-    // TODO: not sure this table is accurate anymore
-    // | sending this   | arrives on other vat as | or on home vat as |
-    // |----------------+-------------------------+-------------------|
-    // | regular object | Presence                | original object   |
-    // | NearVow        | FarVow                  | original NearVow  |
-    // | BrokenVow      | BrokenVow               | BrokenVow         |
-    // | Presence       | Presence                | original object   |
-    // | FarVow         | FarVow                  | NearVow           |
-    // | LocalVow       | RemoteVow               | original LocalVow |
-    // | RemoteVow      | RemoteVow               | original LocalVow |
-  }
 
 
   let outbound;
@@ -259,76 +127,72 @@ export function makeVat(endowments, myVatID, initialSource) {
   // not a SendOnly), and rows allocated by the far side (when receiving a
   // RemoteVow).
 
-  const vatIDToSerializer = new Map();
+  const queuedMessages = new Map();
+  const connections = new Map();
 
-  const ext = new Flow().makeFarVow(vatIDToSerializer.get('v2'),
-                                    { vatID: 'v2', swissnum: 'swiss1' },
-                                    new Presence('v2', 'swiss1'));
-
-  vatIDToSerializer.set('v2', { sendOp(count, op, args) {
-    if (outbound) {
-      const argString = marshal.serialize(def({method: op, args: args}));
-      outbound.push(`msg: ${myVatID}->v2 ${argString}\n`);
-    }
-  } });
-
-  function makeFarResourceMaker(serialize, unserialize) {
-    function makeFarResource(webkey, webkeyString2val, val2webkey) {
-      // receiving a pass-by-presence non-Vow object turns into a Presence
-      const serializer = vatIDToSerializer.get(webkey.vatID);
-
-      // todo: we rely upon consistent JSON serialization here
-      const webkeyString = JSON.serialize(webkey);
-      if (webkeyString2val.has(webkeyString)) {
-        // This covers previously-sent LocalVows, previously-sent regular
-        // objects, and the regular objects referenced by previously-sent
-        // NearVows.
-        //
-        // It also covers previously-received Presences, ...
-        return webkeyString2val.get(webkeyString);
+  function gotConnection(vatID, connection) {
+    connections.put(vatID, connection);
+    if (queuedMessages.has(vatID)) {
+      for (let msg of queuedMessages.get(vatID)) {
+        connection.send(msg);
       }
-
-      insist(webkey.vatid !== myVatID, "I don't remember sending this");
-
-      // we return 'val', but we store 'cacheVal' in the table under
-      // 'cacheWebkey'.
-      let val, cacheWebkey, cacheVal;
-
-      if (webkey.type === 'presence') {
-        // must live somewhere else, as we don't remember sending it
-        val = new Presence(webkey.vatid, webkey.swissnum);
-        cacheWebkey = webkey;
-        cacheVal = val;
-      } else if (webkey.type === 'resolved vow') {
-        // must live somewhere else (FarVow), since we don't remember sending
-        // it. Create a Presence, add it to the table, then deliver a FarVow
-        cacheVal = new Presence(webkey.vatid, webkey.swissnum);
-        const cacheWebkey = {
-          type: 'presence',
-          vatID: webkey.vatID,
-          swissnum: webkey.swissnum };
-        val = new Flow().makeFarVow(serializer, webkey.swissnum, cacheVal);
-      } else if (webkey.type === 'unresolved vow') {
-        // must live somewhere else (RemoteVow)
-        // todo: we make a normal Vow for now, but for pipelining we want a
-        // specialized form that can be told about non-resolving forwarding
-        val = new Flow().makeVow(XXX);
-        cacheVal = val;
-        cacheWebkey = webkey;
-      } else {
-        throw new Error(`makeFarResource() unknown webkey ${webkey}`);
-      }
-
-      const cacheWebkeyString = JSON.serialize(cacheWebkey);
-      webkeyString2val.set(cacheWebkeyString, cacheVal);
-      val2webkey.set(cacheVal, cacheWebkey);
-
-      return val;
     }
-    return makeFarResource;
   }
 
-  const marshal = makeWebkeyMarshal(makeLocalWebKey, makeFarResourceMaker);
+  function lostConnection(vatID) {
+    connections.delete(vatID);
+  }
+
+  const serializer = {
+    opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args, resolutionOf) {
+      if (outbound) { // todo: multiple connections
+        const bodyJson = marshal.serialize(def({op: 'send',
+                                                resultSwissbase: resultSwissbase,
+                                                targetSwissnum: targetSwissnum,
+                                                methodName: methodName,
+                                                args: args,
+                                               }),
+                                           resolutionOf);
+        // temp
+        outbound.push(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
+
+        // add to a per-targetVatID queue, and if we have a current
+        // connection, send it
+        if (!queuedMessages.has(targetVatID)) {
+          queuedMessages.set(targetVatID, []);
+        }
+        queuedMessages.get(targetVatID).push(bodyJson);
+        if (connections.has(targetVatID)) {
+          connections.get(targetVatID).send(bodyJson);
+        }
+      }
+    },
+
+    sendResolve(targetVatID, targetSwissnum, value, resolutionOf) {
+      if (outbound) { // todo: multiple connections
+        const argString = marshal.serialize(def({type: 'resolve',
+                                                 targetVatID: targetVatID, // todo goes away
+                                                 targetSwissnum: targetSwissnum,
+                                                 value: value,
+                                                 }),
+                                            resolutionOf);
+        outbound.push(`msg: ${myVatID}->${targetVatID} ${argString}\n`);
+      }
+    },
+
+    allocateSwissStuff() {
+      return marshal.allocateSwissStuff();
+    },
+
+    registerRemoteVow(vatID, swissnum, resultVow) {
+      marshal.registerRemoteVow(vatID, swissnum, resultVow);
+    },
+
+  };
+
+  const ext = Vow.resolve(makePresence(serializer, 'v2', 'swiss1'));
+
+  const marshal = makeWebkeyMarshal(myVatID, serializer);
   // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
   const e = confineGuestSource(initialSource,
@@ -337,7 +201,7 @@ export function makeVat(endowments, myVatID, initialSource) {
                                });
   //writeOutput(`load: ${initialSourceHash}`);
 
-  function processOp(op, resolver) {
+  function processOp(op) {
     if (op === '') {
       log(`empty op`);
       return;
@@ -348,6 +212,7 @@ export function makeVat(endowments, myVatID, initialSource) {
 //        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
 //      }
       log(`load matches, good`);
+      return;
     } else if (op.startsWith('msg: ')) {
       const m = msgre.exec(op);
       const fromVat = m[1];
@@ -358,19 +223,17 @@ export function makeVat(endowments, myVatID, initialSource) {
         writeOutput(op);
         const body = marshal.unserialize(bodyJson);
         log(`method ${body.method}`);
-        const result = e[body.method](...body.args);
-        //Vow.resolve(result).then(r => comms.sendResolve(sourceVatID, swissnum, marshal.serialize(r));
-        if (resolver) {
-          log('calling that resolver');
-          resolver(result);
-        }
+        return e[body.method](...body.args);
       }
     } else {
       log(`unknown op: ${op}`);
+      return undefined;
     }
   }
 
   const f = new Flow();
+
+  const resolveTable = new Map();
 
   return {
     check() {
@@ -381,14 +244,51 @@ export function makeVat(endowments, myVatID, initialSource) {
       outbound = p;
     },
 
-    sendOnlyReceived(op) {
-      log(`sendOnlyReceived ${op}`);
-      processOp(op);
+    commsReceived(senderVatID, bodyJson) {
+      log(`commsReceived ${line}`);
+      writeOutput(bodyJson);
+      const body = marshal.unserialize(bodyJson);
+      log(`op ${body.op}`);
+      if (body.op === 'send') {
+        const resolverSwissnum = HASH(body.resultSwissbase);
+        const targetWebkey = { type: 'presence',
+                               vatID: myVatID,
+                               swissnum: targetSwissnum };
+        const target =  getTargetObject(body.targetSwissnum);
+        let res, rej, success;
+        // todo maybe Vow.resolve(target).e.
+        try {
+          res = e[body.methodName](...body.args);
+          success = true;
+        } catch (rej) {
+          rej = rej;
+          success = false;
+        }
+        if (success) {
+          // todo: maybe just do Vow.resolve(res).then(...)
+          if (isVow(res)) {
+            res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res));
+          } else {
+            serializer.opResolve(senderVatID, resolverSwissnum, res);
+          }
+        } else {
+        }
+      }
     },
 
-    sendReceived(op) {
+    XXXsendOnlyReceived(op) {
+      log(`sendOnlyReceived ${op}`);
+        if (resolver) {
+          log('calling that resolver');
+          resolver(result);
+        }
+    },
+
+    sendReceived(op, sourceVatID, resultSwissbase) {
       // returns a promise
       log(`sendReceived ${op}`);
+      const result = processOp(op);
+      Vow.resolve(result).then(r => serializer.sendResolve(sourceVatID, resultSwissnum, marshal.serialize(r)));
       let resolver;
       const p = f.makeVow((resolve, reject) => resolver = resolve);
       processOp(op, resolver);

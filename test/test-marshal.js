@@ -10,39 +10,21 @@ test('marshal', async (t) => {
   const e = confineVatSource(s, code);
 
   function helpers() {
+    function serializer(x) {
+      log(x);
+    }
     const ref1 = { a() { return 1; } };
     const val = {
       empty: {},
       array1: [1,2],
       ref1,
       ref2: { a() { return 2; } },
-      nested1: {b: ref1, c: 3}
+      nested1: {b: ref1, c: 3},
+      serializer
     };
     return def(val);
   }
   const h = s.evaluate(`${helpers}; helpers()`);
-
-  function makeLocalWebKey(localObject, val2webkey, webkeyString2val, resolutionOf) {
-    if ("a" in localObject) {
-      // for testing, assume the object has a .a() method
-      return `wk${localObject.a()}`;
-    } else {
-      return 'wk0';
-    }
-  }
-
-  function makeFarResourceMaker(serialize, unserialize) {
-    function makeFarResource(webkey, webkeyString2val, val2webkey) {
-      if (webkey === 'fr1') {
-        return {farref: 123};
-      }
-      if (webkey === 'fr2') {
-        return {farref: 456};
-      }
-      throw new Error(`webkey not found: ${webkey}`);
-    }
-    return makeFarResource;
-  }
 
   function mdef(template, ...subs) {
     if (subs.length !== 0) {
@@ -51,7 +33,7 @@ test('marshal', async (t) => {
     return s.evaluate(`def(${template[0]})`);
   }
 
-  const m = e.makeWebkeyMarshal(makeLocalWebKey, makeFarResourceMaker);
+  const m = e.makeWebkeyMarshal('v1', h.serializer);
   t.equal(m.serialize(1), '1');
   t.equal(m.serialize('abc'), '"abc"');
   t.equal(m.serialize(true), 'true');
@@ -60,11 +42,11 @@ test('marshal', async (t) => {
 
   //const ref1 = mdef`{ a() { return 1; } }`;
 
-  // this stashes the array in the marshal's tables
-  t.equal(m.serialize(h.ref1), '{"@qclass":"webkey","webkey":"wk1"}');
+  // as a side effect, this stashes the object in the marshaller's tables
+  t.equal(m.serialize(h.ref1), '{"@qclass":"presence","vatID":"v1","swissnum":1}');
 
-  t.equal(m.serialize(h.empty), '{"@qclass":"webkey","webkey":"wk0"}');
-  t.equal(m.unserialize('{"@qclass":"webkey","webkey":"wk0"}'), h.empty);
+  t.equal(m.serialize(h.empty), '{"@qclass":"presence","vatID":"v1","swissnum":2}');
+  t.equal(m.unserialize('{"@qclass":"presence","vatID":"v1","swissnum":2}'), h.empty);
 
   // todo: what if the unserializer is given "{}"
 
@@ -75,9 +57,11 @@ test('marshal', async (t) => {
   const w1 = m.serialize(h.ref2); // wk2
   t.equal(m.unserialize(w1), h.ref2); // comes back out of the table
 
-  // far ref
-  t.deepEqual(m.unserialize('{"@qclass":"webkey","webkey":"fr1"}'),
-              { farref: 123 });
+  // Presence: we get an empty object, but it is registered in the Vow
+  // tables, and will roundtrip properly on the way back out
+  const p = m.unserialize('{"@qclass":"presence","vatID":"v2","swissnum":"sw44"}');
+  t.deepEqual(p, {});
+  t.equal(m.serialize(p), '{"@qclass":"presence","vatID":"v2","swissnum":"sw44"}');
 
   // JS primitives that aren't natively representable by JSON
   t.deepEqual(m.unserialize('{"@qclass":"undefined"}'), undefined);
@@ -98,7 +82,7 @@ test('marshal', async (t) => {
 
   // pass-by-copy can contain pass-by-reference
   const aser = m.serialize(h.nested1);
-  t.equal(aser, '{"b":{"@qclass":"webkey","webkey":"wk1"},"c":3}');
+  t.equal(aser, '{"b":{"@qclass":"presence","vatID":"v1","swissnum":1},"c":3}');
 
   t.end();
 });

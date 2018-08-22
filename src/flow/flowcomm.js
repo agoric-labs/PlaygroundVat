@@ -96,13 +96,11 @@ class UnresolvedHandler {
     this.blockedFlows = [];
   }
 
-  get isResolved() { // todo: this goes away
-    return false;
-  }
-
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
   fulfill(value) {
-    return this.directForward(new FulfilledHandler(value));
+    const rec = farVows.get(value);
+    const handler = rec ? rec.handler : new FulfilledHandler(value);
+    return this.directForward(handler);
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
@@ -144,10 +142,6 @@ class FulfilledHandler {
     this.value = value;
   }
 
-  get isResolved() { // todo: this goes away
-    return true;
-  }
-
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
   fulfill(value) {
     insist(false, 'Fulfill only applies to unresolved promise');
@@ -172,16 +166,14 @@ class FulfilledHandler {
 }
 def(FulfilledHandler);
 
-class FarHandler {
-  constructor(serializer, remoteData, presence) {
+class FarRemoteHandler {
+  constructor(serializer, vatID, swissnum, presence=null) {
     this.forwardedTo = null;
     this.serializer = serializer;
-    this.remoteData = remoteData;
-    this.value = presence;
-  }
-
-  get isResolved() { // todo: this goes away
-    return true;
+    this.vatID = vatID;
+    this.swissnum = swissnum;
+    this.value = presence; // note: other folks test for '.value', so don't rename it
+    //this.pendingResolves = 1;
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
@@ -213,98 +205,40 @@ class FarHandler {
       const { op, args } = todo.remote();
       // the serializer gets private access to resolutionOf(), which it uses
       // to build the right webkeys
-      this.serializer.sendOp(this.remoteData, op, args, resolutionOf);
-      /*
-      const v = new Flow().makeVow(new RemoteHandler(this.serializer, XXX, XXX));
-      const swissbase = allocateSwissbase();
-      const swissnum = hash(swissbase);
-      this.serializer.sendOp(this.remoteData, op. args, swissbase, resolutionOf);
-      */
-    } else {
-      // this could be a then() on a RemoteVow, which should cause a round
-      // trip to flush all the previous messages, but doesn't actually target
-      // the specific object
 
-      // todo: send roundtrip, not immediate
+      // construct a new Vow for the result, pointing at a FarHandler to the
+      // same vat as our own Presence target
+
+      const resData = this.serializer.allocateSwissStuff();
+
+      // create a synthetic RemoteVow, as if we'd received swissnum from
+      // targetvat. We register it with the comms tables so that when the
+      // other end sends their {type:'resolve'} message, it will cause this
+      // resultVow to resolve, and any queued messages we put into it will be
+      // delivered. We choose the swissnum because we're allocating the
+      // object, but we do it with a swissbase so we can't deliberately
+      // collide with anything currently allocated on the other end
+
+      const resultVow = makeUnresolvedRemoteVow(this.serializer, this.vatID,
+                                                resData.swissnum, flow);
+      this.serializer.registerRemoteVow(this.vatID, resData.swissnum, resultVow);
+
+      this.serializer.opSend(resData.swissbase, this.vatID, this.swissnum, op, args, resolutionOf);
+      return true;
+    } else {
+      // this is a then() on a RemoteVow, which should cause a round trip to
+      // flush all the previous messages, but doesn't actually target the
+      // specific object. todo: flow enforcement
+
+      // todo: opThen
+      //this.serializer.opThen(this.vatID, this.swissnum);
+
       scheduleTodo(this.value, todo);
+      return true;
     }
-    return true;
   }
 }
-def(FarHandler);
-
-/*
-class RemoteHandler {
-  constructor(serializer, remoteData, presence) {
-    this.forwardedTo = null;
-    this.serializer = serializer;
-    this.remoteData = remoteData;
-    this.value = presence;
-
-    // prepare for the reply
-    const swissbase = allocateSwissbase();
-    const swissnum = hash(swissbase);
-    serializer.registerResolver(swissnum, xx);
-
-    // create a synthetic RemoteVow, as if we'd received swissnum from targetvat
-
-    function XXX(targetVatID, swissnum, webkeyString2val, val2webkey) {
-      const val = new Flow().makeRemoteVow(XXX);
-      const webkey = { type: 'unresolved vow',
-                       vatID: targetVatID,
-                       swissnum: swissnum };
-      const webkeyString = JSON.serialize(webkey);
-      webkeyString2val.put(webkeyString, val);
-      val2webkey.put(val, webkey);
-      return val;
-    }
-
-  }
-
-  get isResolved() { // todo: this goes away
-    return true;
-  }
-
-  fulfill(value) {
-    insist(false, 'XXX');
-  }
-
-  forwardTo(valueInner, resolver) {
-    insist(false, 'XXX');
-  }
-
-  processBlockedFlows(blockedFlows) {
-    for (const flow of blockedFlows) {
-      flow.scheduleUnblocked();
-    }
-  }
-
-  processSingle(todo, flow) {
-    function isMessageSend(t) {
-      if (todo.remote) { // hack
-        return true;
-      } else {
-        return false;
-      }
-    }
-    if (isMessageSend(todo)) {
-      const { op, args } = todo.remote();
-      // the serializer gets private access to resolutionOf(), which it uses
-      // to build the right webkeys
-      this.serializer.sendOp(this.remoteData, op, args, resolutionOf);
-    } else {
-      // this could be a then() on a RemoteVow, which should cause a round
-      // trip to flush all the previous messages, but doesn't actually target
-      // the specific object
-
-      // todo: send roundtrip, not immediate
-      scheduleTodo(this.value, todo);
-    }
-    return true;
-  }
-}
-def(RemoteHandler);
-*/
+def(FarRemoteHandler);
 
 
 class InnerFlow {
@@ -369,7 +303,20 @@ function realInnerFlow(value) {
   return result;
 }
 
-const farVows = new WeakMap();
+const farVows = new WeakMap(); // maps Presence to { vatID, swissnum, handler }
+
+export function makePresence(serializer, vatID, swissnum) {
+  const presence = def({});
+  const handler = new FarRemoteHandler(serializer, vatID, swissnum, presence);
+  const rec = { vatID, swissnum, handler };
+  farVows.set(presence, rec);
+  return presence;
+}
+
+export function makeUnresolvedRemoteVow(serializer, vatID, swissnum, flow=new InnerFlow()) {
+  const handler = new FarRemoteHandler(serializer, vatID, swissnum);
+  return new Vow(flow, handler);
+}
 
 class Flow {
   constructor() {
@@ -384,13 +331,6 @@ class Flow {
     return new Vow(flow, innerResolver);
   }
 
-  makeFarVow(serializer, remoteData, p) {
-    const flow = realInnerFlow(this);
-    const handler = new FarHandler(serializer, remoteData, p);
-    const v = new Vow(flow, handler);
-    farVows.set(p, v);
-    return v;
-  }
 }
 def(Flow);
 
@@ -426,6 +366,8 @@ function makeResolver(innerResolver) {
       // the value is a promise; forward to it
       innerResolver = innerResolver.forwardTo(valueInner);
     } else {
+      // value might be a Presence, or local object, or received pass-by-copy
+      // object
       innerResolver = innerResolver.fulfill(value);
     }
   };
@@ -565,9 +507,8 @@ class Vow {
     if (isVow(val)) {
       return val;
     }
-    if (farVows.has(val)) {
-      return farVows.get(val); // presence
-    }
+    // todo this could be more efficient by looking at farVows[val] and
+    // grabbing the handler directly
     const f = new Flow();
     return f.makeVow((resolve, reject) => resolve(val));
   }
