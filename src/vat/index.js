@@ -147,14 +147,16 @@ export function makeVat(endowments, myVatID, initialSource) {
   const serializer = {
     opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
            resolutionOf) {
+      const bodyJson = marshal.serialize(def({op: 'send',
+                                              resultSwissbase: resultSwissbase,
+                                              targetSwissnum: targetSwissnum,
+                                              methodName: methodName,
+                                              args: args,
+                                             }),
+                                         resolutionOf);
+      writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
+
       if (outbound) { // todo: multiple connections
-        const bodyJson = marshal.serialize(def({op: 'send',
-                                                resultSwissbase: resultSwissbase,
-                                                targetSwissnum: targetSwissnum,
-                                                methodName: methodName,
-                                                args: args,
-                                               }),
-                                           resolutionOf);
         // temp
         outbound.push(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
 

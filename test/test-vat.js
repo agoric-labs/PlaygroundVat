@@ -61,13 +61,31 @@ test('confineVatSource', (t) => {
   t.end();
 });
 
+function makeTranscript() {
+  const lines = [];
+  const waiters = [];
+
+  return {
+    writeOutput(line) {
+      lines.push(line);
+      const w = waiters.shift();
+      if (w) {
+        w(line);
+      }
+    },
+
+    lines,
+
+    wait() {
+      return new Promise(r => waiters.push(r));
+    },
+  };
+}
+
 test('methods can send messages', async (t) => {
-  const outputTranscript = [];
-  function writeOutput(line) {
-    outputTranscript.push(line);
-  }
+  const tr = makeTranscript();
   const s = makeRealm();
-  const v = await buildVat(s, 'v1', writeOutput, funcToSource(s2));
+  const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
 
   const bodyJson = JSON.stringify({op: 'send',
                                    targetSwissnum: 0,
@@ -76,23 +94,26 @@ test('methods can send messages', async (t) => {
                                            vatID: 'vat2',
                                            swissnum: 123
                                           }]});
-  const p = v.doSendOnly(bodyJson);
-  console.log(`transcript is ${outputTranscript}`);
-  // todo: there needs to be something in the transcript
-  await p;
-  console.log(`transcript is ${outputTranscript}`);
-  t.equal(outputTranscript.length, 1);
+  await v.doSendOnly(bodyJson);
+  console.log(`transcript is ${tr.lines}`);
+  t.equal(tr.lines.length, 1);
+  const pieces = tr.lines[0].split(' '); // cheap
+  t.equal(pieces[0], 'msg:');
+  t.equal(pieces[1], 'v1->vat2');
+  const args = JSON.parse(pieces[2]);
+  t.equal(args.op, 'send');
+  t.equal(args.targetSwissnum, 123);
+  t.equal(args.methodName, 'foo');
+  t.deepEqual(args.args, ['arg1', 'arg2']);
+  t.equal(args.resultSwissbase, 'base-1'); // todo: this will become random
 
   t.end();
 });
 
 test('methods can return a promise', async (t) => {
-  const outputTranscript = [];
-  function writeOutput(line) {
-    outputTranscript.push(line);
-  }
+  const tr = makeTranscript();
   const s = makeRealm();
-  const v = await buildVat(s, 'v1', writeOutput, funcToSource(s2));
+  const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
 
   let result = false;
   const op1 = {op: 'send',
