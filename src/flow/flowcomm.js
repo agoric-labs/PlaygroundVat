@@ -390,7 +390,7 @@ function getInnerVow(value) {
   return vowToInner.get(value);
 }
 
-function resolutionOf(value) {
+export function resolutionOf(value) {
   const inner = getInnerVow(value);
   if (!inner) {
     return undefined;

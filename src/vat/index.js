@@ -5,6 +5,7 @@
 
 import { makeWebkeyMarshal, doSwissHashing } from './webkey';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
+import { resolutionOf } from '../flow/flowcomm'; // todo unclean
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -144,7 +145,8 @@ export function makeVat(endowments, myVatID, initialSource) {
   }
 
   const serializer = {
-    opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args, resolutionOf) {
+    opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
+           resolutionOf) {
       if (outbound) { // todo: multiple connections
         const bodyJson = marshal.serialize(def({op: 'send',
                                                 resultSwissbase: resultSwissbase,
@@ -200,7 +202,8 @@ export function makeVat(endowments, myVatID, initialSource) {
                                  ext
                                });
   //writeOutput(`load: ${initialSourceHash}`);
-  marshal.registerTarget(0, e, resolutionOf);
+  marshal.registerTarget(0, e, resolutionOf); // TODO
+  //marshal.registerTarget(0, e, (v) => undefined);
 
   /*
   function processOp(op) {
