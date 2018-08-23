@@ -78,7 +78,7 @@ async function run(argv) {
   const opTranscript = fs.readFileSync(argv.input).toString('utf8');
   const ops = opTranscript.split('\n');
   for(let op of ops) {
-    v.sendOnlyReceived(op);
+    v.executeTranscriptLine(op);
   }
 
   // create a JSON peer-id record (private key, public key, id=hash(pubkey))

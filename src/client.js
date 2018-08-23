@@ -51,7 +51,7 @@ function asp(numVals, errFirst=false) {
   return { p, cb };
 }
 
-export async function connect(addr, commandfile) {
+export async function connect(myVatID, addr, commandfile) {
   console.log(`connect(${addr}), ${commandfile}`);
   const id = await promisify(PeerId.create)();
   console.log(`id: ${id}`);
@@ -86,7 +86,7 @@ export async function connect(addr, commandfile) {
                               //conn.end();
                               doner();
                              });
-  s2.push('line1');
+  s2.push(`set-vatID ${myVatID}`);
   if (commandfile) {
     const opTranscript = fs.readFileSync(commandfile).toString('utf8');
     const ops = opTranscript.split('\n');
@@ -128,10 +128,10 @@ export async function connect(addr, commandfile) {
 
 export async function main() {
   yargs
-    .command('run <addr> [commandfile]', 'connect to a vat server',
+    .command('run <myVatID> <addr> [commandfile]', 'connect to a vat server',
              (y) => {},
              (args) => {
-               connect(args.addr, args.commandfile);
+               connect(args.myVatID, args.addr, args.commandfile);
              })
     .parse();
   // done

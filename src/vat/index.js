@@ -26,13 +26,9 @@ function confineGuestSource(source, endowments) {
 }
 
 export function makeVat(endowments, myVatID, initialSource) {
-  const { writeOutput } = endowments;
 
   // We have one serializer/deserializer for each locally-hosted Vat, so
   // it shared among all peer Vats.
-
-
-  let outbound;
 
   // A FarVow (specifically a Vow in the 'far' state) can be used to send
   // remote messages: v.e.foo(1,2) will queue an invocation of
@@ -122,7 +118,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   const connections = new Map();
 
   function gotConnection(vatID, connection) {
-    connections.put(vatID, connection);
+    connections.set(vatID, connection);
     if (queuedMessages.has(vatID)) {
       for (let msg of queuedMessages.get(vatID)) {
         connection.send(msg);
@@ -132,6 +128,19 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   function lostConnection(vatID) {
     connections.delete(vatID);
+  }
+
+  function sendTo(vatID, msg) {
+    // add to a per-targetVatID queue, and if we have a current connection,
+    // send it
+    log(`sendTo ${vatID} ${msg}`);
+    if (!queuedMessages.has(vatID)) {
+      queuedMessages.set(vatID, []);
+    }
+    queuedMessages.get(vatID).push(msg);
+    if (connections.has(vatID)) {
+      connections.get(vatID).send(msg);
+    }
   }
 
   const serializer = {
@@ -144,22 +153,8 @@ export function makeVat(endowments, myVatID, initialSource) {
                                               args: args,
                                              }),
                                          resolutionOf);
-      writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-
-      if (outbound) { // todo: multiple connections
-        // temp
-        outbound.push(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-
-        // add to a per-targetVatID queue, and if we have a current
-        // connection, send it
-        if (!queuedMessages.has(targetVatID)) {
-          queuedMessages.set(targetVatID, []);
-        }
-        queuedMessages.get(targetVatID).push(bodyJson);
-        if (connections.has(targetVatID)) {
-          connections.get(targetVatID).send(bodyJson);
-        }
-      }
+      endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
+      sendTo(targetVatID, bodyJson);
     },
 
     opResolve(targetVatID, targetSwissnum, value, resolutionOf) {
@@ -170,10 +165,8 @@ export function makeVat(endowments, myVatID, initialSource) {
                                               value: value,
                                              }),
                                          resolutionOf);
-      writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-      if (outbound) { // todo: multiple connections
-        outbound.push(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-      }
+      endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
+      sendTo(targetVatID, bodyJson);
     },
 
     allocateSwissStuff() {
@@ -195,41 +188,9 @@ export function makeVat(endowments, myVatID, initialSource) {
                                { isVow, asVow, Flow, Vow,
                                  ext
                                });
-  //writeOutput(`load: ${initialSourceHash}`);
+  //endowments.writeOutput(`load: ${initialSourceHash}`);
   marshal.registerTarget(e, 0, resolutionOf); // TODO
   //marshal.registerTarget(e, 0, (v) => undefined);
-
-  /*
-  function processOp(op) {
-    if (op === '') {
-      log(`empty op`);
-      return;
-    }
-    if (op.startsWith('load: ')) {
-      const arg = /^load: (\w+)$/.exec(op)[1];
-//      if (arg !== initialSourceHash) {
-//        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
-//      }
-      log(`load matches, good`);
-      return;
-    } else if (op.startsWith('msg: ')) {
-      const m = msgre.exec(op);
-      const fromVat = m[1];
-      const toVat = m[2];
-      const bodyJson = m[3];
-      log(`msg ${fromVat} ${toVat} (i am ${myVatID})`);
-      if (toVat === myVatID) {
-        writeOutput(op);
-        const body = marshal.unserialize(bodyJson);
-        log(`method ${body.method}`);
-        return e[body.method](...body.args);
-      }
-    } else {
-      log(`unknown op: ${op}`);
-      return undefined;
-    }
-  }
-  */
 
   function doSendInternal(body) {
     const target = marshal.getMyTargetBySwissnum(body.targetSwissnum);
@@ -241,9 +202,54 @@ export function makeVat(endowments, myVatID, initialSource) {
     return Vow.resolve(target).e[body.methodName](...body.args);
   }
 
+  // This is the host's interface to the Vat. It must act as a sort of
+  // airlock: host objects passed into these functions should not be exposed
+  // to other code, to avoid accidentally exposing primal-realm
+  // Object/Function/etc.
+
+  function commsReceived(senderVatID, bodyJson) {
+    senderVatID = `${senderVatID}`;
+    bodyJson = `${bodyJson}`;
+    log(`commsReceived ${senderVatID}, ${bodyJson}`);
+    endowments.writeOutput(`msgx ${senderVatID}->${myVatID} ${bodyJson}`);
+    const body = marshal.unserialize(bodyJson);
+    log(`op ${body.op}`);
+    if (body.op === 'send') {
+      const res = doSendInternal(body);
+      if (body.resultSwissbase) {
+        const resolverSwissnum = doSwissHashing(body.resultSwissbase);
+        marshal.registerTarget(res, resolverSwissnum, resolutionOf);
+        const done = res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
+                              rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
+        // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
+        return done; // for testing, to wait until things are done
+      }
+      // else it was really a sendOnly
+      log(`commsReceived got sendOnly, dropping result`);
+      return res; // for testing
+    } else if (body.op === `resolve`) {
+      log(`opResolve: TODO`);
+    }
+    return undefined;
+  }
+
   return {
     check() {
       log('yes check');
+    },
+
+    connectionMade(vatID, connection) {
+      log(`connectionMade for ${vatID}`);
+      const c = {
+        send(msg) {
+          connection.send(msg);
+        }
+      };
+      gotConnection(`${vatID}`, c);
+    },
+
+    connectionLost(vatID) {
+      lostConnection(`${vatID}`);
     },
 
     registerPush(p) {
@@ -259,29 +265,33 @@ export function makeVat(endowments, myVatID, initialSource) {
       return doSendInternal(body);
     },
 
-    commsReceived(senderVatID, bodyJson) {
-      log(`commsReceived ${senderVatID}, ${bodyJson}`);
-      writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
-      const body = marshal.unserialize(bodyJson);
-      log(`op ${body.op}`);
-      if (body.op === 'send') {
-        const res = doSendInternal(body);
-        if (body.resultSwissbase) {
-          const resolverSwissnum = doSwissHashing(body.resultSwissbase);
-          marshal.registerTarget(res, resolverSwissnum, resolutionOf);
-          const done = res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
-                                rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
-          // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
-          return done; // for testing, to wait until things are done
-        }
-        // else it was really a sendOnly
-        log(`commsReceived got sendOnly, dropping result`);
-        return res; // for testing
-      } else if (body.op === `resolve`) {
-        log(`opResolve: TODO`);
+    executeTranscriptLine(line) {
+      if (line === '') {
+        log(`empty line`);
+        return;
       }
-      return undefined;
+      if (line.startsWith('load: ')) {
+        const arg = /^load: (\w+)$/.exec(line)[1];
+        //      if (arg !== initialSourceHash) {
+        //        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
+        //      }
+        log(`load matches, good`);
+      } else if (line.startsWith('msg: ')) {
+        const m = msgre.exec(line);
+        const fromVat = m[1];
+        const toVat = m[2];
+        const bodyJson = m[3];
+        log(`transcript msg ${fromVat} ${toVat} (i am ${myVatID})`);
+        if (toVat === myVatID) {
+          endowments.writeOutput(line);
+          commsReceived(fromVat, bodyJson);
+        }
+      } else {
+        log(`unknown line: ${line}`);
+      }
     },
+
+    commsReceived,
 
     /*
     sendReceived(op, sourceVatID, resultSwissbase) {

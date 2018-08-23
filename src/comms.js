@@ -57,6 +57,8 @@ export async function makeComms(vinfoJson, vat) {
   });
   n.handle('/vattp-hack/0.1', (protocol, conn) => {
     console.log(`got ${protocol} connection`);
+    //const vatID = 'VATID??';
+
     /*conn.getPeerInfo((err, pi) => {
       // I think plain TCP sockets don't have peerinfo
       if (err) {
@@ -69,25 +71,44 @@ export async function makeComms(vinfoJson, vat) {
       console.log(` from ${ma}`);
     });
 
-    pullStream(conn,
-               pullSplit('\n'),
-               pullStream.map(line => {
-                 console.log(`got line '${line}'`);
-                 if (line) {
-                   const sender = null;
-                   vat.commsReceived(sender, line);
-                 }
-               }),
-               pullStream.drain()
-              );
-
     const push = Pushable();
-    vat.registerPush(push);
     pullStream(push, conn,
                /*pullStream.collect((err, data) => {
                  if (err) { throw err; }
                  console.log('received echo:', data.toString());
                }*/);
+    const c = {
+      send(msg) {
+        console.log(`send/push ${msg}`);
+        push.push(`${msg}`);
+      }
+    };
+
+    // for now, the first line must start with 'set-vatID ' and then a vatID.
+    // We defer connectionMade until we hear what vat the peer is pretending
+    // to be
+    let vatID;
+    //vat.connectionMade(vatID, c);
+
+    pullStream(conn,
+               pullSplit('\n'),
+               pullStream.map(line => {
+                 console.log(`got line '${line}'`);
+                 if (!line)
+                   return;
+                 if (!vatID) {
+                   if (!line.startsWith('set-vatID ')) {
+                     throw new Error('first comms line must be "set-vatID $VATID"');
+                   }
+                   vatID = line.split(' ')[1];
+                   console.log(`comms set vatID to ${vatID}`);
+                   vat.connectionMade(vatID, c);
+                 } else {
+                   vat.commsReceived(vatID, line);
+                 }
+               }),
+               pullStream.drain()
+              );
 
   });
   let a = asp(0);
