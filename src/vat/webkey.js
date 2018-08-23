@@ -79,6 +79,10 @@ function insist(condition, exception) {
   }
 }
 
+export function doSwissHashing(base) {
+  return `hash-of-${base}`; // todo hahaha
+}
+
 export function makeWebkeyMarshal(myVatID, serializer) {
 
   // val might be a primitive, a pass by (shallow) copy object, a
@@ -97,7 +101,8 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     return JSON.stringify({vatID: data.vatID, swissnum: data.swissnum});
   }
 
-  // Record: { optObj, optVow, optVatID, swissnum, serialized }
+  // Record: { value, vatID, swissnum, serialized }
+  // holds both objects (pass-by-presence) and unresolved promises
   const val2Record = new WeakMap();
   const webkey2Record = new Map();
 
@@ -114,11 +119,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     return swissbase;
   }
 
-  function doSwissHashing(base) {
-    return `hash-of-${base}`; // todo hahaha
-  }
-
-  function serializePassByPresence(val, resolutionOf) {
+  function serializePassByPresence(val, resolutionOf, swissnum=null) {
     // we are responsible for new serialization of pass-by-presence objects
 
     // We are responsible for serializing (or finding previous serializations
@@ -148,6 +149,8 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     // * presence (resolved to pass-by-reference)
     // * other (resolved to pass-by-copy)
 
+    let type;
+
     if (isVow(val)) {
       const r = resolutionOf(val);
       if (r) {
@@ -163,41 +166,30 @@ export function makeWebkeyMarshal(myVatID, serializer) {
         });
       }
 
-      // todo: this could maybe be combined with below
-
       // unresolved Vows are send as QCLASS: unresolvedVow, with a vatID and
       // swissnum. 'val' wasn't in the val2Record table, so this must be the
       // first time we've seen this Vow (coming or going), so it must be a
       // LocalVow or NearVow, and we need to allocate a swissnum and put it
       // in the table.
-      const swissnum = allocateSwissnum();
-      const rec = def({ optVow: val,
-                        optVatID: myVatID, // LocalVow/NearVow are mine
-                        swissnum: swissnum,
-                        serialized: {
-                          [QCLASS]: 'unresolvedVow',
-                          vatID: myVatID,
-                          swissnum: swissnum
-                        }
-                      });
-      val2Record.set(val, rec);
-      const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
-      webkey2Record.set(key, rec);
-      return rec.serialized;
+      type = 'unresolvedVow';
+    } else {
+      // non-Vows. This will only be local pass-by-presence objects that we
+      // haven't already sent, because the other pass-by-presence is a Presence
+      // and these will have already been added to val2Record. (we must add
+      // them upon receipt, because a Presence otherwise looks like
+      // pass-by-copy)
+      type = 'presence';
     }
 
-    // non-Vows. This will only be local pass-by-presence objects that we
-    // haven't already sent, because the other pass-by-presence is a Presence
-    // and these will have already been added to val2Record. (we must add
-    // them upon receipt, because a Presence otherwise looks like
-    // pass-by-copy)
+    if (typeof swissnum === 'undefined') {
+      swissnum = allocateSwissnum();
+    }
 
-    const swissnum = allocateSwissnum();
-    const rec = def({ optObj: val,
-                      optVatID: myVatID, // local objects are mine
+    const rec = def({ value: val,
+                      vatID: myVatID,
                       swissnum: swissnum,
                       serialized: {
-                        [QCLASS]: 'presence',
+                        [QCLASS]: type,
                         vatID: myVatID,
                         swissnum: swissnum
                       }
@@ -378,7 +370,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     const key = makeWebkey(data);
     if (webkey2Record.has(key)) {
       log(` found previous`);
-      return webkey2Record.get(key).optObj;
+      return webkey2Record.get(key).value;
     }
     log(` did not find previous`);
     for (let k of webkey2Record.keys()) {
@@ -387,8 +379,8 @@ export function makeWebkeyMarshal(myVatID, serializer) {
 
     // todo: maybe pre-generate the FarVow and stash it for quick access
     const p = makePresence(serializer, data.vatID, data.swissnum);
-    const rec = def({ optObj: p,
-                      optVatID: data.vatID,
+    const rec = def({ value: p,
+                      vatID: data.vatID,
                       swissnum: data.swissnum,
                       serialized: data });
     val2Record.set(p, rec);
@@ -405,11 +397,11 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   function unserializeUnresolvedVow(data) {
     const key = makeWebkey(data);
     if (webkey2Record.has(key)) {
-      return webkey2Record.get(key).optVow;
+      return webkey2Record.get(key).value;
     }
     const v = makeUnresolvedRemoteVow(serializer, data.vatID, data.swissnum);
-    const rec = def({ optVow: v,
-                      optVatID: data.vatID,
+    const rec = def({ value: v,
+                      vatID: data.vatID,
                       swissnum: data.swissnum,
                       serialized: data });
     val2Record.set(v, rec);
@@ -499,6 +491,19 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     return { swissbase, swissnum };
   }
 
+  function registerTarget(swissnum, val, resolutionOf) {
+    serializePassByPresence(val, resolutionOf);
+  }
+
+  function getMyTargetBySwissnum(swissnum) {
+    const key = makeWebkey({vatID: myVatID, swissnum});
+    const rec = webkey2Record(key);
+    if (rec) {
+      return rec.value;
+    }
+    return undefined;
+  }
+
   function registerRemoteVow(targetVatID, swissnum, val) {
     const rec = def({ optVow: val,
                       optVatID: targetVatID,
@@ -515,5 +520,6 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   return def({serialize, unserialize, serializeToWebkey, unserializeWebkey,
-              allocateSwissStuff, registerRemoteVow});
+              allocateSwissStuff, registerRemoteVow, getMyTargetBySwissnum,
+              registerTarget});
 }

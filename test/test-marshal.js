@@ -105,17 +105,19 @@ function s1() {
 test('deliver farref to vat', async (t) => {
   const s = makeRealm();
   const v = await buildVat(s, 'v1', () => {}, funcToSource(s1));
-  const args = JSON.stringify({method: 'run',
-                               args: [{'@qclass': 'webkey',
-                                       webkey: { type: 'presence',
-                                                 vatID: 'vat2',
-                                                 count: 123
-                                               }
-                                      }]});
+  const bodyJson = JSON.stringify({op: 'send',
+                                   targetSwissnum: 0,
+                                   methodName: 'run',
+                                   args: [{'@qclass': 'presence',
+                                           vatID: 'vat2',
+                                           swissnum: 123
+                                          }]});
 
-  const r = await v.sendReceived(`msg: v2->v1 ${args}`);
-  // that should be a Presence instance. for now we only look at the contents
-  t.deepEqual(r, { vatID: 'vat2', count: 123 });
+  const { res, rej, success } = v.doSendOnly(bodyJson);
+  // that should be a Presence instance, which looks like an empty object,
+  // but roundtrips correctly
+  t.deepEqual(res, {});
+  t.deepEqual(v.serialize(res), '{"@qclass":"presence","vatID":"vat2","swissnum":123}');
 
   t.end();
 });

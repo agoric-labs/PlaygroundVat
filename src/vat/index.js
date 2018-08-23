@@ -3,7 +3,7 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
-import { makeWebkeyMarshal } from './webkey';
+import { makeWebkeyMarshal, doSwissHashing } from './webkey';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
@@ -168,7 +168,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       }
     },
 
-    sendResolve(targetVatID, targetSwissnum, value, resolutionOf) {
+    opResolve(targetVatID, targetSwissnum, value, resolutionOf) {
       if (outbound) { // todo: multiple connections
         const argString = marshal.serialize(def({type: 'resolve',
                                                  targetVatID: targetVatID, // todo goes away
@@ -200,7 +200,9 @@ export function makeVat(endowments, myVatID, initialSource) {
                                  ext
                                });
   //writeOutput(`load: ${initialSourceHash}`);
+  marshal.registerTarget(0, e, resolutionOf);
 
+  /*
   function processOp(op) {
     if (op === '') {
       log(`empty op`);
@@ -230,10 +232,18 @@ export function makeVat(endowments, myVatID, initialSource) {
       return undefined;
     }
   }
+  */
 
-  const f = new Flow();
-
-  const resolveTable = new Map();
+  function doSendInternal(bodyJson) {
+    const body = marshal.unserialize(bodyJson);
+    const target = marshal.getMyTargetBySwissnum(body.targetSwissnum);
+    if (!target) {
+      throw new Error('unrecognized target swissnum');
+    }
+    // todo: sometimes causes turn delay, could fastpath if target is
+    // resolved
+    return Vow.resolve(target).e[body.methodName](...body.args);
+  }
 
   return {
     check() {
@@ -244,46 +254,33 @@ export function makeVat(endowments, myVatID, initialSource) {
       outbound = p;
     },
 
+    serialize(val) {
+      return marshal.serialize(val);
+    },
+
+    doSendOnly(bodyJson) {
+      const body = marshal.unserialize(bodyJson);
+      return doSendInternal(body);
+    },
+
     commsReceived(senderVatID, bodyJson) {
-      log(`commsReceived ${line}`);
-      writeOutput(bodyJson);
+      log(`commsReceived ${senderVatID}, ${bodyJson}`);
+      writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
       const body = marshal.unserialize(bodyJson);
       log(`op ${body.op}`);
       if (body.op === 'send') {
-        const resolverSwissnum = HASH(body.resultSwissbase);
-        const targetWebkey = { type: 'presence',
-                               vatID: myVatID,
-                               swissnum: targetSwissnum };
-        const target =  getTargetObject(body.targetSwissnum);
-        let res, rej, success;
-        // todo maybe Vow.resolve(target).e.
-        try {
-          res = e[body.methodName](...body.args);
-          success = true;
-        } catch (rej) {
-          rej = rej;
-          success = false;
-        }
-        if (success) {
-          // todo: maybe just do Vow.resolve(res).then(...)
-          if (isVow(res)) {
-            res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res));
-          } else {
-            serializer.opResolve(senderVatID, resolverSwissnum, res);
-          }
-        } else {
-        }
+        const res = doSendInternal(body);
+        const resolverSwissnum = doSwissHashing(body.resultSwissbase);
+        marshal.registerTarget(res, resolverSwissnum, resolutionOf);
+        res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
+                 rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
+        // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
+      } else if (body.op === `resolve`) {
+        log(`opResolve: TODO`);
       }
     },
 
-    XXXsendOnlyReceived(op) {
-      log(`sendOnlyReceived ${op}`);
-        if (resolver) {
-          log('calling that resolver');
-          resolver(result);
-        }
-    },
-
+    /*
     sendReceived(op, sourceVatID, resultSwissbase) {
       // returns a promise
       log(`sendReceived ${op}`);
@@ -293,7 +290,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       const p = f.makeVow((resolve, reject) => resolver = resolve);
       processOp(op, resolver);
       return p;
-    }
+    }*/
   };
 }
 

@@ -27,10 +27,17 @@ function s2() {
   const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
   //log('i got here');
 
+  exports.send = (target) => {
+    log('IN SEND');
+    Vow.resolve(target).e.foo('arg1', 'arg2');
+    log('DID SEND');
+  };
+
   exports.wait = () => {
     //log('in wait');
     return p1;
   };
+
   exports.fire = (arg) => {
     //log('in fire');
     resolver1(arg);
@@ -53,6 +60,28 @@ test('confineVatSource', (t) => {
   t.equal(e.increment(), 1);
   t.equal(e.increment(), 2);
   t.equal(e.decrement(), 1);
+  t.end();
+});
+
+test('methods can send messages', async (t) => {
+  const outputTranscript = [];
+  function writeOutput(line) {
+    outputTranscript.push(line);
+  }
+  const s = makeRealm();
+  const v = await buildVat(s, 'v1', writeOutput, funcToSource(s2));
+
+  const bodyJson = JSON.stringify({op: 'send',
+                                   targetSwissnum: 0,
+                                   methodName: 'send',
+                                   args: [{'@qclass': 'presence',
+                                           vatID: 'vat2',
+                                           swissnum: 123
+                                          }]});
+  const p = v.doSendOnly(bodyJson);
+  console.log(outputTranscript);
+
+
   t.end();
 });
 

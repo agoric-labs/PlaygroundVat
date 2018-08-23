@@ -5,7 +5,7 @@ test('tape works', t => {
   t.end();
 });
 
-import Flow from '../src/flow/flowcomm';
+import { Flow, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
 
 function delay(fn) {
   Promise.resolve(null).then(fn);
@@ -108,3 +108,28 @@ test('all flow', t => {
 });
 
 
+test('remote vow', t => {
+  const results = [];
+  const serializer = {
+    allocateSwissStuff() {
+      return { swissbase: 'base1', swissnum: 'num1' };
+    },
+    registerRemoteVow(targetVatID, swissnum, val) {
+      console.log(`registerRemoteVow: ${targetVatID}, ${swissnum}, ${val}`);
+    },
+    opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args, resolutionOf) {
+      results.push({resultSwissbase, targetVatID, targetSwissnum, methodName, args});
+    }
+  };
+  const v1 = makeUnresolvedRemoteVow(serializer, 'vat1', 'swiss1');
+  v1.e.foo('arg1', 'arg2');
+
+  t.deepEqual(results, [ { resultSwissbase: 'base1',
+                           targetVatID: 'vat1',
+                           targetSwissnum: 'swiss1',
+                           methodName: 'foo',
+                           args: [ 'arg1', 'arg2' ],
+                         } ]);
+
+  t.end();
+});
