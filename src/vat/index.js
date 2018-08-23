@@ -28,16 +28,6 @@ function confineGuestSource(source, endowments) {
 export function makeVat(endowments, myVatID, initialSource) {
   const { writeOutput } = endowments;
 
-  // manually create an object that represents a Far reference, wire it up to
-  // write some "message" to writeOutput() when invoked, and then let the
-  // guest code invoke it. This object is a nanoq Q-style 'far' promise.
-
-  const relay = {
-    POST(_p, key, args) {
-      writeOutput(`POST: ${key}, ${args}`);
-    }
-  };
-
   // We have one serializer/deserializer for each locally-hosted Vat, so
   // it shared among all peer Vats.
 
