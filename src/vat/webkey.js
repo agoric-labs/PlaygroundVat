@@ -1,62 +1,265 @@
+import { Vow, isVow, Flow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
 
-const passByCopyRecords = new WeakSet();
+// objects can only be passed in one of two/three forms:
+// 1: pass-by-presence: all properties (own and inherited) are methods,
+//    the object itself is of type object, not function
+// 2: pass-by-copy: all string-named own properties are data, not methods
+//    the object must inherit from Object.prototype or null
+// 3: the empty object is pass-by-presence, for identity comparison
 
-export function isPassByCopy(record) {
-  return Object(record) !== record || passByCopyRecords.has(record);
+// todo: maybe rename pass-by-presence to pass-as-presence, or pass-by-proxy
+// or remote reference
+
+// all objects must be frozen
+
+// anything else will throw an error if you try to serialize it
+
+// with these restrictions, our remote call/copy protocols expose all useful
+// behavior of these objects: pass-by-presence objects have no other data (so
+// there's nothing else to copy), and pass-by-copy objects have no other
+// behavior (so there's nothing else to invoke)
+
+function canPassByCopy(val) {
+  if (!Object.isFrozen(val)) {
+    return false;
+  }
+  if (typeof val !== 'object') {
+    return false;
+  }
+  const names = Object.getOwnPropertyNames(val);
+  for (let name of names) {
+    if (typeof val[name] === 'function') {
+      return false;
+    }
+  }
+  const p = Object.getPrototypeOf(val);
+  if (p !== null && p !== Object.prototype && p !== Array.prototype) {
+    // todo: arrays should also be Array.isArray(val)
+    return false;
+  }
+  if (names.length === 0) {
+    // empty objects are pass-by-presence, not pass-by-copy
+    return false;
+  }
+  return true;
 }
 
-export function passByCopy(record) {
-  if (isPassByCopy(record)) { return record; }
-  if (Object.isFrozen(record)) {
-    throw new TypeError(`already frozen`);
+function mustPassByPresence(val) { // throws exception if cannot
+  if (!Object.isFrozen(val)) {
+    throw new Error(`cannot serialize non-frozen objects like ${val}`);
   }
-  Object.freeze(record);
-  if (!Object.isFrozen(record)) {
-    throw new TypeError(`failed to freeze`);
+  if (typeof val !== 'object') {
+    throw new Error(`cannot serialize non-objects like ${val}`);
   }
-  passByCopyRecords.add(record);
-  return record;
+  for (let name of Object.getOwnPropertyNames(val)) {
+    if (name === 'e') {
+      // hack to allow Vows to pass-by-presence
+      continue;
+    }
+    if (typeof val[name] !== 'function') {
+      throw new Error(`cannot serialize objects with non-methods like the .${name} in ${val}`);
+      return false;
+    }
+  }
+  const p = Object.getPrototypeOf(val);
+  if (p !== null && p !== Object.prototype) {
+    mustPassByPresence(p);
+  }
+  // ok!
 }
+
 
 // Special property name that indicates an encoding that needs special
 // decoding.
 const QCLASS = '@qclass';
 
+function insist(condition, exception) {
+  if (!condition) {
+    throw exception;
+  }
+}
 
-// makeLocalWebkey(localObject) -> webkey to be honored by this vat.
-// makeFarResourceMaker(serialize, unserialize) -> makeFarResource
-// makeFarResource(webkey) -> far reference to another vat
-//
-export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
+export function doSwissHashing(base) {
+  return `hash-of-${base}`; // todo hahaha
+}
+
+export function makeWebkeyMarshal(myVatID, serializer) {
 
   // val might be a primitive, a pass by (shallow) copy object, a
   // remote reference, or other.  We treat all other as a local object
   // to be exported as a local webkey.
-  function serialize(val) {
-    return JSON.stringify(val, makeReplacer());
+  function serialize(val, resolutionOf) {
+    return JSON.stringify(val, makeReplacer(resolutionOf));
   }
 
   function unserialize(str) {
     return JSON.parse(str, makeReviver());
   }
 
-  const val2webkey = new WeakMap();
-  const webkey2val = new Map();
+  function makeWebkey(data) {
+    // todo: use a cheaper (but still safe/reversible) combiner
+    return JSON.stringify({vatID: data.vatID, swissnum: data.swissnum});
+  }
 
-  function makeReplacer() {
+  // Record: { value, vatID, swissnum, serialized }
+  // holds both objects (pass-by-presence) and unresolved promises
+  const val2Record = new WeakMap();
+  const webkey2Record = new Map();
+
+  let fakeSwissCounter = 0;
+  function allocateSwissnum() {
+    fakeSwissCounter += 1;
+    const swissnum = fakeSwissCounter; // todo: random, of course
+    return swissnum;
+  }
+
+  function allocateSwissbase() {
+    fakeSwissCounter += 1;
+    const swissbase = `base-${fakeSwissCounter}`; // todo: random, of course
+    return swissbase;
+  }
+
+  function serializePassByPresence(val, resolutionOf, swissnum=undefined) {
+    // we are responsible for new serialization of pass-by-presence objects
+
+    // We are responsible for serializing (or finding previous serializations
+    // of) all pass-by-presence objects, and maintaining the bidirectional
+    // tables we share with the deserializer. There are seven categories. The
+    // first two are not Vows (but can be obtained from Vows by using a
+    // .then() callback):
+    //
+    // | resolved? | home   | .then()  | webkey.type |
+    // |-----------+--------+----------+-------------|
+    // | yes       | local  | object   | presence    |
+    // | yes       | remote | Presence | presence    |
+    //
+    // Local objects might already be in the table (if we sent them earlier),
+    // but if not we must assign them a swissnum and deliver them as a
+    // "presence" webkey, which will appear on the remote side as a Presence
+    // object. All local Presences got here from somewhere else (either as a
+    // Presence or a FarVow), so they were created by our deserializer, so
+    // they will already be in the table, and we should use the webkey from
+    // there.
+
+    // deal with a promise that's already resolved to a pass-by-copy value
+    // { type: unresolved vow, vatid, swissnum }
+    // or
+    // { type: resolved vow, resolution: X }
+    // X could be:
+    // * presence (resolved to pass-by-reference)
+    // * other (resolved to pass-by-copy)
+
+    let type;
+
+    if (isVow(val)) {
+      const r = resolutionOf(val);
+      if (r) {
+        // resolved Vows are sent as QCLASS: resolvedVow, with a .value
+        // property. The .value might be pass-by-copy, or maybe a presence
+        // (which will be passed as QCLASS: presence). These do not have an
+        // identity, so no swissnum (although the value it resolves to
+        // might).
+
+        return def({
+          [QCLASS]: 'resolvedVow',
+          value: serialize(r, resolutionOf)
+        });
+      }
+
+      // unresolved Vows are send as QCLASS: unresolvedVow, with a vatID and
+      // swissnum. 'val' wasn't in the val2Record table, so this must be the
+      // first time we've seen this Vow (coming or going), so it must be a
+      // LocalVow or NearVow, and we need to allocate a swissnum and put it
+      // in the table.
+      type = 'unresolvedVow';
+    } else {
+      // non-Vows. This will only be local pass-by-presence objects that we
+      // haven't already sent, because the other pass-by-presence is a Presence
+      // and these will have already been added to val2Record. (we must add
+      // them upon receipt, because a Presence otherwise looks like
+      // pass-by-copy)
+      type = 'presence';
+    }
+
+    if (typeof swissnum === 'undefined') {
+      swissnum = allocateSwissnum();
+    }
+
+    const rec = def({ value: val,
+                      vatID: myVatID,
+                      swissnum: swissnum,
+                      serialized: {
+                        [QCLASS]: type,
+                        vatID: myVatID,
+                        swissnum: swissnum
+                      }
+                    });
+    log(`assigning rec ${JSON.stringify(rec)}`);
+    val2Record.set(val, rec);
+    const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
+    webkey2Record.set(key, rec);
+    return rec.serialized;
+
+    // It must be a Vow.
+
+    // Vows can be in one of five states:
+
+    // | resolved? | home   | Vow.resolve | webkey.type    | resolutionOf() |
+    // |-----------+--------+-------------+----------------+----------------|
+    // | yes       | local  | NearVow     | resolved vow   | object         |
+    // | yes       | remote | FarVow      | resolved vow   | Presence       |
+    // | no        | local  | LocalVow    | unresolved vow |                |
+    // | no        | remote | RemoteVow   | unresolved vow |                |
+    // | yes       | broken | BrokenVow   | broken vow     |                |
+
+    // We have private access to the Vow resolutionOf() function, which will
+    // tell us (immediately) whether a given Vow has already been resolved,
+    // and to what. We use this to find NearVows/FarVows, and use their
+    // underlying object/Presense for serialization.
+
+    // Vows with a remote "home" (FarVow and RemoteVow) were created by our
+    // deserializer, like Presences. However we don't store FarVows in the
+    // table: we only store the associated Presence. If we're asked to
+    // serialize a FarVow, we use resolutionOf() to get the Presence, look up
+    // the Presence in the table (which must already be present), extract the
+    // vatid and swissnum, and build a "resolved vow" webkey around those
+    // values. On the way in, if we receive a "resolved vow" webkey for a
+    // different vat, we create and store a Presence in the table, then
+    // deliver a FarVow to the target.
+
+    // TODO: BrokenVow. Maybe add rejectionOf() helper?
+
+    // TODO: not sure this table is accurate anymore
+    // | sending this   | arrives on other vat as | or on home vat as |
+    // |----------------+-------------------------+-------------------|
+    // | regular object | Presence                | original object   |
+    // | NearVow        | FarVow                  | original NearVow  |
+    // | BrokenVow      | BrokenVow               | BrokenVow         |
+    // | Presence       | Presence                | original object   |
+    // | FarVow         | FarVow                  | NearVow           |
+    // | LocalVow       | RemoteVow               | original LocalVow |
+    // | RemoteVow      | RemoteVow               | original LocalVow |
+  }
+
+  function makeReplacer(resolutionOf) {
     const ibidMap = new Map();
     let ibidCount = 0;
-    
+
     return function replacer(_, val) {
+      // First we handle all primitives. Some can be represented directly as
+      // JSON, and some must be encoded as [QCLASS] composites.
       switch (typeof val) {
         case 'object': {
           if (val === null) {
             return null;
           }
+          if (!Object.isFrozen(val)) {
+            throw new Error(`non-frozen objects like ${val} are disabled for now`);
+          }
           break;
         }
         case 'function': {
-          break;
+          throw new Error(`bare functions like ${val} are disabled for now`);
         }
         case 'undefined': {
           return def({[QCLASS]: 'undefined'});
@@ -104,14 +307,19 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
         }
       }
 
-      // Here only if not null and typeof is 'object' or 'function'
-      
+      // Now that we've handled all the primitives, it is time to deal with
+      // objects. The only things which can pass this point are frozen and
+      // non-null.
+
       if (QCLASS in val) {
         // TODO Hilbert hotel
         throw new Error(`property "${QCLASS}" reserved`);
       }
-      
+
+      // if we've seen this object before, serialize a backref
+
       if (ibidMap.has(val)) {
+        throw new Error('ibid disabled for now');
         // Backreference to prior occurrence
         return def({
           [QCLASS]: 'ibid',
@@ -120,30 +328,87 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
       }
       ibidMap.set(val, ibidCount);
       ibidCount += 1;
-      
-      if (isPassByCopy(val)) {
+
+      // if we've serialized it before, or if it arrived from the outside
+      // (and is thus in the table), use the previous serialization
+      if (val2Record.has(val)) {
+        return val2Record.get(val).serialized;
+      }
+
+      // We can serialize some things as plain pass-by-copy: arrays, and
+      // objects with one or more data properties but no method properties.
+
+      if (canPassByCopy(val)) {
+        log(`canPassByCopy: ${val}`);
         // Purposely in-band for readability, but creates need for
         // Hilbert hotel.
         return val;
       }
 
-      if (!val2webkey.has(val)) {
-        // Export a local pass-by-reference object
-        const webkey = makeLocalWebkey(val);
-        val2webkey.set(val, webkey);
-        webkey2val.set(webkey, val);
-      }
+      // The remaining objects are pass-by-reference. This includes Vows,
+      // Presences, and objects with method properties (we reject entirely
+      // hybrid objects that have both data and method properties). The empty
+      // object is pass-by-reference because it is useful to compare its
+      // identity.
 
-      // Could be local or remote
-      return def({
-        [QCLASS]: 'webkey',
-        webkey: val2webkey.get(val)
-      });
+      mustPassByPresence(val);
+      log(`mustPassByPresence: ${val}`);
+
+      // todo: we might have redundantly done an isFrozen test above, but
+      // it's safer than forgetting to do it for the other cases.
+
+      // makeLocalWebkey() is entirely responsible for figuring out how to
+      // serialize pass-by-reference objects, including cache/table
+      // management
+
+      return serializePassByPresence(val, resolutionOf);
     };
   }
 
-  const makeFarResource = makeFarResourceMaker(serialize, unserialize);
-  
+  function unserializePresence(data) {
+    log(`unserializePresence ${JSON.stringify(data)}`);
+    const key = makeWebkey(data);
+    if (webkey2Record.has(key)) {
+      log(` found previous`);
+      return webkey2Record.get(key).value;
+    }
+    log(` did not find previous`);
+    for (let k of webkey2Record.keys()) {
+      log(` had: ${k}`);
+    }
+
+    // todo: maybe pre-generate the FarVow and stash it for quick access
+    const p = makePresence(serializer, data.vatID, data.swissnum);
+    const rec = def({ value: p,
+                      vatID: data.vatID,
+                      swissnum: data.swissnum,
+                      serialized: data });
+    val2Record.set(p, rec);
+    webkey2Record.set(key, rec);
+    return p;
+  }
+
+  function unserializeResolvedVow(data) {
+    const r = unserialize(data.value);
+    // this creates a FarVow (specifically a Vow with a FarRemoteHandler)
+    return Vow.resolve(r);
+  }
+
+  function unserializeUnresolvedVow(data) {
+    const key = makeWebkey(data);
+    if (webkey2Record.has(key)) {
+      return webkey2Record.get(key).value;
+    }
+    const v = makeUnresolvedRemoteVow(serializer, data.vatID, data.swissnum);
+    const rec = def({ value: v,
+                      vatID: data.vatID,
+                      swissnum: data.swissnum,
+                      serialized: data });
+    val2Record.set(v, rec);
+    webkey2Record.set(key, rec);
+    return v;
+  }
+
   function makeReviver() {
     const ibids = [];
 
@@ -163,24 +428,27 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
           case '-Infinity': { return -Infinity; }
           case 'symbol': { return Symbol.for(data.key); }
           case 'bigint': { return BigInt(data.digits); }
-            
+
           case 'ibid': {
+            throw new Error('ibid disabled for now');
             const index = Nat(data.index);
             if (index >= ibids.length) {
               throw new RangeError(`ibid out of range: ${index}`);
             }
             return ibids[index];
           }
-          
-          case 'webkey': {
-            const webkey = data.webkey;
-            if (!webkey2val.has(webkey)) {
-              const val = makeFarResource(webkey);
-              webkey2val.set(webkey, val);
-              val2webkey.set(val, webkey);
-            }
+
+          case 'unresolvedVow': {
+            data = unserializeUnresolvedVow(data);
             // overwrite data and break to ibid registration.
-            data = webkey2val.get(webkey);
+            break;
+          }
+          case 'presence': {
+            data = unserializePresence(data);
+            break;
+          }
+          case 'resolvedVow': {
+            data = unserializeResolvedVow(data);
             break;
           }
           default: {
@@ -189,8 +457,10 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
           }
         }
       } else {
-        // The unserialized copy also becomes pass-by-copy
-        passByCopy(data);
+        // The unserialized copy also becomes pass-by-copy, but we don't need
+        // to mark it specially
+
+        // todo: what if the unserializer is given "{}"?
       }
       // The ibids case returned early to avoid this.
       ibids.push(data);
@@ -215,5 +485,41 @@ export function makeWebkeyMarshal(makeLocalWebkey, makeFarResourceMaker) {
     }));
   }
 
-  return def({serialize, unserialize, serializeToWebkey, unserializeWebkey});
+  function allocateSwissStuff() {
+    const swissbase = allocateSwissbase();
+    const swissnum = doSwissHashing(swissbase);
+    return { swissbase, swissnum };
+  }
+
+  function registerTarget(swissnum, val, resolutionOf) {
+    serializePassByPresence(val, resolutionOf, swissnum);
+  }
+
+  function getMyTargetBySwissnum(swissnum) {
+    const key = makeWebkey({vatID: myVatID, swissnum});
+    const rec = webkey2Record.get(key);
+    if (rec) {
+      return rec.value;
+    }
+    return undefined;
+  }
+
+  function registerRemoteVow(targetVatID, swissnum, val) {
+    const rec = def({ optVow: val,
+                      optVatID: targetVatID,
+                      swissnum: swissnum,
+                      serialized: {
+                        [QCLASS]: 'unresolvedVow',
+                        vatID: targetVatID,
+                        swissnum: swissnum
+                      }
+                    });
+    val2Record.set(val, rec);
+    const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
+    webkey2Record.set(key, rec);
+  }
+
+  return def({serialize, unserialize, serializeToWebkey, unserializeWebkey,
+              allocateSwissStuff, registerRemoteVow, getMyTargetBySwissnum,
+              registerTarget});
 }

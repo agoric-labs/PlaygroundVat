@@ -74,7 +74,8 @@ export async function makeComms(vinfoJson, vat) {
                pullStream.map(line => {
                  console.log(`got line '${line}'`);
                  if (line) {
-                   vat.sendOnlyReceived(line);
+                   const sender = null;
+                   vat.commsReceived(sender, line);
                  }
                }),
                pullStream.drain()

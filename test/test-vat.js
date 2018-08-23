@@ -27,10 +27,15 @@ function s2() {
   const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
   //log('i got here');
 
+  exports.send = (target) => {
+    Vow.resolve(target).e.foo('arg1', 'arg2');
+  };
+
   exports.wait = () => {
     //log('in wait');
     return p1;
   };
+
   exports.fire = (arg) => {
     //log('in fire');
     resolver1(arg);
@@ -45,7 +50,6 @@ function funcToSource(f) {
   return code;
 }
 
-
 test('confineVatSource', (t) => {
   const s = SES.makeSESRootRealm();
   const s1code = funcToSource(s1);
@@ -57,6 +61,30 @@ test('confineVatSource', (t) => {
   t.end();
 });
 
+test('methods can send messages', async (t) => {
+  const outputTranscript = [];
+  function writeOutput(line) {
+    outputTranscript.push(line);
+  }
+  const s = makeRealm();
+  const v = await buildVat(s, 'v1', writeOutput, funcToSource(s2));
+
+  const bodyJson = JSON.stringify({op: 'send',
+                                   targetSwissnum: 0,
+                                   methodName: 'send',
+                                   args: [{'@qclass': 'presence',
+                                           vatID: 'vat2',
+                                           swissnum: 123
+                                          }]});
+  const p = v.doSendOnly(bodyJson);
+  console.log(`transcript is ${outputTranscript}`);
+  // todo: there needs to be something in the transcript
+  await p;
+  console.log(`transcript is ${outputTranscript}`);
+  t.equal(outputTranscript.length, 1);
+
+  t.end();
+});
 
 test('methods can return a promise', async (t) => {
   const outputTranscript = [];
@@ -67,13 +95,21 @@ test('methods can return a promise', async (t) => {
   const v = await buildVat(s, 'v1', writeOutput, funcToSource(s2));
 
   let result = false;
-  const p = v.sendReceived('msg: v2->v1 {"method": "wait", "args": []}');
+  const op1 = {op: 'send',
+               targetSwissnum: 0,
+               methodName: 'wait',
+               args: []};
+  const p = v.doSendOnly(JSON.stringify(op1));
   p.then((res) => {
     result = res;
   });
 
   t.equal(result, false);
-  v.sendOnlyReceived('msg: v2->v1 {"method": "fire", "args": [10]}');
+  const op2 = {op: 'send',
+               targetSwissnum: 0,
+               methodName: 'fire',
+               args: [10]};
+  v.doSendOnly(JSON.stringify(op2));
   await promisify(setImmediate)();
   t.equal(result, 10);
   t.end();

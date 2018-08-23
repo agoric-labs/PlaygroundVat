@@ -9,42 +9,80 @@ test('marshal', async (t) => {
   const code = await bundleCode(require.resolve('../src/vat/webkey'));
   const e = confineVatSource(s, code);
 
-  function makeLocalWebKey(localObject) {
-    // for testing, assume the object is an array
-    return `wk${localObject[0]}`;
-  }
-
-  function makeFarResourceMaker(serialize, unserialize) {
-    function makeFarResource(webkey) {
-      if (webkey === 'fr1') {
-        return {farref: 123};
-      }
-      if (webkey === 'fr2') {
-        return {farref: 456};
-      }
-      throw 'not found';
+  function helpers() {
+    function serializer(x) {
+      log(x);
     }
-    return makeFarResource;
+    const ref1 = { a() { return 1; } };
+    const val = {
+      empty: {},
+      array1: [1,2],
+      ref1,
+      ref2: { a() { return 2; } },
+      nested1: {b: ref1, c: 3},
+      serializer
+    };
+    return def(val);
+  }
+  const h = s.evaluate(`${helpers}; helpers()`);
+
+  function mdef(template, ...subs) {
+    if (subs.length !== 0) {
+      throw new Error('unimplemented');
+    }
+    return s.evaluate(`def(${template[0]})`);
   }
 
-  const m = e.makeWebkeyMarshal(makeLocalWebKey, makeFarResourceMaker);
+  const m = e.makeWebkeyMarshal('v1', h.serializer);
   t.equal(m.serialize(1), '1');
   t.equal(m.serialize('abc'), '"abc"');
   t.equal(m.serialize(true), 'true');
 
-  // this stashes the array in the marshal's tables
-  t.equal(m.serialize([1,2]), '{"@qclass":"webkey","webkey":"wk1"}');
+  t.equal(m.serialize(h.array1), '[1,2]');
+
+  //const ref1 = mdef`{ a() { return 1; } }`;
+
+  // as a side effect, this stashes the object in the marshaller's tables
+  t.equal(m.serialize(h.ref1), '{"@qclass":"presence","vatID":"v1","swissnum":1}');
+
+  t.equal(m.serialize(h.empty), '{"@qclass":"presence","vatID":"v1","swissnum":2}');
+  t.equal(m.unserialize('{"@qclass":"presence","vatID":"v1","swissnum":2}'), h.empty);
+
+  // todo: what if the unserializer is given "{}"
 
   t.equal(m.unserialize('1'), 1);
   t.equal(m.unserialize('"abc"'), 'abc');
   t.equal(m.unserialize('false'), false);
-  
-  const w1 = m.serialize([2,3]); // wk2
-  t.deepEqual(m.unserialize(w1), [2,3]); // comes back out of the table
 
-  // far ref
-  t.deepEqual(m.unserialize('{"@qclass":"webkey","webkey":"fr1"}'),
-              { farref: 123 });
+  const w1 = m.serialize(h.ref2); // wk2
+  t.equal(m.unserialize(w1), h.ref2); // comes back out of the table
+
+  // Presence: we get an empty object, but it is registered in the Vow
+  // tables, and will roundtrip properly on the way back out
+  const p = m.unserialize('{"@qclass":"presence","vatID":"v2","swissnum":"sw44"}');
+  t.deepEqual(p, {});
+  t.equal(m.serialize(p), '{"@qclass":"presence","vatID":"v2","swissnum":"sw44"}');
+
+  // JS primitives that aren't natively representable by JSON
+  t.deepEqual(m.unserialize('{"@qclass":"undefined"}'), undefined);
+  t.ok(Object.is(m.unserialize('{"@qclass":"-0"}'), -0));
+  t.notOk(Object.is(m.unserialize('{"@qclass":"-0"}'), 0));
+  t.ok(Object.is(m.unserialize('{"@qclass":"NaN"}'), NaN));
+  t.deepEqual(m.unserialize('{"@qclass":"Infinity"}'), Infinity);
+  t.deepEqual(m.unserialize('{"@qclass":"-Infinity"}'), -Infinity);
+  t.deepEqual(m.unserialize('{"@qclass":"undefined"}'), undefined);
+  t.deepEqual(m.unserialize('{"@qclass":"symbol", "key":"sym1"}'), Symbol.for('sym1'));
+  // The host does not support BigInts yet. Some day.
+  //t.deepEqual(m.unserialize('{"@qclass":"bigint"}'), something);
+
+
+  t.deepEqual(m.unserialize('[1,2]'), [1,2]);
+  t.deepEqual(m.unserialize('{"a":1,"b":2}'), {a: 1, b: 2});
+  t.deepEqual(m.unserialize('{"a":1,"b":{"c": 3}}'), {a: 1, b: { c: 3 }});
+
+  // pass-by-copy can contain pass-by-reference
+  const aser = m.serialize(h.nested1);
+  t.equal(aser, '{"b":{"@qclass":"presence","vatID":"v1","swissnum":1},"c":3}');
 
   t.end();
 });
@@ -67,17 +105,19 @@ function s1() {
 test('deliver farref to vat', async (t) => {
   const s = makeRealm();
   const v = await buildVat(s, 'v1', () => {}, funcToSource(s1));
-  const args = JSON.stringify({method: 'run',
-                               args: [{'@qclass': 'webkey',
-                                       webkey: { type: 'presence',
-                                                 vatID: 'vat2',
-                                                 count: 123
-                                               }
-                                      }]});
+  const bodyJson = JSON.stringify({op: 'send',
+                                   targetSwissnum: 0,
+                                   methodName: 'run',
+                                   args: [{'@qclass': 'presence',
+                                           vatID: 'vat2',
+                                           swissnum: 123
+                                          }]});
 
-  const r = await v.sendReceived(`msg: v2->v1 ${args}`);
-  // that should be a Presence instance. for now we only look at the contents
-  t.deepEqual(r, { vatID: 'vat2', count: 123 });
+  const res = await v.doSendOnly(bodyJson);
+  // that should be a Presence instance, which looks like an empty object,
+  // but roundtrips correctly
+  t.deepEqual(res, {});
+  t.deepEqual(v.serialize(res), '{"@qclass":"presence","vatID":"vat2","swissnum":123}');
 
   t.end();
 });
