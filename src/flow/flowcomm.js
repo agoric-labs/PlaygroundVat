@@ -454,7 +454,12 @@ class Vow {
   constructor(innerFlow, innerResolver) {
     const inner = new InnerVow(innerFlow, innerResolver);
     vowToInner.set(this, inner);
-    this.e = new Proxy({}, inner);
+    // if .e were enumerable, JSON serialization would recurse forever, which
+    // makes debugging annoying
+    Object.defineProperty(this, 'e', {
+      value: new Proxy({}, inner),
+      enumerable: false
+    });
     //def(this);
   }
 

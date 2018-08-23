@@ -133,3 +133,12 @@ test('remote vow', t => {
 
   t.end();
 });
+
+test('JSON serialize Vow', t => {
+  const f1 = new Flow();
+  let r1;
+  const v1 = f1.makeVow(r => r1 = r);
+  // this used to suffer infinite recursion and overflowed the stack
+  t.equal(`${JSON.stringify(v1)}`, '{}');
+  t.end();
+});
