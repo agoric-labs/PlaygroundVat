@@ -119,7 +119,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     return swissbase;
   }
 
-  function serializePassByPresence(val, resolutionOf, swissnum=null) {
+  function serializePassByPresence(val, resolutionOf, swissnum=undefined) {
     // we are responsible for new serialization of pass-by-presence objects
 
     // We are responsible for serializing (or finding previous serializations
