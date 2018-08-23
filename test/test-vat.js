@@ -28,9 +28,7 @@ function s2() {
   //log('i got here');
 
   exports.send = (target) => {
-    log('IN SEND');
     Vow.resolve(target).e.foo('arg1', 'arg2');
-    log('DID SEND');
   };
 
   exports.wait = () => {
@@ -94,13 +92,21 @@ test('methods can return a promise', async (t) => {
   const v = await buildVat(s, 'v1', writeOutput, funcToSource(s2));
 
   let result = false;
-  const p = v.sendReceived('msg: v2->v1 {"method": "wait", "args": []}');
+  const op1 = {op: 'send',
+               targetSwissnum: 0,
+               methodName: 'wait',
+               args: []};
+  const p = v.doSendOnly(JSON.stringify(op1));
   p.then((res) => {
     result = res;
   });
 
   t.equal(result, false);
-  v.sendOnlyReceived('msg: v2->v1 {"method": "fire", "args": [10]}');
+  const op2 = {op: 'send',
+               targetSwissnum: 0,
+               methodName: 'fire',
+               args: [10]};
+  v.doSendOnly(JSON.stringify(op2));
   await promisify(setImmediate)();
   t.equal(result, 10);
   t.end();
