@@ -77,8 +77,11 @@ test('methods can send messages', async (t) => {
                                            swissnum: 123
                                           }]});
   const p = v.doSendOnly(bodyJson);
-  console.log(outputTranscript);
-
+  console.log(`transcript is ${outputTranscript}`);
+  // todo: there needs to be something in the transcript
+  await p;
+  console.log(`transcript is ${outputTranscript}`);
+  t.equal(outputTranscript.length, 1);
 
   t.end();
 });
