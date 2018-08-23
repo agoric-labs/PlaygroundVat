@@ -1,10 +1,14 @@
 import fs from 'fs';
+import path from 'path';
 import crypto from 'crypto';
+import { promisify } from 'util';
 
 import yargs from 'yargs';
 import { rollup } from 'rollup';
 
 import SES from 'ses';
+
+import PeerId from 'peer-id';
 
 import { makeComms } from './comms';
 import { makeVatEndowments, readAndHashFile } from './host';
@@ -63,6 +67,20 @@ export async function buildVat(s, vatID, writeOutput, guestSource) {
   return makeVat(vatEndowments, vatID, guestSource);
 }
 
+async function create(argv) {
+  await fs.promises.mkdir(argv.basedir);
+  const id = await promisify(PeerId.create)();
+  let f = await fs.promises.open(path.join(argv.basedir, 'private-id'), 'w');
+  await f.appendFile(JSON.stringify(id.toJSON(), null, 2) + '\n');
+  await f.close();
+
+  f = await fs.promises.open(path.join(argv.basedir, 'id'), 'w');
+  await f.appendFile(id.toB58String() + '\n');
+  await f.close();
+
+}
+
+
 async function run(argv) {
   console.log(`run ${argv.source} ${argv.input} ${argv.output}`);
   const s = makeRealm();
@@ -97,16 +115,21 @@ async function run(argv) {
 
 export async function main() {
   yargs
-    .command('run [source]', 'run a service', (yargs) => {
-      yargs.positional('source', {
-        describe: 'initial object sourcefile',
-      });
+    .command('create <basedir>', 'create a new Vat in BASEDIR', (yargs) => {
+      yargs
+        .positional('basedir', {
+          describe: 'new directory to be created and populated with Vat state',
+        })
+      ;
+    }, (argv) => create(argv))
+    .command('run <basedir>', 'run a Vat from BASEDIR', (yargs) => {
+      yargs
+        .positional('basedir', {
+          describe: 'base directory, created by "vat create"',
+        })
+      ;
     }, (argv) => {
       return run(argv);
     })
-    .option('input', {})
-    .option('output', {})
-    .option('vatID', {})
-    .option('vinfo', {})
     .parse();
 }
