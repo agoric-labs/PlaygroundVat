@@ -90,7 +90,9 @@ async function run(argv) {
   // network listener goes here, call v.processOp() or something more like
   // dataReceived()
 
-  fs.closeSync(output);
+  // we fall off the edge here, but Node keeps running because there are
+  // still open listening sockets
+  console.log('run() finishing');
 }
 
 export async function main() {
