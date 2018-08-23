@@ -27,6 +27,10 @@ function s2() {
   const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
   //log('i got here');
 
+  exports.returnValue = (value) => {
+    return value;
+  };
+
   exports.send = (target) => {
     Vow.resolve(target).e.foo('arg1', 'arg2');
   };
@@ -82,7 +86,7 @@ function makeTranscript() {
   };
 }
 
-test('methods can send messages', async (t) => {
+test('methods can send messages via doSendOnly', async (t) => { // todo remove
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
@@ -106,6 +110,58 @@ test('methods can send messages', async (t) => {
   t.equal(args.methodName, 'foo');
   t.deepEqual(args.args, ['arg1', 'arg2']);
   t.equal(args.resultSwissbase, 'base-1'); // todo: this will become random
+
+  t.end();
+});
+
+test('methods can send messages via commsReceived', async (t) => {
+  const tr = makeTranscript();
+  const s = makeRealm();
+  const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
+
+  const bodyJson = JSON.stringify({op: 'send',
+                                   targetSwissnum: 0,
+                                   methodName: 'send',
+                                   args: [{'@qclass': 'presence',
+                                           vatID: 'vat2',
+                                           swissnum: 123
+                                          }]});
+  await v.commsReceived('vat2', bodyJson);
+  console.log(`transcript is ${tr.lines}`);
+  t.equal(tr.lines.length, 2);
+  const pieces = tr.lines[1].split(' '); // cheap
+  t.equal(pieces[0], 'msg:');
+  t.equal(pieces[1], 'v1->vat2');
+  const args = JSON.parse(pieces[2]);
+  t.equal(args.op, 'send');
+  t.equal(args.targetSwissnum, 123);
+  t.equal(args.methodName, 'foo');
+  t.deepEqual(args.args, ['arg1', 'arg2']);
+  t.equal(args.resultSwissbase, 'base-1'); // todo: this will become random
+
+  t.end();
+});
+
+test('method results are sent back', async (t) => {
+  const tr = makeTranscript();
+  const s = makeRealm();
+  const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
+
+  const bodyJson = JSON.stringify({op: 'send',
+                                   resultSwissbase: '5',
+                                   targetSwissnum: 0,
+                                   methodName: 'returnValue',
+                                   args: [3]});
+  await v.commsReceived('vat2', bodyJson);
+  console.log(`transcript is ${tr.lines}`);
+  t.equal(tr.lines.length, 2);
+  const pieces = tr.lines[1].split(' '); // cheap
+  t.equal(pieces[0], 'msg:');
+  t.equal(pieces[1], 'v1->vat2');
+  const args = JSON.parse(pieces[2]);
+  t.equal(args.op, 'resolve');
+  t.equal(args.targetSwissnum, 'hash-of-5');
+  t.deepEqual(args.value, 3);
 
   t.end();
 });

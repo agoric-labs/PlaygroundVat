@@ -173,14 +173,16 @@ export function makeVat(endowments, myVatID, initialSource) {
     },
 
     opResolve(targetVatID, targetSwissnum, value, resolutionOf) {
+      log(`opResolve(${targetVatID}, ${targetSwissnum}, ${value})`);
+      const bodyJson = marshal.serialize(def({op: 'resolve',
+                                              targetVatID: targetVatID, // todo goes away
+                                              targetSwissnum: targetSwissnum,
+                                              value: value,
+                                             }),
+                                         resolutionOf);
+      writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
       if (outbound) { // todo: multiple connections
-        const argString = marshal.serialize(def({type: 'resolve',
-                                                 targetVatID: targetVatID, // todo goes away
-                                                 targetSwissnum: targetSwissnum,
-                                                 value: value,
-                                                 }),
-                                            resolutionOf);
-        outbound.push(`msg: ${myVatID}->${targetVatID} ${argString}\n`);
+        outbound.push(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
       }
     },
 
@@ -204,8 +206,8 @@ export function makeVat(endowments, myVatID, initialSource) {
                                  ext
                                });
   //writeOutput(`load: ${initialSourceHash}`);
-  marshal.registerTarget(0, e, resolutionOf); // TODO
-  //marshal.registerTarget(0, e, (v) => undefined);
+  marshal.registerTarget(e, 0, resolutionOf); // TODO
+  //marshal.registerTarget(e, 0, (v) => undefined);
 
   /*
   function processOp(op) {
@@ -274,15 +276,21 @@ export function makeVat(endowments, myVatID, initialSource) {
       log(`op ${body.op}`);
       if (body.op === 'send') {
         const res = doSendInternal(body);
-        const resolverSwissnum = doSwissHashing(body.resultSwissbase);
-        marshal.registerTarget(res, resolverSwissnum, resolutionOf);
-
-        res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
-                 rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
-        // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
+        if (body.resultSwissbase) {
+          const resolverSwissnum = doSwissHashing(body.resultSwissbase);
+          marshal.registerTarget(res, resolverSwissnum, resolutionOf);
+          const done = res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
+                                rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
+          // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
+          return done; // for testing, to wait until things are done
+        }
+        // else it was really a sendOnly
+        log(`commsReceived got sendOnly, dropping result`);
+        return res; // for testing
       } else if (body.op === `resolve`) {
         log(`opResolve: TODO`);
       }
+      return undefined;
     },
 
     /*

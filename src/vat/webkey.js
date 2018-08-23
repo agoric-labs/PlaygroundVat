@@ -491,7 +491,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     return { swissbase, swissnum };
   }
 
-  function registerTarget(swissnum, val, resolutionOf) {
+  function registerTarget(val, swissnum, resolutionOf) {
     serializePassByPresence(val, resolutionOf, swissnum);
   }
 
