@@ -237,11 +237,10 @@ export function makeVat(endowments, myVatID, initialSource) {
   }
   */
 
-  function doSendInternal(bodyJson) {
-    const body = marshal.unserialize(bodyJson);
+  function doSendInternal(body) {
     const target = marshal.getMyTargetBySwissnum(body.targetSwissnum);
     if (!target) {
-      throw new Error('unrecognized target swissnum');
+      throw new Error(`unrecognized target swissnum ${body.targetSwissnum}`);
     }
     // todo: sometimes causes turn delay, could fastpath if target is
     // resolved
@@ -275,6 +274,7 @@ export function makeVat(endowments, myVatID, initialSource) {
         const res = doSendInternal(body);
         const resolverSwissnum = doSwissHashing(body.resultSwissbase);
         marshal.registerTarget(res, resolverSwissnum, resolutionOf);
+
         res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
                  rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
         // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow

@@ -113,7 +113,7 @@ test('deliver farref to vat', async (t) => {
                                            swissnum: 123
                                           }]});
 
-  const { res, rej, success } = v.doSendOnly(bodyJson);
+  const res = await v.doSendOnly(bodyJson);
   // that should be a Presence instance, which looks like an empty object,
   // but roundtrips correctly
   t.deepEqual(res, {});

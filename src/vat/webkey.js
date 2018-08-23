@@ -492,12 +492,12 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   function registerTarget(swissnum, val, resolutionOf) {
-    serializePassByPresence(val, resolutionOf);
+    serializePassByPresence(val, resolutionOf, swissnum);
   }
 
   function getMyTargetBySwissnum(swissnum) {
     const key = makeWebkey({vatID: myVatID, swissnum});
-    const rec = webkey2Record(key);
+    const rec = webkey2Record.get(key);
     if (rec) {
       return rec.value;
     }
