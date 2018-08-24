@@ -31,3 +31,30 @@ As the Vat runs, a transcript of all inbound messages will be written into
 Vat, move `output-transcript` to `input-transcript`. The next time the Vat
 starts up, it will replay all the inbound messages from the previous run,
 putting it into the same state that it had before shutdown.
+
+
+## client
+
+`vat client <sturdy-ref>|<sturdy-ref-filename> <method> <args..>`
+
+This creates a new ephemeral vat. It tries to open the `<sturdy-ref>`
+argument as a filename: if successful, it reads the sturdyref from that file.
+If not, it assumes the argument is itself a sturdyref.
+
+The client vat connects to the given target and invokes `<method>` on it. The
+`<args..>` strings are converted as follows:
+
+* if the argument can be turned into a Number, and that Number turns back
+  into the same string, it will be delivered as as Number
+* if the argument starts with `<`, the rest of the argument is treated as a
+  filename, and the contents of that file are decoded as UTF-8, and the
+  resulting unicode string is delivered as the argument
+* otherwise the argument value itself is decoded as UTF-8 and the resulting
+  unicode string is delivered
+
+(TODO: our wire protocol needs to support binary data)
+
+(TODO: escapes for sending `1234` or `<hello>` as a string)
+
+The client waits until the result comes back, then prints this result with
+`JSON.stringify()`. The client then exits.
