@@ -151,6 +151,8 @@ async function run(argv) {
     console.log(`unable to read input-transcript, ignoring (${ex})`);
   }
   for(let op of ops) {
+    // TODO: find turn boundaries, ignore all messages that might appear
+    // after a turn boundary because that means we crashed while writing
     v.executeTranscriptLine(op);
   }
 

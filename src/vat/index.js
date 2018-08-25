@@ -230,6 +230,8 @@ export function makeVat(endowments, myVatID, initialSource) {
     } else if (body.op === `resolve`) {
       log(`opResolve: TODO`);
     }
+    // TODO: emit turn boundary to transcript
+    // TODO: don't send messages until here
     return undefined;
   }
 
