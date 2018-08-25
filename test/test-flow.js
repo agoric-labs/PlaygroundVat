@@ -90,7 +90,7 @@ test('all flow', t => {
   delay(() => r1("some"));
   // console.log(v1);
 
-  v1.then(s => console.log(`THEN1 ${s}`));
+  v1.then(s => console.log(`THE      N1 ${s}`));
   v2.then(s => console.log(`THEN2 ${s}`));
 
   const x2 = x1.e.concat(" ANOTHER"); //x1 ! concat(" ANOTHER")
@@ -140,5 +140,46 @@ test('JSON serialize Vow', t => {
   const v1 = f1.makeVow(r => r1 = r);
   // this used to suffer infinite recursion and overflowed the stack
   t.equal(`${JSON.stringify(v1)}`, '{}');
+  t.end();
+});
+
+test('simple broken vow', async (t) => {
+  const f1 = new Flow();
+  let r1;
+  const v1 = f1.makeVow(r => r1 = r);
+  const v2 = v1.e.badMessage(" MORE"); //v1!badMessage(" MORE")
+
+  delay(() => r1("some"));
+  let res;
+  try {
+    res = await v2;
+  } catch (reason) {
+    res = 42;
+  }
+  t.equal(res, res);
+  t.end();
+});
+
+test('error across forwarding', async (t) => {
+  let c = 0;
+  console.log(`s ${c++}`);
+  const f1 = new Flow();
+  let r1;
+  const v1 = f1.makeVow(r => r1 = r);
+  const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
+  console.log(`s ${c++}`);
+  let r3;
+  const v3 = f1.makeVow(r => r3 = r);
+  r1(v3);
+  r3(7);
+  console.log(`s ${c++}`);
+
+  let res;
+  try {
+    res = await v2;
+  } catch (reason) {
+    res = 42;
+  }
+  t.equal(res, res);
   t.end();
 });
