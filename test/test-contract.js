@@ -20,6 +20,7 @@ async function buildContractVat(source='../examples/contract') {
   }
   const s = makeRealm();
   const contractTestSource = await bundleCode(require.resolve(source));
+  // console.log(contractTestSource);
   const v = await buildVat(s, 'v1', writeOutput, contractTestSource);
   return v;
 }

@@ -1,3 +1,5 @@
+import { SES, def, Nat } from 'ses';
+
 let count = 0;
 
 let resolver1;

@@ -17,6 +17,7 @@
  * @requires define
  */
 
+import { SES, def, Nat } from 'ses';
 import { makeContractHost } from './makeContractHost';
 import { mintMaker } from './makeMint';
 import { aliceMaker } from './makeAlice';

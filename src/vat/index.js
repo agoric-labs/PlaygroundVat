@@ -3,6 +3,7 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
+import { SES, def, Nat } from 'ses';
 import { makeWebkeyMarshal, doSwissHashing } from './webkey';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
 import { resolutionOf } from '../flow/flowcomm'; // todo unclean
@@ -16,7 +17,14 @@ function confineGuestSource(source, endowments) {
   function guestLog(...args) {
     log(...args);
   }
-  const endow = { module, exports, log: guestLog };
+  function require(name) {
+    name = `${name}`; // coerce to string
+    if (name === 'ses') {
+      return { SES, def, Nat };
+    }
+    throw new Error(`Only 'ses' is allowed for the arg for require(${name})`);
+  }
+  const endow = { module, exports, log: guestLog, require };
   if (endowments) {
     Object.defineProperties(endow,
                             Object.getOwnPropertyDescriptors(endowments));

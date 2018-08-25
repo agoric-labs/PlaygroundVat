@@ -80,6 +80,8 @@
  * </pre>
  */
 
+import { SES, def, Nat } from 'ses';
+
 export function makeContractHost() {
   const m = new WeakMap();
 
@@ -91,7 +93,7 @@ export function makeContractHost() {
       let resolve;
       const f = new Flow();
       const resultP = f.makeVow((r) => resolve = r);
-      const contract = SES.confineExpr(contractSrc, {Flow, Vow, log});
+      const contract = SES.confineExpr(contractSrc, {Flow, Vow, log, ses: {def , Nat}, def, Nat});
 
       const addParam = function(i, token) {
         tokens[i] = token;

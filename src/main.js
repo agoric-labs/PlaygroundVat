@@ -14,7 +14,18 @@ export function confineVatSource(s, source) {
   function log(...args) {
     console.log(...args);
   }
-  const endow = { exports, log };
+  const sesExports = s.evaluate('({ SES, def, Nat })');
+  // console.log(sesExports);
+  function require(name) {
+    name = `${name}`; // coerce to string
+    // console.log(`--require(${name})`);
+    if (name === 'ses') {
+      return sesExports;
+    }
+    // TODO: throws string so that the Error constructor won't leak across realms
+    throw `Only 'ses' is allowed for the arg for require(${name})`;
+  }
+  const endow = { exports, log, require };
   s.evaluate(source, endow);
   return exports;
 }
@@ -25,7 +36,7 @@ export function makeRealm() {
 }
 
 export async function bundleCode(filename, appendSourcemap) {
-  const guestBundle = await rollup({ input: filename, treeshake: false });
+  const guestBundle = await rollup({ input: filename, treeshake: false, external: ['ses'] });
   let { code: source, map: sourceMap } = await guestBundle.generate({ format: 'cjs',
                                                                       sourcemap: appendSourcemap });
   // Rollup will generate inline sourceMappingURLs for you, but only if you

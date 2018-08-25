@@ -1,5 +1,7 @@
 import { test } from 'tape-promise/tape';
 
+this.x = 1;
+
 test('tape works', t => {
   t.equal(1, 1);
   t.end();

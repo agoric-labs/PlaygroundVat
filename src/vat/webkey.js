@@ -1,3 +1,4 @@
+import { SES, def, Nat } from 'ses';
 import { Vow, isVow, Flow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
 
 // objects can only be passed in one of two/three forms:

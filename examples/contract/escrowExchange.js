@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { SES, def, Nat } from 'ses';
+
 export function escrowExchange(a, b) {          // a from Alice, b from Bob
   let decide;
   const decisionP = Q.promise(function(resolve) { decide = resolve; });

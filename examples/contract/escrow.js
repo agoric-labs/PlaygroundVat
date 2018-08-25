@@ -1,3 +1,5 @@
+import { SES, def, Nat } from 'ses';
+
 export function escrowExchange(a, b) {  // a from Alice , b from Bob
   function makeTransfer(srcPurseP, dstPurseP, amount) {
     const makeEscrowPurseMakerP = Vow.join(srcPurseP.e.getPurseMaker(),

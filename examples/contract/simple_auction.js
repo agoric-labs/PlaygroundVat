@@ -28,6 +28,9 @@
  *
  * @author Tom Van Cutsem
  */
+
+import { SES, def, Nat } from 'ses';
+
 define('contract/simple_auction', ['Q'], function(Q) {
   "use strict";
    

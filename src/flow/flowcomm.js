@@ -1,6 +1,8 @@
 // A simple comm systme using Flows for ordering
 'use strict';
 
+import { def, Nat } from 'ses';
+
 const scheduleHack = Promise.resolve(null);
 
 // TODO what if exeption is undefined?
@@ -10,12 +12,7 @@ function insist(condition, exception) {
   }
 }
 
-// TODO: remove this in favor of the global deep-freezing def() that SES
-// provides. However make sure test-flow.js can still work, which doesn't run
-// under SES.
-function def(x) {
-  return Object.freeze(x);
-}
+// HACK provide console.log if it's not present
 
 function isSymbol (x) {
   return typeof x === 'symbol';
