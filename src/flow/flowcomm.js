@@ -202,6 +202,14 @@ class FarRemoteHandler {
     //this.pendingResolves = 1;
   }
 
+  resolve(target) {
+    const targetInner = getInnerVow(target);
+    // if the target is a vow, forward to it, otherwise
+    // target might be a Presence, or local object, or received pass-by-copy
+    // object. In that case fulfill to it.
+    return targetInner ? this.forwardTo(targetInner) : this.fulfill(target);
+  }
+
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
   fulfill(value) {
     insist(false, 'Fulfill only applies to unresolved promise');
@@ -416,6 +424,15 @@ export function resolutionOf(value) {
   const firstR = inner.resolver;
   const shortHandler = shortenForwards(firstR, inner);
   return shortHandler.value;
+}
+
+export function handlerOf(value) {
+  const inner = getInnerVow(value);
+  if (!inner) {
+    return undefined;
+  }
+  const firstR = inner.resolver;
+  return shortenForwards(firstR, inner);
 }
 
 export function isVow(value) {
