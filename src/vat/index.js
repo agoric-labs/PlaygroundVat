@@ -132,19 +132,25 @@ export function makeVat(endowments, myVatID, initialSource) {
     }
     const s = queuedInboundMessages.get(vatID);
     // todo: remember the first, or the last? bail if they differ?
+    log(`queueInbound got ${seqnum}, have [${Array.from(s.keys())}], want ${rxInboundSeqnums.get(vatID)}`);
     s.set(seqnum, msg);
   }
 
   function processInboundQueue(vatID, deliver) {
+    //log(`processInboundQueue starting`);
     let next = rxInboundSeqnums.has(vatID) ? rxInboundSeqnums.get(vatID) : 0;
     const s = queuedInboundMessages.get(vatID);
     while (true) {
+      //log(` looking for ${next} have [${Array.from(s.keys())}]`);
       if (s.has(next)) {
         const msg = s.get(next);
         s.delete(next);
         next += 1;
+        rxInboundSeqnums.set(vatID, next);
+        //log(` found it, delivering`);
         deliver(vatID, msg);
       } else {
+        //log(` not found, returning`);
         return;
       }
     }
