@@ -279,8 +279,8 @@ export function makeVat(endowments, myVatID, initialSource) {
         done = res; // for testing
       }
     } else if (body.op === `resolve`) {
-      log(`opResolve: TODO`);
       const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
+      log(`h: ${h}`);
       h.resolve(body.value);
     }
     // todo: when should we commit/release? after all promises created by

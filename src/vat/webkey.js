@@ -496,11 +496,15 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
+    log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
     const key = makeWebkey({vatID, swissnum});
+    log(` with key ${key}`);
     const rec = webkey2Record.get(key);
     if (rec) {
+      log(` found record`);
       return handlerOf(rec.value);
     }
+    log(` did not find record`);
     return undefined;
   }
 
@@ -514,6 +518,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   function registerRemoteVow(targetVatID, swissnum, val) {
+    log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
     const rec = def({ optVow: val,
                       optVatID: targetVatID,
                       swissnum: swissnum,
@@ -525,6 +530,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
                     });
     val2Record.set(val, rec);
     const key = JSON.stringify({vatID: targetVatID, swissnum: swissnum});
+    log(` with key ${key}`);
     webkey2Record.set(key, rec);
   }
 

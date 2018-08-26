@@ -255,6 +255,7 @@ class FarRemoteHandler {
 
       const resultVow = makeUnresolvedRemoteVow(this.serializer, this.vatID,
                                                 resData.swissnum, flow);
+      log(`handlerOf(resultVow) = ${handlerOf(resultVow)}`);
       this.serializer.registerRemoteVow(this.vatID, resData.swissnum, resultVow);
 
       this.serializer.opSend(resData.swissbase, this.vatID, this.swissnum, methodName, args, resolutionOf);
@@ -349,6 +350,7 @@ export function makePresence(serializer, vatID, swissnum) {
 
 export function makeUnresolvedRemoteVow(serializer, vatID, swissnum, flow=new InnerFlow()) {
   const handler = new FarRemoteHandler(serializer, vatID, swissnum);
+  log(`makeUnresolvedRemoteVow: ${vatID}/${swissnum}`);
   return new Vow(flow, handler);
 }
 
@@ -431,6 +433,7 @@ export function handlerOf(value) {
   if (!inner) {
     return undefined;
   }
+  log(`handlerOf says inner is ${inner}`);
   const firstR = inner.resolver;
   return shortenForwards(firstR, inner);
 }
