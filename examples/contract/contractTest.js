@@ -34,7 +34,7 @@ export async function mintTest() {
   return depositP.then(_ => Vow.all([
     alicePurseP.e.getBalance(),
     depositP.e.getBalance()
-  ]);
+  ]));
 }
 
 export function trivialContractTest() {
@@ -86,7 +86,7 @@ export function betterContractTestBobFirst(bobLies=false) {
   const aliceMoneyPurseP = moneyMintP.e.mint(1000, 'aliceMainMoney');
   const bobMoneyPurseP = moneyMintP.e.mint(1001, 'bobMainMoney');
 
-  const stockMintP = mintMakerP).e.makeMint();
+  const stockMintP = mintMakerP.e.makeMint();
   const aliceStockPurseP = stockMintP.e.mint(2002, 'aliceMainStock');
   const bobStockPurseP = stockMintP.e.mint(2003, 'bobMainStock');
 

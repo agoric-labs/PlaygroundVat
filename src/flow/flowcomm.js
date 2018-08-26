@@ -58,16 +58,17 @@ class PendingDelivery {
       try {
         res = target[methodName](...args);
       } catch (reason) {
+        log(`@@@@####$$$$ ${methodName} $$$$####@@@@`);
         res = Promise.reject(reason);
       }
       // handler shouldn't ever throw an exception, but just in case let's look
       // at it separately
       handler.resolve(res);
-    }
+    };
 
     this.onReject = (reason) => {
       handler.resolve(Promise.reject(reason));
-    }
+    };
 
     //log(`PendingDelivery[${which}] ${op}, ${args}`);
   }

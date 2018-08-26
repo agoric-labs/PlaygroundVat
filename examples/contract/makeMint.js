@@ -60,7 +60,8 @@ function makeMint() {
       return Vow.resolve(srcP).then(src => {
         const payment = def({
           toString() { return `payment ${name}`; },
-          getBalance: function() { return ledger.get(payment); }
+          getBalance: function() { return ledger.get(payment); },
+          getIssuer() { return issuer; }
         });
         ledger.set(payment, 0);
         transferNow(src, payment, amount);
