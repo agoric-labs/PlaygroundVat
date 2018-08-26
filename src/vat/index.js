@@ -5,7 +5,7 @@
 
 import { makeWebkeyMarshal, doSwissHashing } from './webkey';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
-import { resolutionOf } from '../flow/flowcomm'; // todo unclean
+import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -116,6 +116,36 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   const queuedMessages = new Map();
   const connections = new Map();
+  const outboundSeqnums = new Map(); // vatID -> counter
+  const rxInboundSeqnums = new Map(); // vatID -> counter
+  const queuedInboundMessages = new Map(); // vatID -> Array
+
+  function outboundSeqnumFor(vatID) {
+    const seqnum = outboundSeqnums.has(vatID) ? outboundSeqnums.get(vatID) : 0;
+    outboundSeqnums.set(vatID, seqnum+1);
+    return seqnum;
+  }
+
+  function queueInbound(vatID, bodyJson) {
+    if (!queuedInboundMessages.has(vatID)) {
+      queuedInboundMessages.set(vatID, []);
+    }
+    const s = queuedInboundMessages.get(vatID);
+    s.push(bodyJson);
+    s.sort((a,b) => a.seqnum - b.seqnum);
+  }
+
+  function deliverInbound(vatID, deliver) {
+    const next = rxInboundSeqnums.has(vatID) ? rxInboundSeqnums.get(vatID) : 0;
+    const s = queuedInboundMessages.get(vatID);
+    while (s.length) { XXX
+
+    if (seqnum === next) {
+      rxInboundSeqnums.set(vatID, next+1);
+      return true;
+    }
+    return false;
+  }
 
   function gotConnection(vatID, connection) {
     connections.set(vatID, connection);
@@ -146,7 +176,8 @@ export function makeVat(endowments, myVatID, initialSource) {
   const serializer = {
     opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
            resolutionOf) {
-      const bodyJson = marshal.serialize(def({op: 'send',
+      const bodyJson = marshal.serialize(def({seqnum: outboundSeqnumFor(targetVatID),
+                                              op: 'send',
                                               resultSwissbase: resultSwissbase,
                                               targetSwissnum: targetSwissnum,
                                               methodName: methodName,
@@ -159,7 +190,8 @@ export function makeVat(endowments, myVatID, initialSource) {
 
     opResolve(targetVatID, targetSwissnum, value, resolutionOf) {
       log(`opResolve(${targetVatID}, ${targetSwissnum}, ${value})`);
-      const bodyJson = marshal.serialize(def({op: 'resolve',
+      const bodyJson = marshal.serialize(def({seqnum: outboundSeqnumFor(targetVatID),
+                                              op: 'resolve',
                                               targetSwissnum: targetSwissnum,
                                               value: value,
                                              }),
@@ -210,8 +242,11 @@ export function makeVat(endowments, myVatID, initialSource) {
     senderVatID = `${senderVatID}`;
     bodyJson = `${bodyJson}`;
     log(`commsReceived ${senderVatID}, ${bodyJson}`);
-    endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
     const body = marshal.unserialize(bodyJson);
+    queueInbound(senderVatID, bodyJson);
+
+
+    endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
     log(`op ${body.op}`);
     if (body.op === 'send') {
       const res = doSendInternal(body);
