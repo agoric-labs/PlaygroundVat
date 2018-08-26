@@ -21,70 +21,87 @@ function isSymbol (x) {
   return typeof x === 'symbol';
 }
 
-let whichTodoCounter = 0;
-const whichTodo = new WeakMap();
+let debugTodoCounter = 0;
+const debugTodoIDs = new WeakMap();
 
 // TODO handle errors and broken targets
 // TODO what happens to the then result?
 function scheduleTodo(target, todo) {
-  Promise.resolve(target).then(todo);
+  Promise.resolve(target).then(todo.onFulfill, todo.onReject);
 }
 
 function isBroken(target) { // todo
   return false;
 }
 
-// TODO handle errors
-function PendingDelivery(op, args, resultR) {
-  const which = whichTodoCounter++;
-  const todo = function Delivery(target) {
-    //console.log(`SEND [${which}] ${target} . ${op} (#${args.length})`);
-    //console.log(`SEND ${op}`);
-    if (isBroken(target)) {
-      resultR(target); // broken Vow contagion
-      return;
+function debugLogDelivery(target, methodName) {
+  if (Object(target) === target) {
+    if (!Reflect.getOwnPropertyDescriptor(target, methodName)) {
+      //console.log(`target[${methodName}] is missing for ${target}`);
     }
-    if (Object(target) === target) {
-      if (!Reflect.getOwnPropertyDescriptor(target, op)) {
-        //console.log(`target[${op}] is missing for ${target}`);
-      }
-     } else if (typeof target !== 'string') {
-      //console.log(`target IS WONKY: ${target}`);
-    }
-    let res;
-    try {
-      res = target[op](...args);
-    } catch (ex) {
-      log(`****#### ${op} ####****`);
-      res = Promise.reject(ex); // todo: make this a Vow.reject, once that exists
-    }
-    // resultR shouldn't ever throw an exception, but just in case let's look
-    // at it separately
-    resultR(res);
-  };
-  //log(`PendingDelivery[${which}] ${op}, ${args}`);
-  whichTodo[todo] = which;
-  // todo.toString = () => `${resultR.name} => <target>.${op}(${args})`;
-  todo.remote = () => ({ op, args });
-  return todo;
+  } else if (typeof target !== 'string') {
+    //console.log(`target IS WONKY: ${target}`);
+  }
 }
 
-// TODO handle errors
-function PendingThen(onFulfill, onReject, resultR) {
-  const which = whichTodoCounter++;
-  const todo = function (target) {
-    //log(`THEN [${which}]`);
-    let res;
-    try {
-      res = isBroken(target) ? onReject(target) : onFulfill(target);
-    } catch (ex) {
-      res = Promise.reject(ex); // todo: Vow.reject
+class PendingDelivery {
+  constructor(methodName, args, handler) {
+    this.methodName = methodName;
+    this.args = args;
+    this.handler = handler;
+    this.debugID = debugTodoCounter++;
+    debugTodoIDs[this] = this.debugID;
+
+    this.onFulfill = (target) => {
+      debugLogDelivery(target, methodName);
+      let res;
+      try {
+        res = target[methodName](...args);
+      } catch (reason) {
+        res = Promise.reject(reason);
+      }
+      // handler shouldn't ever throw an exception, but just in case let's look
+      // at it separately
+      handler.resolve(res);
     }
-    resultR(res);
-  };
-  //log(`PendingThen[${which}] ${func}`);
-  whichTodo[todo] = which;
-  return todo;
+
+    this.onReject = (reason) => {
+      handler.resolve(Promise.reject(reason));
+    }
+
+    //log(`PendingDelivery[${which}] ${op}, ${args}`);
+  }
+  propagateReject(rejectedVow) {
+    this.handler.forwardTo(rejectedVow);
+  }
+}
+
+class PendingThen {
+  constructor(onFulfill, onReject, handler) {
+    this.debugID = debugTodoCounter++;
+    debugTodoIDs[this] = this.debugID;
+
+    this.onFulfill = (target) => {
+      //log(`THEN [${which}]`);
+      let res;
+      try {
+        res = onFulfill ? onFulfill(target) : target;
+      } catch (reason) {
+        res = Promise.reject(reason);
+      }
+      handler.resolve(res);
+    }
+
+    this.onReject = (reason) => {
+      let res;
+      try {
+        res = onReject ? onReject(reason) : Promise.reject(reason);
+      } catch (reason) {
+        res = Promise.reject(reason);
+      }
+      handler.resolve(res);
+    }
+  }
 }
 
 /**
@@ -97,17 +114,25 @@ class UnresolvedHandler {
     this.blockedFlows = [];
   }
 
+  resolve(target) {
+    const targetInner = getInnerVow(target);
+    // if the target is a vow, forward to it, otherwise
+    // target might be a Presence, or local object, or received pass-by-copy
+    // object. In that case fulfill to it.
+    return targetInner ? this.forwardTo(targetInner) : this.fulfill(target);
+  }
+
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
-  fulfill(value) {
-    const rec = farVows.get(value);
-    const handler = rec ? rec.handler : new FulfilledHandler(value);
+  fulfill(target) {
+    const rec = farVows.get(target);
+    const handler = rec ? rec.handler : new FulfilledHandler(target);
     return this.directForward(handler);
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
   // TODO get rid of resolver argument?
-  forwardTo(valueInner) {
-    const valueR = shortenForwards(valueInner.resolver, valueInner);
+  forwardTo(targetInner) {
+    const valueR = shortenForwards(targetInner.resolver, targetInner);
     return this.directForward(valueR);
   }
 
@@ -196,14 +221,14 @@ class FarRemoteHandler {
 
   processSingle(todo, flow) {
     function isMessageSend(t) {
-      if (todo.remote) { // hack
+      if (todo.methodName) { // hack
         return true;
       } else {
         return false;
       }
     }
     if (isMessageSend(todo)) {
-      const { op, args } = todo.remote();
+      const { methodName, args } = todo;
       // the serializer gets private access to resolutionOf(), which it uses
       // to build the right webkeys
 
@@ -224,7 +249,7 @@ class FarRemoteHandler {
                                                 resData.swissnum, flow);
       this.serializer.registerRemoteVow(this.vatID, resData.swissnum, resultVow);
 
-      this.serializer.opSend(resData.swissbase, this.vatID, this.swissnum, op, args, resolutionOf);
+      this.serializer.opSend(resData.swissbase, this.vatID, this.swissnum, methodName, args, resolutionOf);
       return true;
     } else {
       // this is a then() on a RemoteVow, which should cause a round trip to
@@ -362,15 +387,7 @@ function makeResolver(innerResolver) {
   const resolver = function (value) {
     // TODO how do we detect cycles
     // TODO use 'this' for the identity
-    const valueInner = getInnerVow(value);
-    if (valueInner) {
-      // the value is a promise; forward to it
-      innerResolver = innerResolver.forwardTo(valueInner);
-    } else {
-      // value might be a Presence, or local object, or received pass-by-copy
-      // object
-      innerResolver = innerResolver.fulfill(value);
-    }
+    innerResolver = innerResolver.resolve(value);
   };
   // resolver.toString = () => `Resolver{ resolved: ${getHandler(resolver)} }`;
   return def(resolver);
@@ -421,14 +438,15 @@ class InnerVow {
     return isSymbol(op)
       ? Reflect.get(target, op, receiver)
       : (...args) => {
-        const newResolver = new UnresolvedHandler();
-        const resultR = makeResolver(newResolver);
-        this.flow.enqueue(this, PendingDelivery(op, args, resultR));
+        const handler = new UnresolvedHandler();
+        // TODO don't make an outer resolver
+        const resultR = makeResolver(handler);
+        this.flow.enqueue(this, new PendingDelivery(op, args, handler));
         if (0) {
           // ordering hack, want to remove this
-          return new Vow(this.flow, newResolver);
+          return new Vow(this.flow, handler);
         } else {
-          return new Vow(new InnerFlow(), newResolver);
+          return new Vow(new InnerFlow(), handler);
         }
       };
   }
@@ -438,14 +456,13 @@ class InnerVow {
   }
 
   enqueueThen(onFulfill, onReject) {
-    const newResolver = new UnresolvedHandler();
-    const resultR = makeResolver(newResolver);
-    this.flow.enqueue(this, PendingThen(onFulfill, onReject, resultR));
+    const handler = new UnresolvedHandler();
+    this.flow.enqueue(this, new PendingThen(onFulfill, onReject, handler));
     if (0) {
       // didn't need the ordering hack here, not sure why
-      return new Vow(this.flow, newResolver);
+      return new Vow(this.flow, handler);
     } else {
-      return new Vow(new InnerFlow(), newResolver);
+      return new Vow(new InnerFlow(), handler);
     }
   }
 }
