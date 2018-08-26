@@ -211,7 +211,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     senderVatID = `${senderVatID}`;
     bodyJson = `${bodyJson}`;
     log(`commsReceived ${senderVatID}, ${bodyJson}`);
-    endowments.writeOutput(`msgx ${senderVatID}->${myVatID} ${bodyJson}`);
+    endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
     const body = marshal.unserialize(bodyJson);
     log(`op ${body.op}`);
     if (body.op === 'send') {
@@ -230,12 +230,18 @@ export function makeVat(endowments, myVatID, initialSource) {
     } else if (body.op === `resolve`) {
       log(`opResolve: TODO`);
     }
+    // TODO: emit turn boundary to transcript
+    // TODO: don't send messages until here
     return undefined;
   }
 
   return {
     check() {
       log('yes check');
+    },
+
+    whatConnectionsDoYouWant() {
+      return queuedMessages.keys();
     },
 
     connectionMade(vatID, connection) {
@@ -266,6 +272,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     },
 
     executeTranscriptLine(line) {
+      log(`executeTranscriptLine '${line}'`);
       if (line === '') {
         log(`empty line`);
         return;
@@ -283,7 +290,7 @@ export function makeVat(endowments, myVatID, initialSource) {
         const bodyJson = m[3];
         log(`transcript msg ${fromVat} ${toVat} (i am ${myVatID})`);
         if (toVat === myVatID) {
-          endowments.writeOutput(line);
+          //endowments.writeOutput(line);
           commsReceived(fromVat, bodyJson);
         }
       } else {

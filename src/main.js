@@ -1,12 +1,17 @@
 import fs from 'fs';
+import path from 'path';
 import crypto from 'crypto';
+import { promisify } from 'util';
 
 import yargs from 'yargs';
 import { rollup } from 'rollup';
 
 import SES from 'ses';
 
-import { makeComms } from './comms';
+import PeerId from 'peer-id';
+import PeerInfo from 'peer-info';
+
+import { startComms } from './comms';
 import { makeVatEndowments, readAndHashFile } from './host';
 
 export function confineVatSource(s, source) {
@@ -63,32 +68,113 @@ export async function buildVat(s, vatID, writeOutput, guestSource) {
   return makeVat(vatEndowments, vatID, guestSource);
 }
 
+async function create(argv) {
+  const id = await promisify(PeerId.create)();
+  const vatID = id.toB58String();
+  const basedir = vatID;
+  await fs.promises.mkdir(basedir);
+  let f = await fs.promises.open(path.join(basedir, 'private-id'), 'w');
+  await f.appendFile(`${JSON.stringify(id.toJSON(), null, 2)}\n`);
+  await f.close();
+
+  f = await fs.promises.open(path.join(basedir, 'id'), 'w');
+  await f.appendFile(`${id.toB58String()}\n`);
+  await f.close();
+
+  f = await fs.promises.open(path.join(basedir, 'listen-ports'), 'w');
+  await f.appendFile(`/ip4/0.0.0.0/tcp/${argv.port}\n`);
+  await f.close();
+
+  f = await fs.promises.open(path.join(basedir, 'addresses'), 'w');
+  await f.appendFile(`/ip4/${argv.hostname}/tcp/${argv.port}/ipfs/${vatID}\n`);
+  await f.close();
+
+  await fs.promises.mkdir(path.join(basedir, 'source'));
+  f = await fs.promises.open(path.join(basedir, 'source', 'index.js'), 'w');
+  await f.appendFile(`demo code here\n`);
+  await f.close();
+
+  f = await fs.promises.open(path.join(basedir, 'root-sturdydef'), 'w');
+  await f.appendFile(`${id.toB58String()}/0\n`);
+  await f.close();
+
+  f = await fs.promises.open(path.join(basedir, 'vat-version'), 'w');
+  await f.appendFile(`1\n`);
+  await f.close();
+
+  console.log(`created new Vat in ${vatID}`);
+}
+
+
 async function run(argv) {
-  console.log(`run ${argv.source} ${argv.input} ${argv.output}`);
+  let basedir = '.';
+  if (argv.basedir) {
+    basedir = argv.basedir;
+    // else we must be run from a vat basedir
+  }
+  async function readBaseLine(fn) {
+    const c = await fs.promises.readFile(path.join(basedir, fn),
+                                         { encoding: 'utf-8' });
+    return c.slice(0, c.indexOf('\n'));
+  }
+  async function readBaseFile(fn) {
+    const c = await fs.promises.readFile(path.join(basedir, fn),
+                                         { encoding: 'utf-8' });
+    return c;
+  }
+  async function readBaseLines(fn) {
+    const c = await fs.promises.readFile(path.join(basedir, fn),
+                                         { encoding: 'utf-8' });
+    return c.slice(0, c.lastIndexOf('\n')).split('\n');
+  }
+  const version = await readBaseLine('vat-version');
+  if (version !== '1') {
+    throw new Error(`I understand vat-version '1', but this basedir has '${version}'`);
+  }
+  const myVatID = await readBaseLine('id');
+  console.log(`myVatID ${myVatID}`);
+
   const s = makeRealm();
 
-  const output = fs.openSync(argv.output, 'w');
+  // todo: how do we set encoding=utf-8 on an open()?
+  const output = await fs.promises.open(path.join(basedir, 'output-transcript'), 'w');
 
   const vatEndowments = makeVatEndowments(argv, output);
-  const myVatID = argv.vatID;
-  const guestSource = await bundleCode(argv.source, true);
+  const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
   const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
 
   // replay transcript to resume from previous state
-  const opTranscript = fs.readFileSync(argv.input).toString('utf8');
-  const ops = opTranscript.split('\n');
+  let ops = [];
+  try {
+    ops = await readBaseLines('input-transcript');
+  } catch (ex) {
+    console.log(`unable to read input-transcript, ignoring (${ex})`);
+  }
   for(let op of ops) {
+    // TODO: find turn boundaries, ignore all messages that might appear
+    // after a turn boundary because that means we crashed while writing
     v.executeTranscriptLine(op);
   }
 
-  // create a JSON peer-id record (private key, public key, id=hash(pubkey))
-  // by running 'node node_modules/.bin/peer-id > vinfo', then run
-  // bin/vat with --vinfo=vinfo
-  const vinfoJson = fs.readFileSync(argv.vinfo).toString('utf8');
-  const c = await makeComms(vinfoJson, v);
+  const myPeerID_s = await readBaseFile('private-id');
+  const myPeerID = await promisify(PeerId.createFromJSON)(JSON.parse(myPeerID_s));
+  const myPeerInfo = new PeerInfo(myPeerID);
+  const ports = await readBaseLines('listen-ports');
+  for (let port of ports) {
+    if (port) {
+      myPeerInfo.multiaddrs.add(port);
+    }
+  }
 
-  // network listener goes here, call v.processOp() or something more like
-  // dataReceived()
+  const locatordir = path.join(basedir, '..');
+
+  async function getAddressesForVatID(vatID) {
+    const portsFile = path.join(locatordir, vatID, 'addresses'); // todo: fake symlink
+    const data = await fs.promises.readFile(portsFile, { encoding: 'utf-8' });
+    const addresses = data.split('\n').filter(address => address); // remove blank lines
+    return addresses;
+  }
+  await startComms(v, myPeerInfo, myVatID, getAddressesForVatID);
 
   // we fall off the edge here, but Node keeps running because there are
   // still open listening sockets
@@ -97,16 +183,24 @@ async function run(argv) {
 
 export async function main() {
   yargs
-    .command('run [source]', 'run a service', (yargs) => {
-      yargs.positional('source', {
-        describe: 'initial object sourcefile',
-      });
+    .command('create <hostname> <port>', 'create a new Vat in BASEDIR', (yargs) => {
+      yargs
+        .positional('hostname', {
+          describe: 'hostname to advertise in BASEDIR/addresses, start with 127.0.0.1',
+        })
+        .positional('port', {
+          describe: 'TCP port to listen on, choose something unique',
+        })
+      ;
+    }, (argv) => create(argv))
+    .command('run [basedir]', 'run a Vat (in current directory, or from BASEDIR)', (yargs) => {
+      yargs
+        .option('basedir', {
+          describe: 'base directory, created by "vat create"',
+        })
+      ;
     }, (argv) => {
       return run(argv);
     })
-    .option('input', {})
-    .option('output', {})
-    .option('vatID', {})
-    .option('vinfo', {})
     .parse();
 }

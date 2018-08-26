@@ -7,8 +7,8 @@ import crypto from 'crypto';
 export function makeVatEndowments(argv, output) {
   return {
     writeOutput(s) {
-      fs.writeSync(output, s);
-      fs.writeSync(output, '\n');
+      output.write(s);
+      output.write('\n');
     },
 
   };
