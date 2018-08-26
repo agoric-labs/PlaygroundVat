@@ -160,7 +160,6 @@ export function makeVat(endowments, myVatID, initialSource) {
     opResolve(targetVatID, targetSwissnum, value, resolutionOf) {
       log(`opResolve(${targetVatID}, ${targetSwissnum}, ${value})`);
       const bodyJson = marshal.serialize(def({op: 'resolve',
-                                              targetVatID: targetVatID, // todo goes away
                                               targetSwissnum: targetSwissnum,
                                               value: value,
                                              }),
@@ -229,6 +228,8 @@ export function makeVat(endowments, myVatID, initialSource) {
       return res; // for testing
     } else if (body.op === `resolve`) {
       log(`opResolve: TODO`);
+      const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
+      h.resolve(body.value);
     }
     // TODO: emit turn boundary to transcript
     // TODO: don't send messages until here

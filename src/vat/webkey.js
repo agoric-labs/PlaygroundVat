@@ -495,6 +495,15 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     serializePassByPresence(val, resolutionOf, swissnum);
   }
 
+  function getOutboundResolver(vatID, swissnum, handlerOf) {
+    const key = makeWebkey({vatID, swissnum});
+    const rec = webkey2Record.get(key);
+    if (rec) {
+      return handlerOf(rec.value);
+    }
+    return undefined;
+  }
+
   function getMyTargetBySwissnum(swissnum) {
     const key = makeWebkey({vatID: myVatID, swissnum});
     const rec = webkey2Record.get(key);
@@ -521,5 +530,5 @@ export function makeWebkeyMarshal(myVatID, serializer) {
 
   return def({serialize, unserialize, serializeToWebkey, unserializeWebkey,
               allocateSwissStuff, registerRemoteVow, getMyTargetBySwissnum,
-              registerTarget});
+              registerTarget, getOutboundResolver});
 }
