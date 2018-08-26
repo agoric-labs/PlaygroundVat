@@ -1,3 +1,4 @@
+/*global Vow Flow def*/
 // Copyright (C) 2013 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -17,7 +18,11 @@ import { escrowExchange } from './escrow';
 
 function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
   const escrowSrc = `${escrowExchange}`;
-  const myPurse = myMoneyPurse;
+  const myMoneyPurseP = Vow.resolve(myMoneyPurse);
+  const myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
+  const myStockPurseP = Vow.resolve(myStockPurse);
+  const myStockIssuerP = myStockPurseP.e.getIssuer();
+  contractHostP = Vow.resolve(contractHostP);
   const f = new Flow();
 
   const check = function(allegedSrc, allegedSide) {
@@ -48,19 +53,19 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       }
       }
 
-      return (myPurse.e.deposit(10, paymentP)).then(
-        function(_) { return good; });
+      return myMoneyPurseP.e.deposit(10, paymentP).then(_ => good);
     },
 
     tradeWell: function(aliceP, bobLies=false) {
-      const tokensP = Vow.resolve(contractHostP).e.setup(escrowSrc);
+      const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
       let escrowSrcWeTellAlice = escrowSrc;
       if (bobLies) {
         escrowSrcWeTellAlice += 'NOT';
       }
-      return Vow.all([Vow.resolve(aliceP).e.invite(aliceTokenP, escrowSrcWeTellAlice, 0),
+      return Vow.all([Vow.resolve(aliceP).e.invite(aliceTokenP,
+                                                   escrowSrcWeTellAlice, 0),
                       Vow.resolve(bob).e.invite(bobTokenP, escrowSrc, 1)]);
     },
 
@@ -73,20 +78,16 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       check(allegedSrc, allegedSide);
       let cancel;
       const b = def({
-        stockSrcP: Vow.resolve(myStockPurse).e.makeEmptyPurse('bobStockSrc'),
-        moneyDstP: Vow.resolve(myMoneyPurse).e.makeEmptyPurse('bobMoneyDst'),
+        stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
+        moneyDstP: myMoneyIssuerP.e.makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,
         cancellationP: f.makeVow(function(r) { cancel = r; })
       });
       const ackP = b.stockSrcP.e.deposit(7, myStockPurse);
 
       const doneP = ackP.then(
-        function(_) {
-          return Vow.resolve(contractHostP).e.play(tokenP, allegedSrc, allegedSide, b);
-        });
-      return doneP.then(function(_) {
-        return b.moneyDstP.e.getBalance();
-      });
+        _ => contractHostP.e.play(tokenP, allegedSrc, allegedSide, b));
+      return doneP.then(_ => b.moneyDstP.e.getBalance());
     }
   });
   return bob;

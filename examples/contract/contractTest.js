@@ -1,3 +1,4 @@
+/*global Vow*/
 // Copyright (C) 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,12 +26,13 @@ import { bobMaker } from './makeBob';
 export async function mintTest() {
   const mP = Vow.resolve(mintMaker).e.makeMint();
   const alicePurseP = mP.e.mint(1000, 'alice');
-  const depositPurseP = alicePurseP.e.makeEmptyPurse('deposit');
+  const mIssuerP = alicePurseP.e.getIssuer();
+  const depositPurseP = mIssuerP.e.makeEmptyPurse('deposit');
   const v = depositPurseP.e.deposit(50, alicePurseP.fork()); // hack
   // this ordering should be guaranteed by the fact that this is all in the
   // same Flow
-  const aBal = v.then(() => alicePurseP.e.getBalance());
-  const dBal = v.then(() => depositPurseP.e.getBalance());
+  const aBal = v.then(_ => alicePurseP.e.getBalance());
+  const dBal = v.then(_ => depositPurseP.e.getBalance());
   return Vow.all([aBal, dBal]);
 }
 

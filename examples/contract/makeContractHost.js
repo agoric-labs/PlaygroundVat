@@ -1,3 +1,4 @@
+/*global SES Vow Flow def log*/
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //

@@ -1,8 +1,9 @@
+/*global Vow def*/
 export function escrowExchange(a, b) {  // a from Alice , b from Bob
   function makeTransfer(srcPurseP, dstPurseP, amount) {
-    const makeEscrowPurseMakerP = Vow.join(srcPurseP.e.getPurseMaker(),
-                                           dstPurseP.e.getPurseMaker());
-    const escrowPurseP = makeEscrowPurseMakerP.e.makeEmptyPurse("escrow");
+    const issuerP = Vow.join(srcPurseP.e.getIssuer(),
+                             dstPurseP.e.getIssuer());
+    const escrowPurseP = issuerP.e.makeEmptyPurse("escrow");
     return def({
       phase1() { return escrowPurseP.e.deposit(amount, srcPurseP); },
       phase2() { return dstPurseP.e.deposit(amount, escrowPurseP); },
@@ -11,7 +12,9 @@ export function escrowExchange(a, b) {  // a from Alice , b from Bob
   }
 
   function failOnly(cancellationP) {
-    return Vow.resolve(cancellationP).then(cancellation => { throw cancellation; });
+    return Vow.resolve(cancellationP).then(cancellation => {
+      throw cancellation;
+    });
   }
 
   const aT = makeTransfer(a.moneySrcP, b.moneyDstP, b.moneyNeeded);

@@ -55,6 +55,7 @@ function PendingDelivery(op, args, resultR) {
     try {
       res = target[op](...args);
     } catch (ex) {
+      log(`****#### ${op} ####****`);
       res = Promise.reject(ex); // todo: make this a Vow.reject, once that exists
     }
     // resultR shouldn't ever throw an exception, but just in case let's look
