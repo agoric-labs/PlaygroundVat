@@ -524,7 +524,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
                       }
                     });
     val2Record.set(val, rec);
-    const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
+    const key = JSON.stringify({vatID: targetVatID, swissnum: swissnum});
     webkey2Record.set(key, rec);
   }
 
