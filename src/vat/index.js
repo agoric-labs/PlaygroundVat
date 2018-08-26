@@ -118,7 +118,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   const connections = new Map();
   const outboundSeqnums = new Map(); // vatID -> counter
   const rxInboundSeqnums = new Map(); // vatID -> counter
-  const queuedInboundMessages = new Map(); // vatID -> Array
+  const queuedInboundMessages = new Map(); // vatID -> Map(seqnum -> msg)
 
   function outboundSeqnumFor(vatID) {
     const seqnum = outboundSeqnums.has(vatID) ? outboundSeqnums.get(vatID) : 0;
@@ -126,25 +126,28 @@ export function makeVat(endowments, myVatID, initialSource) {
     return seqnum;
   }
 
-  function queueInbound(vatID, bodyJson) {
+  function queueInbound(vatID, seqnum, msg) {
     if (!queuedInboundMessages.has(vatID)) {
-      queuedInboundMessages.set(vatID, []);
+      queuedInboundMessages.set(vatID, new Map());
     }
     const s = queuedInboundMessages.get(vatID);
-    s.push(bodyJson);
-    s.sort((a,b) => a.seqnum - b.seqnum);
+    // todo: remember the first, or the last? bail if they differ?
+    s.set(seqnum, msg);
   }
 
-  function deliverInbound(vatID, deliver) {
+  function processInboundQueue(vatID, deliver) {
     const next = rxInboundSeqnums.has(vatID) ? rxInboundSeqnums.get(vatID) : 0;
     const s = queuedInboundMessages.get(vatID);
-    while (s.length) { XXX
-
-    if (seqnum === next) {
-      rxInboundSeqnums.set(vatID, next+1);
-      return true;
+    while (true) {
+      if (s.has(next)) {
+        const msg = s.get(next);
+        s.delete(next);
+        next += 1;
+        deliver(msg);
+      } else {
+        return;
+      }
     }
-    return false;
   }
 
   function gotConnection(vatID, connection) {
@@ -173,7 +176,19 @@ export function makeVat(endowments, myVatID, initialSource) {
     }
   }
 
+  let inTurn = false;
   const serializer = {
+    startTurn() {
+      inTurn = true;
+      endowments.writeOutput(`turn-begin`);
+    },
+
+    finishTurn() {
+      inTurn = false;
+      endowments.writeOutput(`turn-end`);
+    },
+
+    // todo: queue this until finishTurn
     opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
            resolutionOf) {
       const bodyJson = marshal.serialize(def({seqnum: outboundSeqnumFor(targetVatID),
@@ -238,14 +253,9 @@ export function makeVat(endowments, myVatID, initialSource) {
   // to other code, to avoid accidentally exposing primal-realm
   // Object/Function/etc.
 
-  function commsReceived(senderVatID, bodyJson) {
-    senderVatID = `${senderVatID}`;
-    bodyJson = `${bodyJson}`;
-    log(`commsReceived ${senderVatID}, ${bodyJson}`);
-    const body = marshal.unserialize(bodyJson);
-    queueInbound(senderVatID, bodyJson);
-
-
+  function deliverMessage(senderVatID, message) {
+    serializer.startTurn();
+    const { body, bodyJson } = message;
     endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
     log(`op ${body.op}`);
     if (body.op === 'send') {
@@ -266,9 +276,19 @@ export function makeVat(endowments, myVatID, initialSource) {
       const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
       h.resolve(body.value);
     }
-    // TODO: emit turn boundary to transcript
-    // TODO: don't send messages until here
+    // todo: when should we commit/release? after all promises created by
+    // opSend have settled?
+    serializer.finishTurn();
     return undefined;
+  }
+
+  function commsReceived(senderVatID, bodyJson) {
+    senderVatID = `${senderVatID}`;
+    bodyJson = `${bodyJson}`;
+    log(`commsReceived ${senderVatID}, ${bodyJson}`);
+    const body = marshal.unserialize(bodyJson);
+    queueInbound(senderVatID, body.seqnum, { body, bodyJson });
+    processInboundQueue(senderVatID, deliverMessage);
   }
 
   return {
