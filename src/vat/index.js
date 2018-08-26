@@ -136,14 +136,14 @@ export function makeVat(endowments, myVatID, initialSource) {
   }
 
   function processInboundQueue(vatID, deliver) {
-    const next = rxInboundSeqnums.has(vatID) ? rxInboundSeqnums.get(vatID) : 0;
+    let next = rxInboundSeqnums.has(vatID) ? rxInboundSeqnums.get(vatID) : 0;
     const s = queuedInboundMessages.get(vatID);
     while (true) {
       if (s.has(next)) {
         const msg = s.get(next);
         s.delete(next);
         next += 1;
-        deliver(msg);
+        deliver(vatID, msg);
       } else {
         return;
       }
@@ -180,12 +180,12 @@ export function makeVat(endowments, myVatID, initialSource) {
   const serializer = {
     startTurn() {
       inTurn = true;
-      endowments.writeOutput(`turn-begin`);
+      //endowments.writeOutput(`turn-begin`);
     },
 
     finishTurn() {
       inTurn = false;
-      endowments.writeOutput(`turn-end`);
+      //endowments.writeOutput(`turn-end`);
     },
 
     // todo: queue this until finishTurn
@@ -258,19 +258,20 @@ export function makeVat(endowments, myVatID, initialSource) {
     const { body, bodyJson } = message;
     endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
     log(`op ${body.op}`);
+    let done;
     if (body.op === 'send') {
       const res = doSendInternal(body);
       if (body.resultSwissbase) {
         const resolverSwissnum = doSwissHashing(body.resultSwissbase);
         marshal.registerTarget(res, resolverSwissnum, resolutionOf);
-        const done = res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
-                              rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
+        done = res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
+                        rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
         // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
-        return done; // for testing, to wait until things are done
+      } else {
+        // else it was really a sendOnly
+        log(`commsReceived got sendOnly, dropping result`);
+        done = res; // for testing
       }
-      // else it was really a sendOnly
-      log(`commsReceived got sendOnly, dropping result`);
-      return res; // for testing
     } else if (body.op === `resolve`) {
       log(`opResolve: TODO`);
       const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
@@ -279,7 +280,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     // todo: when should we commit/release? after all promises created by
     // opSend have settled?
     serializer.finishTurn();
-    return undefined;
+    return done; // for testing, to wait until things are done
   }
 
   function commsReceived(senderVatID, bodyJson) {
@@ -287,6 +288,9 @@ export function makeVat(endowments, myVatID, initialSource) {
     bodyJson = `${bodyJson}`;
     log(`commsReceived ${senderVatID}, ${bodyJson}`);
     const body = marshal.unserialize(bodyJson);
+    if (body.seqnum === undefined) {
+      throw new Error(`message is missing seqnum: ${bodyJson}`);
+    }
     queueInbound(senderVatID, body.seqnum, { body, bodyJson });
     processInboundQueue(senderVatID, deliverMessage);
   }
@@ -354,6 +358,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       }
     },
 
+    deliverMessage,
     commsReceived,
 
     /*

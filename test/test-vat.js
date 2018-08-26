@@ -119,13 +119,16 @@ test('methods can send messages via commsReceived', async (t) => {
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
 
-  const bodyJson = JSON.stringify({op: 'send',
+  const bodyJson = JSON.stringify({seqnum: 0,
+                                   op: 'send',
                                    targetSwissnum: 0,
                                    methodName: 'send',
                                    args: [{'@qclass': 'presence',
                                            vatID: 'vat2',
                                            swissnum: 123
                                           }]});
+  // note: commsReceived's return value doesn't wait for the method to be
+  // invoked, it discards that Promise, unlike deliverMessage
   await v.commsReceived('vat2', bodyJson);
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 2);
@@ -146,13 +149,14 @@ test('method results are sent back', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
-
-  const bodyJson = JSON.stringify({op: 'send',
-                                   resultSwissbase: '5',
-                                   targetSwissnum: 0,
-                                   methodName: 'returnValue',
-                                   args: [3]});
-  await v.commsReceived('vat2', bodyJson);
+  const body = {seqnum: 0,
+                op: 'send',
+                resultSwissbase: '5',
+                targetSwissnum: 0,
+                methodName: 'returnValue',
+                args: [3]};
+  const bodyJson = JSON.stringify(body);
+  await v.deliverMessage('vat2', { body, bodyJson });
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 2);
   const pieces = tr.lines[1].split(' '); // cheap
