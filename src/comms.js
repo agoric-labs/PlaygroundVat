@@ -96,7 +96,10 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
     conn,
     pullSplit('\n'),
     pullStream.map(line => {
-      console.log(`rx '${line}'`);
+      console.log(`got line on outbound '${line}'`);
+      if (!line)
+        return;
+      vat.commsReceived(vatID, line);
     }),
     pullStream.drain()
   );
@@ -150,7 +153,7 @@ async function handleConnection(vat, protocol, conn) {
   pullStream(conn,
              pullSplit('\n'),
              pullStream.map(line => {
-               console.log(`got line '${line}'`);
+               console.log(`got line on inbound '${line}'`);
                if (!line)
                  return;
                if (!vatID) {
