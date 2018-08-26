@@ -64,9 +64,9 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       if (bobLies) {
         escrowSrcWeTellAlice += 'NOT';
       }
-      return Vow.all([Vow.resolve(aliceP).e.invite(aliceTokenP,
-                                                   escrowSrcWeTellAlice, 0),
-                      Vow.resolve(bob).e.invite(bobTokenP, escrowSrc, 1)]);
+      return Vow.all([
+        Vow.resolve(aliceP).e.invite(aliceTokenP, escrowSrcWeTellAlice, 0),
+        Vow.resolve(bob).e.invite(bobTokenP, escrowSrc, 1)]);
     },
 
     /**
@@ -78,14 +78,13 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       check(allegedSrc, allegedSide);
       let cancel;
       const b = def({
-        stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
+        stockSrcP: myStockPurse.e.withdraw(7, 'bobStockSrc'),
         moneyDstP: myMoneyIssuerP.e.makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,
         cancellationP: f.makeVow(function(r) { cancel = r; })
       });
-      const ackP = b.stockSrcP.e.deposit(7, myStockPurse);
 
-      const doneP = ackP.then(
+      const doneP = b.stockSrcP.then(
         _ => contractHostP.e.play(tokenP, allegedSrc, allegedSide, b));
       return doneP.then(_ => b.moneyDstP.e.getBalance());
     }

@@ -14,43 +14,85 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-let counter = 0;
 function makeMint() {
   // Map from purse or payment to balance
+  // TODO Replace all uses of WeakMap for private state with a PrivateState
+  // wrapper that distinguishes init from set, and bundles in this insistBrand.
   const ledger = new WeakMap();
+  function insistBrand(holder) {
+    if (!ledger.has(holder)) {
+      throw new Error(`not a purse or payment of this currency`);
+    }
+  }
+
+  function transferNow(src, dest, amount = ledger.get(src)) {
+    insistBrand(src);
+    insistBrand(dest);
+    Nat(amount);
+    // Just checking for possible overflow. Bitints should never fail this.
+    Nat(ledger.get(dest) + amount);
+    const srcNewBal = Nat(ledger.get(src) - amount);
+    /////////////////// commit point //////////////////
+    // All queries above passed with no side effects.
+    // During side effects below, any early exits should be made into
+    // fatal turn aborts.
+    ledger.set(src, srcNewBal);
+    // In case dest and src are the same, add to dest's updated
+    // balance rather than the original balance. The current balance
+    // must be >= 0 and <= the original balance, so no additional
+    // Nat test is needed.
+    // This is good because we're after the commit point, where no
+    // non-fatal errors are allowed.
+    ledger.set(dest, ledger.get(dest) + amount);
+    return amount;
+  }
 
   const issuer = def({
-    makeEmptyPurse(name) { return mint(0, name); }
+    makeEmptyPurse(name) { return mint(0, name); },
+
+    // srcP can be either a purse or a payment. If it contains a balance of
+    // at least `amount`, then that is moved to a fresh payment, which is
+    // returned. The more normal way to make a payment is `purse.withdraw`.
+    // The `withdrawFrom` method on issuer enables an escrow exchange to get
+    // an exclusive payment from an issuer that Alice and Bob agree on.
+    withdrawFrom(srcP, amount, name) {
+      name = String(name);
+      return Vow.resolve(srcP).then(src => {
+        const payment = def({
+          toString() { return `payment ${name}`; },
+          getBalance: function() { return ledger.get(payment); }
+        });
+        ledger.set(payment, 0);
+        transferNow(src, payment, amount);
+        return payment;
+      });
+    },
+    withdrawAllFrom(srcP, name) {
+      return issuer.withdrawFrom(srcP, undefined, name);
+    }
   });
 
   const mint = function(initialBalance, name) {
+    name = String(name);
     const purse = def({
+      toString() { return `purse ${name}`; },
       getBalance: function() { return ledger.get(purse); },
       getIssuer() { return issuer; },
+      withdraw(amount, name) {
+        return issuer.withdrawFrom(purse, amount, name);
+      },
+      withdrawAll(name) {
+        return purse.withdrawFrom(undefined, name);
+      },
+      // srcP can currently be either a purse or a payment, but it really
+      // should be a payment
       deposit: function(amount, srcP) {
-        amount = Nat(amount);
-        counter += 1;
-        const c = counter;
-        //log(`deposit[${name}]#${c}: bal=${ledger.get(purse)} amt=${amount}`);
         return Vow.resolve(srcP).then(src => {
-          //log(` dep[${name}]#${c} (post-P): bal=${
-          // ledger.get(purse)} amt=${amount}`);
-          const myOldBal = Nat(ledger.get(purse));
-          const srcOldBal = Nat(ledger.get(src));
-          Nat(myOldBal + amount);
-          const srcNewBal = Nat(srcOldBal - amount);
-          /////////////////// commit point //////////////////
-          // All queries above passed with no side effects.
-          // During side effects below, any early exits should be made into
-          // fatal turn aborts.
-          ledger.set(src, srcNewBal);
-          // In case purse and src are the same, add to purse's updated
-          // balance rather than myOldBal above. The current balance must be
-          // >= 0 and <= myOldBal, so no additional Nat test is needed.
-          // This is good because we're after the commit point, where no
-          // non-fatal errors are allowed.
-          ledger.set(purse, ledger.get(purse) + amount);
+          return transferNow(src, purse, amount);
         });
+      },
+      depositAll(srcP) {
+        return purse.deposit(undefined, srcP);
       }
     });
     ledger.set(purse, initialBalance);

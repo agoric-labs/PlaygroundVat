@@ -27,13 +27,14 @@ export async function mintTest() {
   const mP = Vow.resolve(mintMaker).e.makeMint();
   const alicePurseP = mP.e.mint(1000, 'alice');
   const mIssuerP = alicePurseP.e.getIssuer();
-  const depositPurseP = mIssuerP.e.makeEmptyPurse('deposit');
-  const v = depositPurseP.e.deposit(50, alicePurseP.fork()); // hack
+  const depositP = alicePurseP.fork().e.withdraw(50, 'deposit');
+  // The .fork() is a hack
   // this ordering should be guaranteed by the fact that this is all in the
   // same Flow
-  const aBal = v.then(_ => alicePurseP.e.getBalance());
-  const dBal = v.then(_ => depositPurseP.e.getBalance());
-  return Vow.all([aBal, dBal]);
+  return depositP.then(_ => Vow.all([
+    alicePurseP.e.getBalance(),
+    depositP.e.getBalance()
+  ]);
 }
 
 export function trivialContractTest() {
@@ -58,11 +59,13 @@ export function trivialContractTest() {
 
 export function betterContractTestAliceFirst() {
   const contractHostP = Vow.fromFn(makeContractHost);
-  const moneyMintP = Vow.resolve(mintMaker).e.makeMint();
+  const mintMakerP = Vow.resolve(mintMaker);
+
+  const moneyMintP = mintMakerP.e.makeMint();
   const aliceMoneyPurseP = moneyMintP.e.mint(1000);
   const bobMoneyPurseP = moneyMintP.e.mint(1001);
 
-  const stockMintP = Vow.resolve(mintMaker).e.makeMint();
+  const stockMintP = mintMakerP.e.makeMint();
   const aliceStockPurseP = stockMintP.e.mint(2002);
   const bobStockPurseP = stockMintP.e.mint(2003);
 
@@ -77,11 +80,13 @@ export function betterContractTestAliceFirst() {
 
 export function betterContractTestBobFirst(bobLies=false) {
   const contractHostP = Vow.fromFn(makeContractHost);
-  const moneyMintP = Vow.resolve(mintMaker).e.makeMint();
+  const mintMakerP = Vow.resolve(mintMaker);
+
+  const moneyMintP = mintMakerP.e.makeMint();
   const aliceMoneyPurseP = moneyMintP.e.mint(1000, 'aliceMainMoney');
   const bobMoneyPurseP = moneyMintP.e.mint(1001, 'bobMainMoney');
 
-  const stockMintP = Vow.resolve(mintMaker).e.makeMint();
+  const stockMintP = mintMakerP).e.makeMint();
   const aliceStockPurseP = stockMintP.e.mint(2002, 'aliceMainStock');
   const bobStockPurseP = stockMintP.e.mint(2003, 'bobMainStock');
 
@@ -91,5 +96,5 @@ export function betterContractTestBobFirst(bobLies=false) {
         e.makeBob(bobMoneyPurseP, bobStockPurseP, contractHostP);
 
   return bobP.e.tradeWell(aliceP, bobLies);
-//  return aliceP.e.tradeWell(bobP);
+  // return aliceP.e.tradeWell(bobP);
 }

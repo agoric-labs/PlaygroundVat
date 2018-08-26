@@ -33,18 +33,16 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
 
   const alice = def({
     payBobWell: function(bobP) {
-      const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
-      const ackP = paymentP.e.deposit(10, myMoneyPurseP);
-      return ackP.then(_ => bobP.e.buy('shoe', paymentP));
+      const paymentP = myMoneyPurseP.e.withdraw(10, 'for shoes');
+      return bobP.e.buy('shoe', paymentP);
     },
     payBobBadly1: function(bobP) {
       const payment = def({ deposit: function(amount, src) {} });
       return bobP.e.buy('shoe', payment);
     },
     payBobBadly2: function(bobP) {
-      const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
-      const ackP = paymentP.e.deposit(5, myMoneyPurse);
-      return ackP.then(_ => bobP.e.buy('shoe', paymentP));
+      const paymentP = myMoneyPurseP.e.withdraw(5, 'for shoes');
+      return bobP.e.buy('shoe', paymentP);
     },
 
     tradeWell: function(bobP) {
@@ -60,14 +58,13 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
 
       let cancel;
       const a = def({
-        moneySrcP: myMoneyIssuerP.e.makeEmptyPurse('aliceMoneySrc'),
+        moneySrcP: myMoneyPurseP.e.withdraw(10, 'aliceMoneySrc'),
         stockDstP: myStockIssuerP.e.makeEmptyPurse('aliceStockDst'),
         stockNeeded: 7,
         cancellationP: f.makeVow(function(r) { cancel = r; })
       });
-      const ackP = a.moneySrcP.e.deposit(10, myMoneyPurseP);
 
-      const doneP = ackP.then(
+      const doneP = a.moneySrcP.then(
         _ => contractHostP.e.play(tokenP, allegedSrc, allegedSide, a));
       return doneP.then(_ => a.stockDstP.e.getBalance());
     }
