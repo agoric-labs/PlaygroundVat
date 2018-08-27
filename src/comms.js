@@ -120,8 +120,13 @@ async function handleConnection(vat, protocol, conn) {
     console.log(` from ${ma}`);
   });
 
-  const push = Pushable();
-  pullStream(push, conn,
+  const pusher = Pushable();
+  pullStream(pusher,
+             pullStream.map(line => {
+               console.log(`sending line ${line}`);
+               return line+'\n';
+             }),
+             conn,
              /*pullStream.collect((err, data) => {
                if (err) { throw err; }
                console.log('received echo:', data.toString());
@@ -129,7 +134,7 @@ async function handleConnection(vat, protocol, conn) {
   const c = {
     send(msg) {
       console.log(`send/push ${msg}`);
-      push.push(`${msg}`);
+      pusher.push(`${msg}`);
     }
   };
 

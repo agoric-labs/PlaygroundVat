@@ -231,17 +231,15 @@ export function makeVat(endowments, myVatID, initialSource) {
     bodyJson = `${bodyJson}`;
     log(`commsReceived ${senderVatID}, ${bodyJson}`);
     const body = marshal.unserialize(bodyJson);
-    //if (body.op === 'ack') {
-    //  manager.ackOutbound(senderVatID, body.ackSeqnum);
-    //  return;
-    //}
+    if (body.op === 'ack') {
+      manager.ackOutbound(senderVatID, body.ackSeqnum);
+      return;
+    }
     if (body.seqnum === undefined) {
       throw new Error(`message is missing seqnum: ${bodyJson}`);
     }
     manager.queueInbound(senderVatID, body.seqnum, { body, bodyJson });
-    //const ackBodyJson = marshal.serialize(def({op: 'ack', ackSeqnum: body.seqnum}));
-    //manager.sendTo(senderVatID, ackBodyJson);
-    manager.processInboundQueue(senderVatID, deliverMessage);
+    manager.processInboundQueue(senderVatID, deliverMessage, marshal);
   }
 
   return {
@@ -260,7 +258,7 @@ export function makeVat(endowments, myVatID, initialSource) {
           connection.send(msg);
         }
       };
-      manager.gotConnection(`${vatID}`, c);
+      manager.gotConnection(`${vatID}`, c, marshal);
     },
 
     connectionLost(vatID) {

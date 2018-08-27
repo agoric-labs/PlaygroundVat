@@ -7,36 +7,13 @@ function makeRemote(vatID) {
   let connection;
 
   const remote = def({
-    queueInbound(seqnum, msg) {
-      // todo: remember the first, or the last? bail if they differ?
-      log(`queueInbound got ${seqnum}, have [${Array.from(queuedInboundMessages.keys())}], want ${nextInboundSeqnum}`);
-      queuedInboundMessages.set(seqnum, msg);
-    },
-    nextOutboundSeqnum() {
-      const seqnum = nextOutboundSeqnum;
-      nextOutboundSeqnum += 1;
-      return seqnum;
-    },
 
-    processInboundQueue(deliver) {
-      //log(`processInboundQueue starting`);
-      while (true) {
-        //log(` looking for ${nextInboundSeqnum} have [${Array.from(queuedInboundMessages.keys())}]`);
-        if (queuedInboundMessages.has(nextInboundSeqnum)) {
-          const msg = queuedInboundMessages.get(nextInboundSeqnum);
-          queuedInboundMessages.delete(nextInboundSeqnum);
-          nextInboundSeqnum += 1;
-          //log(` found it, delivering`);
-          deliver(vatID, msg);
-        } else {
-          //log(` not found, returning`);
-          return;
-        }
-      }
-    },
-
-    gotConnection(c) {
+    gotConnection(c, marshal) {
       connection = c;
+      if (nextInboundSeqnum > 0) {
+        const ackBodyJson = marshal.serialize(def({op: 'ack', ackSeqnum: nextInboundSeqnum-1}));
+        connection.send(ackBodyJson);
+      }
       for (let msg of queuedMessages) {
         connection.send(msg);
       }
@@ -46,6 +23,49 @@ function makeRemote(vatID) {
       connection = undefined;
     },
 
+    // inbound
+
+    queueInbound(seqnum, msg) {
+      // todo: remember the first, or the last? bail if they differ?
+      log(`queueInbound got ${seqnum}, have [${Array.from(queuedInboundMessages.keys())}], want ${nextInboundSeqnum}`);
+      queuedInboundMessages.set(seqnum, msg);
+    },
+
+    processInboundQueue(deliver, marshal) {
+      //log(`processInboundQueue starting`);
+      while (true) {
+        //log(` looking for ${nextInboundSeqnum} have [${Array.from(queuedInboundMessages.keys())}]`);
+        if (queuedInboundMessages.has(nextInboundSeqnum)) {
+          const seqnum = nextInboundSeqnum;
+          const msg = queuedInboundMessages.get(seqnum);
+          queuedInboundMessages.delete(seqnum);
+          nextInboundSeqnum += 1;
+          //log(` found it, delivering`);
+          deliver(vatID, msg);
+          // deliver() adds the message to our checkpoint, so time to ack it
+          if (connection) {
+            const ackBodyJson = marshal.serialize(def({op: 'ack', ackSeqnum: seqnum}));
+            connection.send(ackBodyJson);
+          }
+        } else {
+          //log(` not found, returning`);
+          return;
+        }
+      }
+    },
+
+    // outbound
+
+    haveOutbound() {
+      return !!queuedMessages.length;
+    },
+
+    nextOutboundSeqnum() {
+      const seqnum = nextOutboundSeqnum;
+      nextOutboundSeqnum += 1;
+      return seqnum;
+    },
+
     sendTo(msg) {
       queuedMessages.push(msg);
       if (connection) {
@@ -53,9 +73,7 @@ function makeRemote(vatID) {
       }
     },
 
-    haveOutbound() {
-      return !!queuedMessages.length;
-    },
+    // inbound acks remove outbound messages from the pending queue
 
     ackOutbound(vatID, ackSeqnum) {
       queuedMessages = queuedMessages.filter(m => m.seqnum !== ackSeqnum);
@@ -76,16 +94,9 @@ export function makeRemoteManager() {
   }
 
   const manager = def({
-    queueInbound(vatID, seqnum, msg) {
-      getRemote(vatID).queueInbound(seqnum, msg);
-    },
 
-    processInboundQueue(vatID, deliver) {
-      getRemote(vatID).processInboundQueue(deliver);
-    },
-
-    gotConnection(vatID, connection) {
-      getRemote(vatID).gotConnection(connection);
+    gotConnection(vatID, connection, marshal) {
+      getRemote(vatID).gotConnection(connection, marshal);
     },
 
     lostConnection(vatID) {
@@ -97,6 +108,18 @@ export function makeRemoteManager() {
         return remotes.get(vatID).haveOutbound();
       });
     },
+
+    // inbound
+
+    queueInbound(vatID, seqnum, msg) {
+      getRemote(vatID).queueInbound(seqnum, msg);
+    },
+
+    processInboundQueue(vatID, deliver, marshal) {
+      getRemote(vatID).processInboundQueue(deliver, marshal);
+    },
+
+    // outbound
 
     nextOutboundSeqnum(vatID) {
       return getRemote(vatID).nextOutboundSeqnum();
