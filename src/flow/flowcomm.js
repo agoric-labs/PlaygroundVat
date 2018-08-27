@@ -31,9 +31,20 @@ function isSymbol (x) {
 
 let debugNextID = 1;
 const debugToID = new WeakMap();
+function debugRegister(obj, info = null) {
+  const debugID = debugNextID++;
+  debugToID.set(obj, debugID);
+  debugLog("REGISTER ", debugID, obj);
+  return debugID;
+}
+function debugID(key) {
+  return debugToID.get(key);
+}
+
 
 // TODO what happens to the then result?
 function scheduleTodo(target, todo) {
+  debugLog("SCHEDULE ", debugID(todo), todo);
   Promise.resolve(target).then(todo.onFulfill, todo.onReject);
 }
 
@@ -56,8 +67,7 @@ class PendingDelivery {
     this.methodName = methodName;
     this.args = args;
     this.handler = handler;
-    this.debugID = debugNextID++;
-    debugToID[this] = this.debugID;
+    this.debugID = debugRegister(this);
     //debugLog(`PendingDelivery[${which}] ${op}, ${args}`);
 
     this.onFulfill = (target) => {
@@ -87,11 +97,13 @@ class PendingDelivery {
 class PendingThen {
   constructor(onFulfill, onReject, handler) {
     this.debugID = debugNextID++;
-    debugToID[this] = this.debugID;
+    debugRegister(this);
     insistFn(onFulfill);
 
+    this.debugTxt = onFulfill.toString();
+
     this.onFulfill = (target) => {
-      //log(`THEN [${which}]`);
+      debugLog("THEN ", debugID(this), this);
       let res;
       try {
         res = onFulfill ? onFulfill(target) : target;
@@ -123,10 +135,12 @@ class UnresolvedHandler {
   constructor() {
     this.forwardedTo = null;
     this.blockedFlows = [];
+    this.debugID = debugRegister(this);
   }
 
   resolve(target) {
     insist(!this.forwardedTo, "Must be unresolved");
+    debugLog("RESOLVE ", debugID(target) || "*", target, "this:", this);
     const targetInner = getInnerVow(target);
     // if the target is a vow, forward to it, otherwise
     // target might be a Presence, or local object, or received pass-by-copy
@@ -160,11 +174,12 @@ class UnresolvedHandler {
   processBlockedFlows(blockedFlows) {
     //debugLog(`Appending blocked flow ${blockedFlows}`);
 
-    insist(!this.forwardedTo, "INTERNAL: Must be unforwarded to acept flows.");
+    insist(!this.forwardedTo, "INTERNAL: Must be unforwarded to accept flows.");
     this.blockedFlows.push(...blockedFlows);
   }
 
   processSingle(todo, flow) {
+    debugLog("PROCESS unresolved ", debugID(todo), todo, this, flow);
     // the target of the next message is unresolved so
     // this flow is now waiting for shortTarget
     this.blockedFlows.push(flow);
@@ -177,6 +192,7 @@ class FulfilledHandler {
   constructor(value) {
     this.forwardedTo = null;
     this.value = value;
+    this.debugID = debugRegister(this);
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
@@ -197,6 +213,7 @@ class FulfilledHandler {
   }
 
   processSingle(todo, flow) {
+    debugLog("PROCESS single ", debugID(todo), todo, this);
     scheduleTodo(this.value, todo);
     return true;
   }
@@ -210,7 +227,6 @@ class FarRemoteHandler extends UnresolvedHandler {
     this.vatID = vatID;
     this.swissnum = swissnum;
     this.value = presence; // note: other folks test for '.value', so don't rename it
-    //this.pendingResolves = 1;
   }
 
   // Unblock flows so that messages are delivered
@@ -222,6 +238,8 @@ class FarRemoteHandler extends UnresolvedHandler {
   }
 
   processSingle(todo, flow) {
+    debugLog("PROCESS remote ", debugID(todo), todo, this);
+
     if (todo.isMessageSend) {
       const { methodName, args } = todo;
       // the serializer gets private access to resolutionOf(), which it uses
@@ -474,12 +492,10 @@ class InnerVow {
   }
 }
 
-let debugVowId = 1;
-
 class Vow {
   // TODO move the constructor out
   constructor(innerFlow, innerResolver) {
-    debugToID[this] = debugVowId++;
+    debugRegister(this);
     const inner = new InnerVow(innerFlow, innerResolver);
     vowToInner.set(this, inner);
     // if .e were enumerable, JSON serialization would recurse forever, which
