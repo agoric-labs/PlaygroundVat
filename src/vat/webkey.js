@@ -502,7 +502,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     const rec = webkey2Record.get(key);
     if (rec) {
       log(` found record`);
-      return handlerOf(rec.value);
+      return handlerOf(rec.optVow);
     }
     log(` did not find record`);
     return undefined;
