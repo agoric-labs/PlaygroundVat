@@ -502,7 +502,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     const rec = webkey2Record.get(key);
     if (rec) {
       log(` found record`);
-      return handlerOf(rec.optVow);
+      return handlerOf(rec.value);
     }
     log(` did not find record`);
     return undefined;
@@ -519,8 +519,8 @@ export function makeWebkeyMarshal(myVatID, serializer) {
 
   function registerRemoteVow(targetVatID, swissnum, val) {
     log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
-    const rec = def({ optVow: val,
-                      optVatID: targetVatID,
+    const rec = def({ value: val,
+                      vatID: targetVatID,
                       swissnum: swissnum,
                       serialized: {
                         [QCLASS]: 'unresolvedVow',
