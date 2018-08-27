@@ -57,38 +57,37 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
   let a = asp(1, true);
   const addr = addresses[0]; // TODO: use them all, somehow
   n.dialProtocol(addr, '/vattp-hack/0.1', a.cb);
-  console.log(`started n.dialProtocol`);
+  console.log(`dialing ${addr}`);
   //n.dial(addr, a.cb);
   const conn = await a.p;
   //const conn = await promisify(n.dialProtocol)(addr, '/echo/1.0.0.0');
 
   console.log(`connected: ${conn}`);
   //console.log(`connected: ${conn} ${Object.getOwnPropertyNames(conn.conn.source).join(',')}`);
-  //let doner;
-  //const donep = new Promise((resolve, reject) => doner = resolve);
-  const s2 = Pushable(err => {console.log('done');
+  const pusher = Pushable(err => {console.log('done');
                               //conn.end();
                               //doner();
                              });
-  s2.push(`set-vatID ${myVatID}`);
+  pusher.push(`set-vatID ${myVatID}`);
   const c = {
     send(msg) {
       console.log(`send/push ${msg}`);
-      s2.push(`${msg}`);
+      pusher.push(`${msg}`);
     }
   };
-  connections.set(vatID, c);
-  //s2.end();
-  vat.connectionMade(vatID, c);
+  //pusher.end();
 
   pullStream(
-    s2,
+    pusher,
     pullStream.map(line => {
       console.log(`sending line ${line}`);
       return line+'\n';
     }),
     conn
   );
+
+  let doneResolver;
+  const doneP = new Promise((res, rej) => doneResolver = res);
 
   pullStream(
     conn,
@@ -99,8 +98,10 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
         return;
       vat.commsReceived(vatID, line);
     }),
-    pullStream.drain()
+    pullStream.onEnd(_ => doneResolver()),
   );
+
+  return { c, doneP };
 }
 
 async function handleConnection(vat, protocol, conn) {
@@ -183,14 +184,22 @@ export async function startComms(vat, myPeerInfo, myVatID, getAddressesForVatID)
 
   async function check() {
     console.log(`startComms.check`);
-    for (let vatid of vat.whatConnectionsDoYouWant()) {
-      if (!connections.has(vatid) && !pending.has(vatid)) {
-        const addresses = await getAddressesForVatID(vatid);
-        pending.add(vatid);
-        const p = connectTo(n, vatid, addresses, myVatID, vat);
-        p.then(res => pending.delete(vatid),
-               rej => { console.log(`connectTo failed (${vatid})`);
-                        pending.delete(vatid);
+    for (let vatID of vat.whatConnectionsDoYouWant()) {
+      if (!connections.has(vatID) && !pending.has(vatID)) {
+        const addresses = await getAddressesForVatID(vatID);
+        pending.add(vatID);
+        const p = connectTo(n, vatID, addresses, myVatID, vat);
+        p.then(({c, doneP}) => { pending.delete(vatID);
+                                 connections.set(vatID, c);
+                                 vat.connectionMade(vatID, c);
+                                 doneP.then(_ => {
+                                   console.log(`connectionLost ${vatID}`);
+                                   connections.delete(vatID);
+                                   vat.connectionLost(vatID);
+                                 });
+                               },
+               rej => { console.log(`connectTo failed (${vatID})`);
+                        pending.delete(vatID);
                       });
       }
     }
