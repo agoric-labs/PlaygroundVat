@@ -6,6 +6,7 @@
 import { makeWebkeyMarshal, doSwissHashing } from './webkey';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
+import { makeRemoteManager } from './remotes';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -114,73 +115,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   // not a SendOnly), and rows allocated by the far side (when receiving a
   // RemoteVow).
 
-  const queuedMessages = new Map();
-  const connections = new Map();
-  const outboundSeqnums = new Map(); // vatID -> counter
-  const rxInboundSeqnums = new Map(); // vatID -> counter
-  const queuedInboundMessages = new Map(); // vatID -> Map(seqnum -> msg)
-
-  function outboundSeqnumFor(vatID) {
-    const seqnum = outboundSeqnums.has(vatID) ? outboundSeqnums.get(vatID) : 0;
-    outboundSeqnums.set(vatID, seqnum+1);
-    return seqnum;
-  }
-
-  function queueInbound(vatID, seqnum, msg) {
-    if (!queuedInboundMessages.has(vatID)) {
-      queuedInboundMessages.set(vatID, new Map());
-    }
-    const s = queuedInboundMessages.get(vatID);
-    // todo: remember the first, or the last? bail if they differ?
-    log(`queueInbound got ${seqnum}, have [${Array.from(s.keys())}], want ${rxInboundSeqnums.get(vatID)}`);
-    s.set(seqnum, msg);
-  }
-
-  function processInboundQueue(vatID, deliver) {
-    //log(`processInboundQueue starting`);
-    let next = rxInboundSeqnums.has(vatID) ? rxInboundSeqnums.get(vatID) : 0;
-    const s = queuedInboundMessages.get(vatID);
-    while (true) {
-      //log(` looking for ${next} have [${Array.from(s.keys())}]`);
-      if (s.has(next)) {
-        const msg = s.get(next);
-        s.delete(next);
-        next += 1;
-        rxInboundSeqnums.set(vatID, next);
-        //log(` found it, delivering`);
-        deliver(vatID, msg);
-      } else {
-        //log(` not found, returning`);
-        return;
-      }
-    }
-  }
-
-  function gotConnection(vatID, connection) {
-    connections.set(vatID, connection);
-    if (queuedMessages.has(vatID)) {
-      for (let msg of queuedMessages.get(vatID)) {
-        connection.send(msg);
-      }
-    }
-  }
-
-  function lostConnection(vatID) {
-    connections.delete(vatID);
-  }
-
-  function sendTo(vatID, msg) {
-    // add to a per-targetVatID queue, and if we have a current connection,
-    // send it
-    log(`sendTo ${vatID} ${msg}`);
-    if (!queuedMessages.has(vatID)) {
-      queuedMessages.set(vatID, []);
-    }
-    queuedMessages.get(vatID).push(msg);
-    if (connections.has(vatID)) {
-      connections.get(vatID).send(msg);
-    }
-  }
+  const manager = makeRemoteManager();
 
   let inTurn = false;
   const serializer = {
@@ -197,28 +132,30 @@ export function makeVat(endowments, myVatID, initialSource) {
     // todo: queue this until finishTurn
     opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
            resolutionOf) {
-      const bodyJson = marshal.serialize(def({seqnum: outboundSeqnumFor(targetVatID),
+      const seqnum = manager.nextOutboundSeqnum(targetVatID);
+      const bodyJson = marshal.serialize(def({seqnum,
                                               op: 'send',
-                                              resultSwissbase: resultSwissbase,
-                                              targetSwissnum: targetSwissnum,
-                                              methodName: methodName,
-                                              args: args,
+                                              resultSwissbase,
+                                              targetSwissnum,
+                                              methodName,
+                                              args,
                                              }),
                                          resolutionOf);
       endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-      sendTo(targetVatID, bodyJson);
+      manager.sendTo(targetVatID, bodyJson);
     },
 
     opResolve(targetVatID, targetSwissnum, value, resolutionOf) {
       log(`opResolve(${targetVatID}, ${targetSwissnum}, ${value})`);
-      const bodyJson = marshal.serialize(def({seqnum: outboundSeqnumFor(targetVatID),
+      const seqnum = manager.nextOutboundSeqnum(targetVatID);
+      const bodyJson = marshal.serialize(def({seqnum,
                                               op: 'resolve',
-                                              targetSwissnum: targetSwissnum,
-                                              value: value,
+                                              targetSwissnum,
+                                              value,
                                              }),
                                          resolutionOf);
       endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-      sendTo(targetVatID, bodyJson);
+      manager.sendTo(targetVatID, bodyJson);
     },
 
     allocateSwissStuff() {
@@ -294,11 +231,15 @@ export function makeVat(endowments, myVatID, initialSource) {
     bodyJson = `${bodyJson}`;
     log(`commsReceived ${senderVatID}, ${bodyJson}`);
     const body = marshal.unserialize(bodyJson);
+    if (body.op === 'ack') {
+      manager.ackOutbound(senderVatID, body.ackSeqnum);
+      return;
+    }
     if (body.seqnum === undefined) {
       throw new Error(`message is missing seqnum: ${bodyJson}`);
     }
-    queueInbound(senderVatID, body.seqnum, { body, bodyJson });
-    processInboundQueue(senderVatID, deliverMessage);
+    manager.queueInbound(senderVatID, body.seqnum, { body, bodyJson });
+    manager.processInboundQueue(senderVatID, deliverMessage, marshal);
   }
 
   return {
@@ -307,7 +248,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     },
 
     whatConnectionsDoYouWant() {
-      return queuedMessages.keys();
+      return manager.whatConnectionsDoYouWant();
     },
 
     connectionMade(vatID, connection) {
@@ -317,15 +258,11 @@ export function makeVat(endowments, myVatID, initialSource) {
           connection.send(msg);
         }
       };
-      gotConnection(`${vatID}`, c);
+      manager.gotConnection(`${vatID}`, c, marshal);
     },
 
     connectionLost(vatID) {
-      lostConnection(`${vatID}`);
-    },
-
-    registerPush(p) {
-      outbound = p;
+      manager.lostConnection(`${vatID}`);
     },
 
     serialize(val) {
