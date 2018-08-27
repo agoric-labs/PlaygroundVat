@@ -90,9 +90,11 @@ async function create(argv) {
   await f.appendFile(`/ip4/${argv.hostname}/tcp/${argv.port}/ipfs/${vatID}\n`);
   await f.close();
 
+  const demoSourceFilename = require.resolve('../examples/counter.js');
+  const demoSource = await fs.promises.readFile(demoSourceFilename);
   await fs.promises.mkdir(path.join(basedir, 'source'));
   f = await fs.promises.open(path.join(basedir, 'source', 'index.js'), 'w');
-  await f.appendFile(`demo code here\n`);
+  await f.appendFile(demoSource);
   await f.close();
 
   f = await fs.promises.open(path.join(basedir, 'root-sturdydef'), 'w');
@@ -103,7 +105,7 @@ async function create(argv) {
   await f.appendFile(`1\n`);
   await f.close();
 
-  console.log(`created new Vat in ${vatID}`);
+  console.log(`created new VatID ${vatID} in ${basedir}`);
 }
 
 

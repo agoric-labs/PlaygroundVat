@@ -31,7 +31,13 @@ const o = {
   },
 
   send(target) {
-    Vow.resolve(target).e.foo('arg1', 'arg2');
+    Vow.resolve(target).e.respond('arg1', 'arg2')
+      .then(res => log(`send response was ${res}`));
+  },
+
+  respond(...args) {
+    log(`responding, ${args}`);
+    return 'my response';
   },
 
   wait() {
