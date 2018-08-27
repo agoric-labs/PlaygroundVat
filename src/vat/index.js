@@ -173,14 +173,6 @@ export function makeVat(endowments, myVatID, initialSource) {
   const marshal = makeWebkeyMarshal(myVatID, serializer);
   // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
-  const e = confineGuestSource(initialSource,
-                               { isVow, asVow, Flow, Vow,
-                                 ext
-                               });
-  //endowments.writeOutput(`load: ${initialSourceHash}`);
-  marshal.registerTarget(e, 0, resolutionOf); // TODO
-  //marshal.registerTarget(e, 0, (v) => undefined);
-
   function doSendInternal(body) {
     const target = marshal.getMyTargetBySwissnum(body.targetSwissnum);
     if (!target) {
@@ -245,6 +237,21 @@ export function makeVat(endowments, myVatID, initialSource) {
   return {
     check() {
       log('yes check');
+    },
+
+    async initializeCode() {
+      // the top-level code executes now, during evaluation
+      const e = confineGuestSource(initialSource,
+                                   { isVow, asVow, Flow, Vow,
+                                     ext
+                                   }).default;
+      // then we execute whatever was exported as the 'default'
+      const argv = {}; // todo: provide argv/config values
+      const rootP = await Vow.resolve().then(_ => e(argv));
+      // we wait for that to resolve before executing the transcript
+      //endowments.writeOutput(`load: ${initialSourceHash}`);
+      marshal.registerTarget(rootP, 0, resolutionOf);
+      return rootP; // for testing
     },
 
     whatConnectionsDoYouWant() {

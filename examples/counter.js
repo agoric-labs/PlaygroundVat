@@ -4,7 +4,7 @@ let resolver1;
 const f = new Flow();
 const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
 
-export default {
+const o = {
   increment() {
     count += 1;
     log(`count is now ${count}`);
@@ -46,3 +46,6 @@ export default {
   },
 };
 
+export default function(argv) {
+  return o;
+}

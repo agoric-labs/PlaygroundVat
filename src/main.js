@@ -32,7 +32,8 @@ export function makeRealm() {
 export async function bundleCode(filename, appendSourcemap) {
   const guestBundle = await rollup({ input: filename, treeshake: false });
   let { code: source, map: sourceMap } = await guestBundle.generate({ format: 'cjs',
-                                                                      sourcemap: appendSourcemap });
+                                                                      sourcemap: appendSourcemap,
+                                                                      exports: 'named'});
   // Rollup will generate inline sourceMappingURLs for you, but only if you
   // write the output to a file. We do it manually to avoid using a tempfile.
   //await guestBundle.write({format: 'cjs', file: 'foof', sourcemap: 'inline'});
@@ -142,6 +143,7 @@ async function run(argv) {
   const vatEndowments = makeVatEndowments(argv, output);
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
   const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
+  await v.initializeCode();
 
   // replay transcript to resume from previous state
   let ops = [];

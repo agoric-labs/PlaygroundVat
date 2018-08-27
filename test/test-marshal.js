@@ -96,15 +96,19 @@ function funcToSource(f) {
 }
 
 function s1() {
-  exports.run = (arg1, arg2) => {
-    return arg1;
+  exports.default = function(argv) {
+    return {
+      run(arg1, arg2) {
+        return arg1;
+      },
+    };
   };
-
 }
 
 test('deliver farref to vat', async (t) => {
   const s = makeRealm();
   const v = await buildVat(s, 'v1', () => {}, funcToSource(s1));
+  await v.initializeCode();
   const bodyJson = JSON.stringify({op: 'send',
                                    targetSwissnum: 0,
                                    methodName: 'run',

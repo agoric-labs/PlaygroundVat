@@ -23,7 +23,7 @@ import { mintMaker } from './makeMint';
 import { aliceMaker } from './makeAlice';
 import { bobMaker } from './makeBob';
 
-export async function mintTest() {
+async function mintTest() {
   const mP = Vow.resolve(mintMaker).e.makeMint();
   const alicePurseP = mP.e.mint(1000, 'alice');
   const mIssuerP = alicePurseP.e.getIssuer();
@@ -92,4 +92,11 @@ export function betterContractTestBobFirst(bobLies=false) {
 
   return bobP.e.tradeWell(aliceP, bobLies);
 //  return aliceP.e.tradeWell(bobP);
+}
+
+export default function(argv) {
+  return { mintTest, trivialContractTest,
+           betterContractTestAliceFirst,
+           betterContractTestBobFirst,
+         };
 }

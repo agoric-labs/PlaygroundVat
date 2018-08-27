@@ -4,46 +4,53 @@ import SES from 'ses';
 import { promisify } from 'util';
 
 function s1() {
-  let count = 0;
+  exports.default = function(argv) {
+    let count = 0;
 
-  exports.increment = () => {
-    count += 1;
-    log(`count is now ${count}`);
-    return count;
-  };
-
-  exports.decrement = () => {
-    count -= 1;
-    log(`count is now ${count}`);
-    return count;
+    return {
+      increment() {
+        count += 1;
+        log(`count is now ${count}`);
+        return count;
+      },
+      decrement() {
+        count -= 1;
+        log(`count is now ${count}`);
+        return count;
+      },
+    };
   };
 }
 
 function s2() {
-  let resolver1;
+  exports.default = function(argv) {
+    let resolver1;
 
-  //log('i am here');
-  const f = new Flow();
-  const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
-  //log('i got here');
+    //log('i am here');
+    const f = new Flow();
+    const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
+    //log('i got here');
 
-  exports.returnValue = (value) => {
-    return value;
-  };
+    return {
+      returnValue(value) {
+        return value;
+      },
 
-  exports.send = (target) => {
-    Vow.resolve(target).e.foo('arg1', 'arg2');
-  };
+      send(target) {
+        Vow.resolve(target).e.foo('arg1', 'arg2');
+      },
 
-  exports.wait = () => {
-    //log('in wait');
-    return p1;
-  };
+      wait() {
+        //log('in wait');
+        return p1;
+      },
 
-  exports.fire = (arg) => {
-    //log('in fire');
-    resolver1(arg);
-    //log(' ran resolver');
+      fire(arg) {
+        //log('in fire');
+        resolver1(arg);
+        //log(' ran resolver');
+      },
+    };
   };
 }
 
@@ -58,7 +65,7 @@ test('confineVatSource', (t) => {
   const s = SES.makeSESRootRealm();
   const s1code = funcToSource(s1);
   //console.log(`source: ${s1code}`);
-  const e = confineVatSource(s, `${s1code}`);
+  const e = confineVatSource(s, `${s1code}`).default();
   t.equal(e.increment(), 1);
   t.equal(e.increment(), 2);
   t.equal(e.decrement(), 1);
@@ -90,6 +97,7 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
+  await v.initializeCode();
 
   const bodyJson = JSON.stringify({op: 'send',
                                    targetSwissnum: 0,
@@ -118,6 +126,7 @@ test('methods can send messages via commsReceived', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
+  await v.initializeCode();
 
   const bodyJson = JSON.stringify({seqnum: 0,
                                    op: 'send',
@@ -149,6 +158,7 @@ test('method results are sent back', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
+  await v.initializeCode();
   const body = {seqnum: 0,
                 op: 'send',
                 resultSwissbase: '5',
@@ -174,6 +184,7 @@ test('methods can return a promise', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
+  await v.initializeCode();
 
   let result = false;
   const op1 = {op: 'send',

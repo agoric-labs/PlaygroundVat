@@ -5,6 +5,7 @@ import { escrowExchange } from './escrow';
 import { trivialContractTest, betterContractTestAliceFirst,
          betterContractTestBobFirst } from './contractTest';
 
-export { trivialContractTest, betterContractTestAliceFirst,
-         betterContractTestBobFirst };
-
+export default function(argv) {
+  return { trivialContractTest, betterContractTestAliceFirst,
+           betterContractTestBobFirst };
+}
