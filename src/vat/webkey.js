@@ -495,6 +495,19 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     serializePassByPresence(val, resolutionOf, swissnum);
   }
 
+  function getOutboundResolver(vatID, swissnum, handlerOf) {
+    log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
+    const key = makeWebkey({vatID, swissnum});
+    log(` with key ${key}`);
+    const rec = webkey2Record.get(key);
+    if (rec) {
+      log(` found record`);
+      return handlerOf(rec.value);
+    }
+    log(` did not find record`);
+    return undefined;
+  }
+
   function getMyTargetBySwissnum(swissnum) {
     const key = makeWebkey({vatID: myVatID, swissnum});
     const rec = webkey2Record.get(key);
@@ -505,8 +518,9 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   function registerRemoteVow(targetVatID, swissnum, val) {
-    const rec = def({ optVow: val,
-                      optVatID: targetVatID,
+    log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
+    const rec = def({ value: val,
+                      vatID: targetVatID,
                       swissnum: swissnum,
                       serialized: {
                         [QCLASS]: 'unresolvedVow',
@@ -515,11 +529,12 @@ export function makeWebkeyMarshal(myVatID, serializer) {
                       }
                     });
     val2Record.set(val, rec);
-    const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
+    const key = JSON.stringify({vatID: targetVatID, swissnum: swissnum});
+    log(` with key ${key}`);
     webkey2Record.set(key, rec);
   }
 
   return def({serialize, unserialize, serializeToWebkey, unserializeWebkey,
               allocateSwissStuff, registerRemoteVow, getMyTargetBySwissnum,
-              registerTarget});
+              registerTarget, getOutboundResolver});
 }

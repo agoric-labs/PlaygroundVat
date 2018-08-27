@@ -5,7 +5,7 @@
 
 import { makeWebkeyMarshal, doSwissHashing } from './webkey';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
-import { resolutionOf } from '../flow/flowcomm'; // todo unclean
+import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -116,6 +116,45 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   const queuedMessages = new Map();
   const connections = new Map();
+  const outboundSeqnums = new Map(); // vatID -> counter
+  const rxInboundSeqnums = new Map(); // vatID -> counter
+  const queuedInboundMessages = new Map(); // vatID -> Map(seqnum -> msg)
+
+  function outboundSeqnumFor(vatID) {
+    const seqnum = outboundSeqnums.has(vatID) ? outboundSeqnums.get(vatID) : 0;
+    outboundSeqnums.set(vatID, seqnum+1);
+    return seqnum;
+  }
+
+  function queueInbound(vatID, seqnum, msg) {
+    if (!queuedInboundMessages.has(vatID)) {
+      queuedInboundMessages.set(vatID, new Map());
+    }
+    const s = queuedInboundMessages.get(vatID);
+    // todo: remember the first, or the last? bail if they differ?
+    log(`queueInbound got ${seqnum}, have [${Array.from(s.keys())}], want ${rxInboundSeqnums.get(vatID)}`);
+    s.set(seqnum, msg);
+  }
+
+  function processInboundQueue(vatID, deliver) {
+    //log(`processInboundQueue starting`);
+    let next = rxInboundSeqnums.has(vatID) ? rxInboundSeqnums.get(vatID) : 0;
+    const s = queuedInboundMessages.get(vatID);
+    while (true) {
+      //log(` looking for ${next} have [${Array.from(s.keys())}]`);
+      if (s.has(next)) {
+        const msg = s.get(next);
+        s.delete(next);
+        next += 1;
+        rxInboundSeqnums.set(vatID, next);
+        //log(` found it, delivering`);
+        deliver(vatID, msg);
+      } else {
+        //log(` not found, returning`);
+        return;
+      }
+    }
+  }
 
   function gotConnection(vatID, connection) {
     connections.set(vatID, connection);
@@ -143,10 +182,23 @@ export function makeVat(endowments, myVatID, initialSource) {
     }
   }
 
+  let inTurn = false;
   const serializer = {
+    startTurn() {
+      inTurn = true;
+      //endowments.writeOutput(`turn-begin`);
+    },
+
+    finishTurn() {
+      inTurn = false;
+      //endowments.writeOutput(`turn-end`);
+    },
+
+    // todo: queue this until finishTurn
     opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
            resolutionOf) {
-      const bodyJson = marshal.serialize(def({op: 'send',
+      const bodyJson = marshal.serialize(def({seqnum: outboundSeqnumFor(targetVatID),
+                                              op: 'send',
                                               resultSwissbase: resultSwissbase,
                                               targetSwissnum: targetSwissnum,
                                               methodName: methodName,
@@ -159,8 +211,8 @@ export function makeVat(endowments, myVatID, initialSource) {
 
     opResolve(targetVatID, targetSwissnum, value, resolutionOf) {
       log(`opResolve(${targetVatID}, ${targetSwissnum}, ${value})`);
-      const bodyJson = marshal.serialize(def({op: 'resolve',
-                                              targetVatID: targetVatID, // todo goes away
+      const bodyJson = marshal.serialize(def({seqnum: outboundSeqnumFor(targetVatID),
+                                              op: 'resolve',
                                               targetSwissnum: targetSwissnum,
                                               value: value,
                                              }),
@@ -207,32 +259,46 @@ export function makeVat(endowments, myVatID, initialSource) {
   // to other code, to avoid accidentally exposing primal-realm
   // Object/Function/etc.
 
-  function commsReceived(senderVatID, bodyJson) {
-    senderVatID = `${senderVatID}`;
-    bodyJson = `${bodyJson}`;
-    log(`commsReceived ${senderVatID}, ${bodyJson}`);
+  function deliverMessage(senderVatID, message) {
+    serializer.startTurn();
+    const { body, bodyJson } = message;
     endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
-    const body = marshal.unserialize(bodyJson);
     log(`op ${body.op}`);
+    let done;
     if (body.op === 'send') {
       const res = doSendInternal(body);
       if (body.resultSwissbase) {
         const resolverSwissnum = doSwissHashing(body.resultSwissbase);
         marshal.registerTarget(res, resolverSwissnum, resolutionOf);
-        const done = res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
-                              rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
+        done = res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
+                        rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
         // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
-        return done; // for testing, to wait until things are done
+      } else {
+        // else it was really a sendOnly
+        log(`commsReceived got sendOnly, dropping result`);
+        done = res; // for testing
       }
-      // else it was really a sendOnly
-      log(`commsReceived got sendOnly, dropping result`);
-      return res; // for testing
     } else if (body.op === `resolve`) {
-      log(`opResolve: TODO`);
+      const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
+      log(`h: ${h}`);
+      h.resolve(body.value);
     }
-    // TODO: emit turn boundary to transcript
-    // TODO: don't send messages until here
-    return undefined;
+    // todo: when should we commit/release? after all promises created by
+    // opSend have settled?
+    serializer.finishTurn();
+    return done; // for testing, to wait until things are done
+  }
+
+  function commsReceived(senderVatID, bodyJson) {
+    senderVatID = `${senderVatID}`;
+    bodyJson = `${bodyJson}`;
+    log(`commsReceived ${senderVatID}, ${bodyJson}`);
+    const body = marshal.unserialize(bodyJson);
+    if (body.seqnum === undefined) {
+      throw new Error(`message is missing seqnum: ${bodyJson}`);
+    }
+    queueInbound(senderVatID, body.seqnum, { body, bodyJson });
+    processInboundQueue(senderVatID, deliverMessage);
   }
 
   return {
@@ -298,6 +364,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       }
     },
 
+    deliverMessage,
     commsReceived,
 
     /*

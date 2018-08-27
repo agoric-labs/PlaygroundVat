@@ -1,6 +1,8 @@
 // A simple comm systme using Flows for ordering
 'use strict';
 
+const debugLog = typeof log === 'undefined' ? console.log : log;
+
 const scheduleHack = Promise.resolve(null);
 
 // TODO what if exeption is undefined?
@@ -8,6 +10,12 @@ function insist(condition, exception) {
   if (!condition) {
     throw exception;
   }
+}
+function insistFn(arg) {
+  if (typeof arg !== 'function' && arg !== undefined) {
+    throw new Error(`function expected: ${typeof arg}: ${arg}`);
+  }
+  return arg;
 }
 
 // TODO: remove this in favor of the global deep-freezing def() that SES
@@ -21,10 +29,9 @@ function isSymbol (x) {
   return typeof x === 'symbol';
 }
 
-let debugTodoCounter = 0;
-const debugTodoIDs = new WeakMap();
+let debugNextID = 1;
+const debugToID = new WeakMap();
 
-// TODO handle errors and broken targets
 // TODO what happens to the then result?
 function scheduleTodo(target, todo) {
   Promise.resolve(target).then(todo.onFulfill, todo.onReject);
@@ -37,10 +44,10 @@ function isBroken(target) { // todo
 function debugLogDelivery(target, methodName) {
   if (Object(target) === target) {
     if (!Reflect.getOwnPropertyDescriptor(target, methodName)) {
-      //console.log(`target[${methodName}] is missing for ${target}`);
+      //debugLog(`target[${methodName}] is missing for ${target}`);
     }
   } else if (typeof target !== 'string') {
-    //console.log(`target IS WONKY: ${target}`);
+    //debugLog(`target IS WONKY: ${target}`);
   }
 }
 
@@ -49,8 +56,9 @@ class PendingDelivery {
     this.methodName = methodName;
     this.args = args;
     this.handler = handler;
-    this.debugID = debugTodoCounter++;
-    debugTodoIDs[this] = this.debugID;
+    this.debugID = debugNextID++;
+    debugToID[this] = this.debugID;
+    //debugLog(`PendingDelivery[${which}] ${op}, ${args}`);
 
     this.onFulfill = (target) => {
       debugLogDelivery(target, methodName);
@@ -58,28 +66,29 @@ class PendingDelivery {
       try {
         res = target[methodName](...args);
       } catch (reason) {
+        // debugLog(`@@@@####$$$$ ${methodName} $$$$####@@@@`);
         res = Promise.reject(reason);
       }
       // handler shouldn't ever throw an exception, but just in case let's look
       // at it separately
       handler.resolve(res);
-    }
+    };
 
     this.onReject = (reason) => {
       handler.resolve(Promise.reject(reason));
-    }
+    };
 
     //log(`PendingDelivery[${which}] ${op}, ${args}`);
   }
-  propagateReject(rejectedVow) {
-    this.handler.forwardTo(rejectedVow);
-  }
+
+  get isMessageSend() { return true; }
 }
 
 class PendingThen {
   constructor(onFulfill, onReject, handler) {
-    this.debugID = debugTodoCounter++;
-    debugTodoIDs[this] = this.debugID;
+    this.debugID = debugNextID++;
+    debugToID[this] = this.debugID;
+    insistFn(onFulfill);
 
     this.onFulfill = (target) => {
       //log(`THEN [${which}]`);
@@ -90,7 +99,7 @@ class PendingThen {
         res = Promise.reject(reason);
       }
       handler.resolve(res);
-    }
+    };
 
     this.onReject = (reason) => {
       let res;
@@ -100,8 +109,10 @@ class PendingThen {
         res = Promise.reject(reason);
       }
       handler.resolve(res);
-    }
+    };
   }
+
+  get isMessageSend() { return false; }
 }
 
 /**
@@ -115,6 +126,7 @@ class UnresolvedHandler {
   }
 
   resolve(target) {
+    insist(!this.forwardedTo, "Must be unresolved");
     const targetInner = getInnerVow(target);
     // if the target is a vow, forward to it, otherwise
     // target might be a Presence, or local object, or received pass-by-copy
@@ -130,7 +142,6 @@ class UnresolvedHandler {
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
-  // TODO get rid of resolver argument?
   forwardTo(targetInner) {
     const valueR = shortenForwards(targetInner.resolver, targetInner);
     return this.directForward(valueR);
@@ -147,7 +158,7 @@ class UnresolvedHandler {
   }
 
   processBlockedFlows(blockedFlows) {
-    //console.log(`Appending blocked flow ${blockedFlows}`);
+    //debugLog(`Appending blocked flow ${blockedFlows}`);
 
     insist(!this.forwardedTo, "INTERNAL: Must be unforwarded to acept flows.");
     this.blockedFlows.push(...blockedFlows);
@@ -180,7 +191,7 @@ class FulfilledHandler {
 
   processBlockedFlows(blockedFlows) {
     for (const flow of blockedFlows) {
-      //console.log(`Processing blocked flow ${flow}`);
+      //debugLog(`Processing blocked flow ${flow}`);
       flow.scheduleUnblocked();
     }
   }
@@ -192,9 +203,9 @@ class FulfilledHandler {
 }
 def(FulfilledHandler);
 
-class FarRemoteHandler {
+class FarRemoteHandler extends UnresolvedHandler {
   constructor(serializer, vatID, swissnum, presence=null) {
-    this.forwardedTo = null;
+    super();
     this.serializer = serializer;
     this.vatID = vatID;
     this.swissnum = swissnum;
@@ -202,17 +213,8 @@ class FarRemoteHandler {
     //this.pendingResolves = 1;
   }
 
-  // Fulfill the vow. Reschedule any flows that were blocked on this vow.
-  fulfill(value) {
-    insist(false, 'Fulfill only applies to unresolved promise');
-  }
-
-  // Fulfill the vow. Reschedule any flows that were blocked on this vow.
-  // TODO get rid of resolver argument?
-  forwardTo(valueInner, resolver) {
-    insist(false, 'Forward only applies to unresolved promise');
-  }
-
+  // Unblock flows so that messages are delivered
+  // TODO: flow interation here must be fixed when we enforce ordering
   processBlockedFlows(blockedFlows) {
     for (const flow of blockedFlows) {
       flow.scheduleUnblocked();
@@ -220,14 +222,7 @@ class FarRemoteHandler {
   }
 
   processSingle(todo, flow) {
-    function isMessageSend(t) {
-      if (todo.methodName) { // hack
-        return true;
-      } else {
-        return false;
-      }
-    }
-    if (isMessageSend(todo)) {
+    if (todo.isMessageSend) {
       const { methodName, args } = todo;
       // the serializer gets private access to resolutionOf(), which it uses
       // to build the right webkeys
@@ -247,6 +242,7 @@ class FarRemoteHandler {
 
       const resultVow = makeUnresolvedRemoteVow(this.serializer, this.vatID,
                                                 resData.swissnum, flow);
+      debugLog("handlerOf(resultVow) = ", handlerOf(resultVow));
       this.serializer.registerRemoteVow(this.vatID, resData.swissnum, resultVow);
 
       this.serializer.opSend(resData.swissbase, this.vatID, this.swissnum, methodName, args, resolutionOf);
@@ -265,7 +261,6 @@ class FarRemoteHandler {
   }
 }
 def(FarRemoteHandler);
-
 
 class InnerFlow {
   constructor() {
@@ -341,6 +336,7 @@ export function makePresence(serializer, vatID, swissnum) {
 
 export function makeUnresolvedRemoteVow(serializer, vatID, swissnum, flow=new InnerFlow()) {
   const handler = new FarRemoteHandler(serializer, vatID, swissnum);
+  debugLog(`makeUnresolvedRemoteVow: ${vatID}/${swissnum}`);
   return new Vow(flow, handler);
 }
 
@@ -418,6 +414,16 @@ export function resolutionOf(value) {
   return shortHandler.value;
 }
 
+export function handlerOf(value) {
+  const inner = getInnerVow(value);
+  if (!inner) {
+    return undefined;
+  }
+  debugLog("handlerOf says inner is ", inner);
+  const firstR = inner.resolver;
+  return shortenForwards(firstR, inner);
+}
+
 export function isVow(value) {
   return vowToInner.has(value);
 }
@@ -434,6 +440,7 @@ class InnerVow {
     this.resolver = innerResolver;
     //def(this);
   }
+
   get(target, op, receiver) {
     return isSymbol(op)
       ? Reflect.get(target, op, receiver)
@@ -452,7 +459,7 @@ class InnerVow {
   }
 
   getOwnPropertyDescriptor(target, name, receiver) {
-    //console.log(name);
+    // debugLog(`GET ${typeof prop === 'symbol' ? prop.toString() : prop}`);
   }
 
   enqueueThen(onFulfill, onReject) {
@@ -467,9 +474,12 @@ class InnerVow {
   }
 }
 
+let debugVowId = 1;
+
 class Vow {
   // TODO move the constructor out
   constructor(innerFlow, innerResolver) {
+    debugToID[this] = debugVowId++;
     const inner = new InnerVow(innerFlow, innerResolver);
     vowToInner.set(this, inner);
     // if .e were enumerable, JSON serialization would recurse forever, which
