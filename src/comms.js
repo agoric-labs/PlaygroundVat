@@ -53,7 +53,6 @@ const connections = new Map();
 
 async function connectTo(n, vatID, addresses, myVatID, vat) {
   console.log(`connect(${addresses}) from ${myVatID}`);
-  pending.add(vatID);
 
   let a = asp(1, true);
   const addr = addresses[0]; // TODO: use them all, somehow
@@ -65,11 +64,11 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
 
   console.log(`connected: ${conn}`);
   //console.log(`connected: ${conn} ${Object.getOwnPropertyNames(conn.conn.source).join(',')}`);
-  let doner;
-  const donep = new Promise((resolve, reject) => doner = resolve);
+  //let doner;
+  //const donep = new Promise((resolve, reject) => doner = resolve);
   const s2 = Pushable(err => {console.log('done');
                               //conn.end();
-                              doner();
+                              //doner();
                              });
   s2.push(`set-vatID ${myVatID}`);
   const c = {
@@ -80,7 +79,6 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
   };
   connections.set(vatID, c);
   //s2.end();
-  pending.delete(vatID);
   vat.connectionMade(vatID, c);
 
   pullStream(
@@ -103,16 +101,6 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
     }),
     pullStream.drain()
   );
-
-  console.log('awaiting donep');
-  await donep;
-
-  //await promisify(n.stop)(); // TypeError: Cannot read property '_modules' of undefined
-  a = asp(0);
-  n.stop(a.cb);
-  await a.p;
-
-  return {};
 }
 
 async function handleConnection(vat, protocol, conn) {
@@ -198,7 +186,12 @@ export async function startComms(vat, myPeerInfo, myVatID, getAddressesForVatID)
     for (let vatid of vat.whatConnectionsDoYouWant()) {
       if (!connections.has(vatid) && !pending.has(vatid)) {
         const addresses = await getAddressesForVatID(vatid);
-        connectTo(n, vatid, addresses, myVatID, vat);
+        pending.add(vatid);
+        const p = connectTo(n, vatid, addresses, myVatID, vat);
+        p.then(res => pending.delete(vatid),
+               rej => { console.log(`connectTo failed (${vatid})`);
+                        pending.delete(vatid);
+                      });
       }
     }
   }
