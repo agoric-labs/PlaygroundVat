@@ -232,8 +232,12 @@ class FarRemoteHandler extends UnresolvedHandler {
   // Unblock flows so that messages are delivered
   // TODO: flow interation here must be fixed when we enforce ordering
   processBlockedFlows(blockedFlows) {
-    for (const flow of blockedFlows) {
-      flow.scheduleUnblocked();
+    if (this.value) {
+      for (const flow of blockedFlows) {
+        flow.scheduleUnblocked();
+      }
+    } else {
+      return super.processBlockedFlows(blockedFlows);
     }
   }
 
@@ -264,8 +268,10 @@ class FarRemoteHandler extends UnresolvedHandler {
       this.serializer.registerRemoteVow(this.vatID, resData.swissnum, resultVow);
 
       this.serializer.opSend(resData.swissbase, this.vatID, this.swissnum, methodName, args, resolutionOf);
+      todo.handler.resolve(resultVow);
+
       return true;
-    } else {
+    } else if (this.value) {
       // this is a then() on a RemoteVow, which should cause a round trip to
       // flush all the previous messages, but doesn't actually target the
       // specific object. todo: flow enforcement
@@ -275,6 +281,8 @@ class FarRemoteHandler extends UnresolvedHandler {
 
       scheduleTodo(this.value, todo);
       return true;
+    } else {
+      return super.processSingle(todo, flow);
     }
   }
 }
