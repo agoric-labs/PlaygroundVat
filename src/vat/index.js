@@ -324,10 +324,6 @@ export function makeVat(endowments, myVatID, initialSource) {
       lostConnection(`${vatID}`);
     },
 
-    registerPush(p) {
-      outbound = p;
-    },
-
     serialize(val) {
       return marshal.serialize(val);
     },
