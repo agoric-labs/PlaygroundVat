@@ -71,7 +71,7 @@ export async function buildVat(s, vatID, writeOutput, guestSource) {
 async function create(argv) {
   const id = await promisify(PeerId.create)();
   const vatID = id.toB58String();
-  const basedir = vatID;
+  const basedir = argv.basedir;
   await fs.promises.mkdir(basedir);
   let f = await fs.promises.open(path.join(basedir, 'private-id'), 'w');
   await f.appendFile(`${JSON.stringify(id.toJSON(), null, 2)}\n`);
@@ -169,11 +169,30 @@ async function run(argv) {
   const locatordir = path.join(basedir, '..');
 
   async function getAddressesForVatID(vatID) {
-    const portsFile = path.join(locatordir, vatID, 'addresses'); // todo: fake symlink
-    const data = await fs.promises.readFile(portsFile, { encoding: 'utf-8' });
-    const addresses = data.split('\n').filter(address => address); // remove blank lines
-    return addresses;
+    const dirs = await fs.promises.readdir(locatordir);
+    for (let d of dirs) {
+      const idFile = path.join(locatordir, d, 'id');
+      let f;
+      try {
+        f = await fs.promises.readFile(idFile, { encoding: 'utf-8' });
+      } catch (ex) {
+        if (ex.code !== 'ENOENT' && ex.code !== 'ENOTDIR') {
+          throw ex;
+        }
+        continue;
+      }
+      const id = f.split('\n')[0];
+      if (id !== vatID)
+        continue;
+      const portsFile = path.join(locatordir, d, 'addresses'); // todo: fake symlink
+      const data = await fs.promises.readFile(portsFile, { encoding: 'utf-8' });
+      const addresses = data.split('\n').filter(address => address); // remove blank lines
+      return addresses;
+    }
+    console.log(`unable to find addresses for VatID ${vatID}`);
+    return [];
   }
+
   await startComms(v, myPeerInfo, myVatID, getAddressesForVatID);
 
   // we fall off the edge here, but Node keeps running because there are
@@ -183,8 +202,11 @@ async function run(argv) {
 
 export async function main() {
   yargs
-    .command('create <hostname> <port>', 'create a new Vat in BASEDIR', (yargs) => {
+    .command('create <basedir> <hostname> <port>', 'create a new Vat in BASEDIR', (yargs) => {
       yargs
+        .positional('basedir', {
+          describe: 'directory to create, must not already exist',
+        })
         .positional('hostname', {
           describe: 'hostname to advertise in BASEDIR/addresses, start with 127.0.0.1',
         })
