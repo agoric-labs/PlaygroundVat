@@ -234,12 +234,22 @@ export function makeVat(endowments, myVatID, initialSource) {
     manager.processInboundQueue(senderVatID, deliverMessage, marshal);
   }
 
+  function buildSturdyRef(vatID, swissnum) {
+    return `${vatID}/${swissnum}`;
+  }
+
   return {
     check() {
       log('yes check');
     },
 
-    async initializeCode() {
+    async initializeCode(rootSturdyRef) {
+      const refParts = rootSturdyRef.split('/');
+      const refVatID = refParts[0];
+      const rootSwissnum = refParts[1];
+      if (refParts[0] !== myVatID) {
+        throw new Error(`vatID mismatch:\n${myVatID} is my vatID, but saved rootSturdyRef uses\n${refVatID}`);
+      }
       // the top-level code executes now, during evaluation
       const e = confineGuestSource(initialSource,
                                    { isVow, asVow, Flow, Vow,
@@ -247,11 +257,11 @@ export function makeVat(endowments, myVatID, initialSource) {
                                    }).default;
       // then we execute whatever was exported as the 'default'
       const argv = {}; // todo: provide argv/config values
-      const rootP = await Vow.resolve().then(_ => e(argv));
+      const root = await Vow.resolve().then(_ => e(argv));
       // we wait for that to resolve before executing the transcript
       //endowments.writeOutput(`load: ${initialSourceHash}`);
-      marshal.registerTarget(rootP, 0, resolutionOf);
-      return rootP; // for testing
+      marshal.registerTarget(root, rootSwissnum, resolutionOf);
+      return root; // for testing
     },
 
     whatConnectionsDoYouWant() {

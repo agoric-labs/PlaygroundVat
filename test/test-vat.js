@@ -97,10 +97,10 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
-  await v.initializeCode();
+  await v.initializeCode('v1/0');
 
   const bodyJson = JSON.stringify({op: 'send',
-                                   targetSwissnum: 0,
+                                   targetSwissnum: '0',
                                    methodName: 'send',
                                    args: [{'@qclass': 'presence',
                                            vatID: 'vat2',
@@ -126,11 +126,11 @@ test('methods can send messages via commsReceived', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
-  await v.initializeCode();
+  await v.initializeCode('v1/0');
 
   const bodyJson = JSON.stringify({seqnum: 0,
                                    op: 'send',
-                                   targetSwissnum: 0,
+                                   targetSwissnum: '0',
                                    methodName: 'send',
                                    args: [{'@qclass': 'presence',
                                            vatID: 'vat2',
@@ -158,11 +158,11 @@ test('method results are sent back', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
-  await v.initializeCode();
+  await v.initializeCode('v1/0');
   const body = {seqnum: 0,
                 op: 'send',
                 resultSwissbase: '5',
-                targetSwissnum: 0,
+                targetSwissnum: '0',
                 methodName: 'returnValue',
                 args: [3]};
   const bodyJson = JSON.stringify(body);
@@ -184,11 +184,11 @@ test('methods can return a promise', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
-  await v.initializeCode();
+  await v.initializeCode('v1/0');
 
   let result = false;
   const op1 = {op: 'send',
-               targetSwissnum: 0,
+               targetSwissnum: '0',
                methodName: 'wait',
                args: []};
   const p = v.doSendOnly(JSON.stringify(op1));
@@ -198,7 +198,7 @@ test('methods can return a promise', async (t) => {
 
   t.equal(result, false);
   const op2 = {op: 'send',
-               targetSwissnum: 0,
+               targetSwissnum: '0',
                methodName: 'fire',
                args: [10]};
   v.doSendOnly(JSON.stringify(op2));

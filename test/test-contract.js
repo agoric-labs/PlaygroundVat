@@ -7,7 +7,7 @@ function NOTtest() {}
 
 function sendCall(v, methodName, ...args) {
   const op = {op: 'send',
-               targetSwissnum: 0,
+               targetSwissnum: '0',
                methodName: methodName,
                args: args};
   return v.doSendOnly(JSON.stringify(op));
@@ -21,7 +21,7 @@ async function buildContractVat(source='../examples/contract') {
   const s = makeRealm();
   const contractTestSource = await bundleCode(require.resolve(source));
   const v = await buildVat(s, 'v1', writeOutput, contractTestSource);
-  await v.initializeCode();
+  await v.initializeCode('v1/0');
   return v;
 }
 

@@ -108,9 +108,9 @@ function s1() {
 test('deliver farref to vat', async (t) => {
   const s = makeRealm();
   const v = await buildVat(s, 'v1', () => {}, funcToSource(s1));
-  await v.initializeCode();
+  await v.initializeCode('v1/0');
   const bodyJson = JSON.stringify({op: 'send',
-                                   targetSwissnum: 0,
+                                   targetSwissnum: '0',
                                    methodName: 'run',
                                    args: [{'@qclass': 'presence',
                                            vatID: 'vat2',

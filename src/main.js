@@ -97,7 +97,7 @@ async function create(argv) {
   await f.appendFile(demoSource);
   await f.close();
 
-  f = await fs.promises.open(path.join(basedir, 'root-sturdydef'), 'w');
+  f = await fs.promises.open(path.join(basedir, 'root-sturdyref'), 'w');
   await f.appendFile(`${id.toB58String()}/0\n`);
   await f.close();
 
@@ -136,6 +136,7 @@ async function run(argv) {
   }
   const myVatID = await readBaseLine('id');
   console.log(`myVatID ${myVatID}`);
+  const rootSturdyRef = await readBaseLine('root-sturdyref');
 
   const s = makeRealm();
 
@@ -145,7 +146,8 @@ async function run(argv) {
   const vatEndowments = makeVatEndowments(argv, output);
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
   const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
-  await v.initializeCode();
+  await v.initializeCode(rootSturdyRef);
+  console.log(`rootSturdyRef: ${rootSturdyRef}`);
 
   // replay transcript to resume from previous state
   let ops = [];
