@@ -118,54 +118,57 @@ export function makeVat(endowments, myVatID, initialSource) {
   const manager = makeRemoteManager();
 
   let inTurn = false;
+
+  function startTurn() {
+    inTurn = true;
+    //endowments.writeOutput(`turn-begin`);
+  }
+
+  function finishTurn() {
+    inTurn = false;
+    //endowments.writeOutput(`turn-end`);
+  }
+
+  // todo: queue this until finishTurn
+  function opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
+                  resolutionOf) {
+    const seqnum = manager.nextOutboundSeqnum(targetVatID);
+    const bodyJson = marshal.serialize(def({seqnum,
+                                            op: 'send',
+                                            resultSwissbase,
+                                            targetSwissnum,
+                                            methodName,
+                                            args,
+                                           }),
+                                       resolutionOf);
+    endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
+    manager.sendTo(targetVatID, bodyJson);
+  }
+
+  function opResolve(targetVatID, targetSwissnum, value) {
+    log('opResolve', targetVatID, targetSwissnum, value);
+    const seqnum = manager.nextOutboundSeqnum(targetVatID);
+    const bodyJson = marshal.serialize(def({seqnum,
+                                            op: 'resolve',
+                                            targetSwissnum,
+                                            value,
+                                           }),
+                                       resolutionOf);
+    endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
+    manager.sendTo(targetVatID, bodyJson);
+  }
+
+  function allocateSwissStuff() {
+    return marshal.allocateSwissStuff();
+  }
+
+  function registerRemoteVow(vatID, swissnum, resultVow) {
+    marshal.registerRemoteVow(vatID, swissnum, resultVow);
+  }
+
   const serializer = {
-    startTurn() {
-      inTurn = true;
-      //endowments.writeOutput(`turn-begin`);
-    },
-
-    finishTurn() {
-      inTurn = false;
-      //endowments.writeOutput(`turn-end`);
-    },
-
-    // todo: queue this until finishTurn
-    opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
-           resolutionOf) {
-      const seqnum = manager.nextOutboundSeqnum(targetVatID);
-      const bodyJson = marshal.serialize(def({seqnum,
-                                              op: 'send',
-                                              resultSwissbase,
-                                              targetSwissnum,
-                                              methodName,
-                                              args,
-                                             }),
-                                         resolutionOf);
-      endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-      manager.sendTo(targetVatID, bodyJson);
-    },
-
-    opResolve(targetVatID, targetSwissnum, value, resolutionOf) {
-      log(`opResolve(${targetVatID}, ${targetSwissnum}, ${value})`);
-      const seqnum = manager.nextOutboundSeqnum(targetVatID);
-      const bodyJson = marshal.serialize(def({seqnum,
-                                              op: 'resolve',
-                                              targetSwissnum,
-                                              value,
-                                             }),
-                                         resolutionOf);
-      endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-      manager.sendTo(targetVatID, bodyJson);
-    },
-
-    allocateSwissStuff() {
-      return marshal.allocateSwissStuff();
-    },
-
-    registerRemoteVow(vatID, swissnum, resultVow) {
-      marshal.registerRemoteVow(vatID, swissnum, resultVow);
-    },
-
+    startTurn, finishTurn, opSend, opResolve,
+    allocateSwissStuff, registerRemoteVow,
   };
 
   const ext = Vow.resolve(makePresence(serializer, 'v2', 'swiss1'));
