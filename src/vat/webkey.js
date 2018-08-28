@@ -89,6 +89,9 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   // remote reference, or other.  We treat all other as a local object
   // to be exported as a local webkey.
   function serialize(val, resolutionOf, targetVatID) {
+    if (!targetVatID) {
+      throw new Error(`forgot targetVatID`);
+    }
     return JSON.stringify(val, makeReplacer(resolutionOf, targetVatID));
   }
 
