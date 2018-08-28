@@ -11,7 +11,11 @@ function makeRemote(vatID) {
     gotConnection(c, marshal) {
       connection = c;
       if (nextInboundSeqnum > 0) {
-        const ackBodyJson = marshal.serialize(def({op: 'ack', ackSeqnum: nextInboundSeqnum-1}));
+        // I'm using JSON.stringify instead of marshal.serialize because that
+        // now requires extra stuff like target vatID, in case the thing
+        // being serialized includes unresolved Vows, and for opAck we know
+        // we don't need that
+        const ackBodyJson = JSON.stringify({op: 'ack', ackSeqnum: nextInboundSeqnum-1});
         connection.send(ackBodyJson);
       }
       for (let msg of queuedMessages) {
@@ -44,7 +48,7 @@ function makeRemote(vatID) {
           deliver(vatID, msg);
           // deliver() adds the message to our checkpoint, so time to ack it
           if (connection) {
-            const ackBodyJson = marshal.serialize(def({op: 'ack', ackSeqnum: seqnum}));
+            const ackBodyJson = JSON.stringify({op: 'ack', ackSeqnum: seqnum});
             connection.send(ackBodyJson);
           }
         } else {
