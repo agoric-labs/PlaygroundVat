@@ -1,7 +1,8 @@
 // A simple comm systme using Flows for ordering
 'use strict';
 
-const debugLog = typeof log === 'undefined' ? console.log : log;
+//const debugLog = typeof log === 'undefined' ? console.log : log;
+function debugLog() {} // disabled
 
 const scheduleHack = Promise.resolve(null);
 
