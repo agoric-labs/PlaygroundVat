@@ -250,6 +250,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       if (refParts[0] !== myVatID) {
         throw new Error(`vatID mismatch:\n${myVatID} is my vatID, but saved rootSturdyRef uses\n${refVatID}`);
       }
+      //endowments.writeOutput(`load: ${initialSourceHash}`);
       // the top-level code executes now, during evaluation
       const e = confineGuestSource(initialSource,
                                    { isVow, asVow, Flow, Vow,
@@ -259,8 +260,9 @@ export function makeVat(endowments, myVatID, initialSource) {
       const argv = {}; // todo: provide argv/config values
       const root = await Vow.resolve().then(_ => e(argv));
       // we wait for that to resolve before executing the transcript
-      //endowments.writeOutput(`load: ${initialSourceHash}`);
-      marshal.registerTarget(root, rootSwissnum, resolutionOf);
+      if (root) {
+        marshal.registerTarget(root, rootSwissnum, resolutionOf);
+      }
       return root; // for testing
     },
 
