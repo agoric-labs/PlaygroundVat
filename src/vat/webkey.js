@@ -194,7 +194,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
                         swissnum: swissnum
                       }
                     });
-    log(`assigning rec ${JSON.stringify(rec)}`);
+    //log(`assigning rec ${JSON.stringify(rec)}`);
     val2Record.set(val, rec);
     const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
     webkey2Record.set(key, rec);
@@ -339,7 +339,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
       // objects with one or more data properties but no method properties.
 
       if (canPassByCopy(val)) {
-        log(`canPassByCopy: ${val}`);
+        //log(`canPassByCopy: ${val}`);
         // Purposely in-band for readability, but creates need for
         // Hilbert hotel.
         return val;
@@ -352,7 +352,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
       // identity.
 
       mustPassByPresence(val);
-      log(`mustPassByPresence: ${val}`);
+      //log(`mustPassByPresence: ${val}`);
 
       // todo: we might have redundantly done an isFrozen test above, but
       // it's safer than forgetting to do it for the other cases.
@@ -385,15 +385,15 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   function unserializePresence(data) {
-    log(`unserializePresence ${JSON.stringify(data)}`);
+    //log(`unserializePresence ${JSON.stringify(data)}`);
     const key = makeWebkey(data);
     if (webkey2Record.has(key)) {
-      log(` found previous`);
+      //log(` found previous`);
       return webkey2Record.get(key).value;
     }
-    log(` did not find previous`);
+    //log(` did not find previous`);
     for (let k of webkey2Record.keys()) {
-      log(` had: ${k}`);
+      //log(` had: ${k}`);
     }
 
     // todo: maybe pre-generate the FarVow and stash it for quick access
@@ -516,15 +516,15 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
-    log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
+    //log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
     const key = makeWebkey({vatID, swissnum});
-    log(` with key ${key}`);
+    //log(` with key ${key}`);
     const rec = webkey2Record.get(key);
     if (rec) {
-      log(` found record`);
+      //log(` found record`);
       return handlerOf(rec.value);
     }
-    log(` did not find record`);
+    //log(` did not find record`);
     return undefined;
   }
 
@@ -538,7 +538,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   function registerRemoteVow(targetVatID, swissnum, val) {
-    log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
+    //log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
     const rec = def({ value: val,
                       vatID: targetVatID,
                       swissnum: swissnum,
@@ -550,7 +550,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
                     });
     val2Record.set(val, rec);
     const key = JSON.stringify({vatID: targetVatID, swissnum: swissnum});
-    log(` with key ${key}`);
+    //log(` with key ${key}`);
     webkey2Record.set(key, rec);
   }
 
