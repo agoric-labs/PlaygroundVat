@@ -487,23 +487,6 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     };
   }
 
-  // Like makeLocalWebkey, but with extra bookkeeping
-  function serializeToWebkey(val) {
-    const data = serialize(val);
-    if (typeof data === 'object' && data[QCLASS] === 'webkey') {
-      return data.webkey;
-    }
-    throw new TypeError('Did not serialize to webkey');
-  }
-
-  // Like makeFarResource, but with extra bookkeeping
-  function unserializeWebkey(webkey) {
-    return unserialize(def({
-      [QCLASS]: 'webkey',
-      webkey
-    }));
-  }
-
   function allocateSwissStuff() {
     const swissbase = allocateSwissbase();
     const swissnum = doSwissHashing(swissbase);
@@ -554,7 +537,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     webkey2Record.set(key, rec);
   }
 
-  return def({serialize, unserialize, serializeToWebkey, unserializeWebkey,
+  return def({serialize, unserialize,
               allocateSwissStuff, registerRemoteVow, getMyTargetBySwissnum,
               registerTarget, getOutboundResolver, createPresence});
 }
