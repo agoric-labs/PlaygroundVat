@@ -140,7 +140,8 @@ export function makeVat(endowments, myVatID, initialSource) {
                                             methodName,
                                             args,
                                            }),
-                                       resolutionOf);
+                                       resolutionOf,
+                                       targetVatID);
     endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
     manager.sendTo(targetVatID, bodyJson);
   }
@@ -153,7 +154,8 @@ export function makeVat(endowments, myVatID, initialSource) {
                                             targetSwissnum,
                                             value,
                                            }),
-                                       resolutionOf);
+                                       resolutionOf,
+                                       targetVatID);
     endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
     manager.sendTo(targetVatID, bodyJson);
   }
@@ -294,8 +296,8 @@ export function makeVat(endowments, myVatID, initialSource) {
       manager.lostConnection(`${vatID}`);
     },
 
-    serialize(val) {
-      return marshal.serialize(val);
+    serialize(val, targetVatID) {
+      return marshal.serialize(val, resolutionOf, targetVatID);
     },
 
     doSendOnly(bodyJson) {

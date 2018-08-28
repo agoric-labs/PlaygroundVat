@@ -34,18 +34,24 @@ test('marshal', async (t) => {
   }
 
   const m = e.makeWebkeyMarshal('v1', h.serializer);
-  t.equal(m.serialize(1), '1');
-  t.equal(m.serialize('abc'), '"abc"');
-  t.equal(m.serialize(true), 'true');
+  function resolutionOf(val) {
+    return val;
+  }
+  function ser(what) {
+    return m.serialize(what, resolutionOf, 'targetVatID');
+  }
+  t.equal(ser(1), '1');
+  t.equal(ser('abc'), '"abc"');
+  t.equal(ser(true), 'true');
 
-  t.equal(m.serialize(h.array1), '[1,2]');
+  t.equal(ser(h.array1), '[1,2]');
 
   //const ref1 = mdef`{ a() { return 1; } }`;
 
   // as a side effect, this stashes the object in the marshaller's tables
-  t.equal(m.serialize(h.ref1), '{"@qclass":"presence","vatID":"v1","swissnum":1}');
+  t.equal(ser(h.ref1), '{"@qclass":"presence","vatID":"v1","swissnum":1}');
 
-  t.equal(m.serialize(h.empty), '{"@qclass":"presence","vatID":"v1","swissnum":2}');
+  t.equal(ser(h.empty), '{"@qclass":"presence","vatID":"v1","swissnum":2}');
   t.equal(m.unserialize('{"@qclass":"presence","vatID":"v1","swissnum":2}'), h.empty);
 
   // todo: what if the unserializer is given "{}"
@@ -54,14 +60,14 @@ test('marshal', async (t) => {
   t.equal(m.unserialize('"abc"'), 'abc');
   t.equal(m.unserialize('false'), false);
 
-  const w1 = m.serialize(h.ref2); // wk2
+  const w1 = ser(h.ref2); // wk2
   t.equal(m.unserialize(w1), h.ref2); // comes back out of the table
 
   // Presence: we get an empty object, but it is registered in the Vow
   // tables, and will roundtrip properly on the way back out
   const p = m.unserialize('{"@qclass":"presence","vatID":"v2","swissnum":"sw44"}');
   t.deepEqual(p, {});
-  t.equal(m.serialize(p), '{"@qclass":"presence","vatID":"v2","swissnum":"sw44"}');
+  t.equal(ser(p), '{"@qclass":"presence","vatID":"v2","swissnum":"sw44"}');
 
   // JS primitives that aren't natively representable by JSON
   t.deepEqual(m.unserialize('{"@qclass":"undefined"}'), undefined);
@@ -81,7 +87,7 @@ test('marshal', async (t) => {
   t.deepEqual(m.unserialize('{"a":1,"b":{"c": 3}}'), {a: 1, b: { c: 3 }});
 
   // pass-by-copy can contain pass-by-reference
-  const aser = m.serialize(h.nested1);
+  const aser = ser(h.nested1);
   t.equal(aser, '{"b":{"@qclass":"presence","vatID":"v1","swissnum":1},"c":3}');
 
   t.end();
@@ -121,7 +127,8 @@ test('deliver farref to vat', async (t) => {
   // that should be a Presence instance, which looks like an empty object,
   // but roundtrips correctly
   t.deepEqual(res, {});
-  t.deepEqual(v.serialize(res), '{"@qclass":"presence","vatID":"vat2","swissnum":123}');
+  t.deepEqual(v.serialize(res, 'vat2'),
+              '{"@qclass":"presence","vatID":"vat2","swissnum":123}');
 
   t.end();
 });

@@ -88,8 +88,8 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   // val might be a primitive, a pass by (shallow) copy object, a
   // remote reference, or other.  We treat all other as a local object
   // to be exported as a local webkey.
-  function serialize(val, resolutionOf) {
-    return JSON.stringify(val, makeReplacer(resolutionOf));
+  function serialize(val, resolutionOf, targetVatID) {
+    return JSON.stringify(val, makeReplacer(resolutionOf, targetVatID));
   }
 
   function unserialize(str) {
@@ -119,7 +119,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     return swissbase;
   }
 
-  function serializePassByPresence(val, resolutionOf, swissnum=undefined) {
+  function serializePassByPresence(val, resolutionOf, targetVatID, swissnum=undefined) {
     // we are responsible for new serialization of pass-by-presence objects
 
     // We are responsible for serializing (or finding previous serializations
@@ -162,7 +162,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
 
         return def({
           [QCLASS]: 'resolvedVow',
-          value: serialize(r, resolutionOf)
+          value: serialize(r, resolutionOf, targetVatID)
         });
       }
 
@@ -241,7 +241,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     // | RemoteVow      | RemoteVow               | original LocalVow |
   }
 
-  function makeReplacer(resolutionOf) {
+  function makeReplacer(resolutionOf, targetVatID) {
     const ibidMap = new Map();
     let ibidCount = 0;
 
@@ -361,7 +361,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
       // serialize pass-by-reference objects, including cache/table
       // management
 
-      return serializePassByPresence(val, resolutionOf);
+      return serializePassByPresence(val, resolutionOf, targetVatID);
     };
   }
 
@@ -511,7 +511,8 @@ export function makeWebkeyMarshal(myVatID, serializer) {
   }
 
   function registerTarget(val, swissnum, resolutionOf) {
-    serializePassByPresence(val, resolutionOf, swissnum);
+    const targetVatID = null;
+    serializePassByPresence(val, resolutionOf, targetVatID, swissnum);
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
