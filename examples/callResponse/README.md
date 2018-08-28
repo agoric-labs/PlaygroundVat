@@ -75,4 +75,4 @@ The right side gets an argv table that supplies the `response` value:
 The left side will emit `sending 'marco'`, then queue the message for
 delivery. Later, after the right side is running and the connection is
 established, the right side will emit `responding to 'marco'`. When the
-response comes back, the left side will finish with 'response was 'polo'`.
+response comes back, the left side will finish with `'response was 'polo'`.
