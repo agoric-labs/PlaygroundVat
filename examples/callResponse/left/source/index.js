@@ -1,3 +1,4 @@
+/*global log Vow Flow def Nat*/
 
 export default function(argv) {
   log(`sending '${argv.value}'`);
