@@ -56,8 +56,8 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
 
   let a = asp(1, true);
   const addr = addresses[0]; // TODO: use them all, somehow
-  n.dialProtocol(addr, '/vattp-hack/0.1', a.cb);
   console.log(`dialing ${addr}`);
+  n.dialProtocol(addr, '/vattp-hack/0.1', a.cb);
   //n.dial(addr, a.cb);
   const conn = await a.p;
   //const conn = await promisify(n.dialProtocol)(addr, '/echo/1.0.0.0');
@@ -168,7 +168,7 @@ async function handleConnection(vat, protocol, conn) {
 
 export async function startComms(vat, myPeerInfo, myVatID, getAddressesForVatID) {
   console.log(`startComms, myVatID is ${myVatID}`);
-  console.log(`peerInfo is ${myPeerInfo}`);
+  //console.log(`peerInfo is ${myPeerInfo}`);
   const n = new CommsNode({ peerInfo: myPeerInfo });
   n.on('peer:connect', (peerInfo) => {
     // never printed
@@ -203,7 +203,7 @@ export async function startComms(vat, myPeerInfo, myVatID, getAddressesForVatID)
                                    vat.connectionLost(vatID);
                                  });
                                },
-               rej => { console.log(`connectTo failed (${vatID})`);
+               rej => { console.log(`connectTo failed (${vatID}): ${rej}`);
                         pending.delete(vatID);
                       });
       }

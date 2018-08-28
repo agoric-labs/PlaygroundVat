@@ -209,7 +209,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       }
     } else if (body.op === `resolve`) {
       const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
-      log(`h: ${h}`);
+      //log(`h: ${h}`);
       h.resolve(body.value);
     }
     // todo: when should we commit/release? after all promises created by
@@ -303,7 +303,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     executeTranscriptLine(line) {
       log(`executeTranscriptLine '${line}'`);
       if (line === '') {
-        log(`empty line`);
+        //log(`empty line`);
         return;
       }
       if (line.startsWith('load: ')) {
