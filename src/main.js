@@ -108,6 +108,23 @@ async function create(argv) {
   console.log(`created new VatID ${vatID} in ${basedir}`);
 }
 
+function buildArgv(vat, argvJSON) {
+  const argv = vat.makeEmptyObject(); // realm-side object
+  const descs = JSON.parse(argvJSON);
+  for (let name of Object.getOwnPropertyNames(descs)) {
+    const v = descs[name];
+    if ('string' in v) {
+      argv[name] = v.string;
+    } else if ('number' in v) {
+      argv[name] = v.number;
+    } else if ('sturdyref' in v) {
+      argv[name] = vat.createPresence(v.sturdyref);
+    } else {
+      throw new Error(`unknown argv type ${v}`);
+    }
+  }
+  return argv;
+}
 
 async function run(argv) {
   let basedir = '.';
@@ -130,6 +147,7 @@ async function run(argv) {
                                          { encoding: 'utf-8' });
     return c.slice(0, c.lastIndexOf('\n')).split('\n');
   }
+
   const version = await readBaseLine('vat-version');
   if (version !== '1') {
     throw new Error(`I understand vat-version '1', but this basedir has '${version}'`);
@@ -146,7 +164,16 @@ async function run(argv) {
   const vatEndowments = makeVatEndowments(argv, output);
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
   const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
-  await v.initializeCode(rootSturdyRef);
+  let guestArgvJSON = '{}';
+  try {
+    guestArgvJSON = await readBaseFile('argv.json');
+  } catch (ex) {
+    // todo: only catch ENOENT
+    console.log('no argv', ex);
+  }
+  const guestArgv = buildArgv(v, guestArgvJSON);
+
+  await v.initializeCode(rootSturdyRef, guestArgv);
   console.log(`rootSturdyRef: ${rootSturdyRef}`);
 
   // replay transcript to resume from previous state
@@ -227,8 +254,6 @@ export async function main() {
           describe: 'base directory, created by "vat create"',
         })
       ;
-    }, (argv) => {
-      return run(argv);
-    })
+    }, (argv) => run(argv))
     .parse();
 }

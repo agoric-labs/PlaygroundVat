@@ -243,7 +243,15 @@ export function makeVat(endowments, myVatID, initialSource) {
       log('yes check');
     },
 
-    async initializeCode(rootSturdyRef) {
+    makeEmptyObject() {
+      return {};
+    },
+
+    createPresence(sturdyref) {
+      return marshal.createPresence(sturdyref);
+    },
+
+    async initializeCode(rootSturdyRef, argv) {
       const refParts = rootSturdyRef.split('/');
       const refVatID = refParts[0];
       const rootSwissnum = refParts[1];
@@ -257,7 +265,6 @@ export function makeVat(endowments, myVatID, initialSource) {
                                      ext
                                    }).default;
       // then we execute whatever was exported as the 'default'
-      const argv = {}; // todo: provide argv/config values
       const root = await Vow.resolve().then(_ => e(argv));
       // we wait for that to resolve before executing the transcript
       if (root) {

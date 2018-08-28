@@ -365,6 +365,25 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     };
   }
 
+  function parseSturdyref(sturdyref) {
+    const parts = sturdyref.split('/');
+    return { vatID: parts[0],
+             swissnum: parts[1] };
+  }
+
+  function createPresence(sturdyref) {
+    // used to create initial argv references
+    const { vatID, swissnum } = parseSturdyref(sturdyref);
+    const serialized = {
+      [QCLASS]: 'presence',
+      vatID: vatID,
+      swissnum: swissnum
+    };
+    // this creates the Presence, and also stores it into the tables, so we
+    // can send it back out again later
+    return unserializePresence(serialized);
+  }
+
   function unserializePresence(data) {
     log(`unserializePresence ${JSON.stringify(data)}`);
     const key = makeWebkey(data);
@@ -536,5 +555,5 @@ export function makeWebkeyMarshal(myVatID, serializer) {
 
   return def({serialize, unserialize, serializeToWebkey, unserializeWebkey,
               allocateSwissStuff, registerRemoteVow, getMyTargetBySwissnum,
-              registerTarget, getOutboundResolver});
+              registerTarget, getOutboundResolver, createPresence});
 }
