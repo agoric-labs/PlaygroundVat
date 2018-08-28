@@ -35,13 +35,18 @@ We can send message to a Vow by using their `.e` property, which is a special
 proxy that converts property lookups into queued remote method calls. So
 using `anyvow.e.pleaseRespond(stuff)` means "send the `pleaseRespond`
 message, with arguments `[stuff]`, to the remote object that is wrapped by
-`anyvow`.
+`anyvow`".
 
 The Vow we use for this purpose doesn't need to be resolved: it might be a
 promise for some future object (which might be local, or might be remote).
 The messages are queued either way. But if the Vow came from a remote system,
 the messages will be queued on that other system, which enables "promise
 pipelining" and can reduce round trips significantly.
+
+These remote calls return a new Vow for the result. This new Vow can be used
+to send further messages (with `.e.methodname(args)`), or you can use
+`.then()` to wait for a specific response. In our example, we use `.then` and
+print a message when the response comes back.
 
 On the right side, the initialization code creates an object with a
 `pleaseRespond` message. It returns this object, which causes it to be
