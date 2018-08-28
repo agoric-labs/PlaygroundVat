@@ -87,7 +87,12 @@ async function create(argv) {
   await f.close();
 
   f = await fs.promises.open(path.join(basedir, 'addresses'), 'w');
-  await f.appendFile(`/ip4/${argv.hostname}/tcp/${argv.port}/ipfs/${vatID}\n`);
+  await f.appendFile(`/ip4/${argv.addr}/tcp/${argv.port}/ipfs/${vatID}\n`);
+  await f.close();
+
+  // exported function will be invoked as main({name1: 'arg1'})
+  f = await fs.promises.open(path.join(basedir, 'argv.json'), 'w');
+  await f.appendFile(`{ "name1": { "string": "arg1" } }\n`);
   await f.close();
 
   const demoSourceFilename = require.resolve('../examples/counter.js');
@@ -108,7 +113,7 @@ async function create(argv) {
   console.log(`created new VatID ${vatID} in ${basedir}`);
 }
 
-function buildArgv(vat, argvJSON) {
+export async function buildArgv(vat, argvJSON, readBaseFile) {
   const argv = vat.makeEmptyObject(); // realm-side object
   const descs = JSON.parse(argvJSON);
   for (let name of Object.getOwnPropertyNames(descs)) {
@@ -119,6 +124,8 @@ function buildArgv(vat, argvJSON) {
       argv[name] = v.number;
     } else if ('sturdyref' in v) {
       argv[name] = vat.createPresence(v.sturdyref);
+    } else if ('filename' in v) {
+      argv[name] = await readBaseFile(v.filename);
     } else {
       throw new Error(`unknown argv type ${v}`);
     }
@@ -164,14 +171,8 @@ async function run(argv) {
   const vatEndowments = makeVatEndowments(argv, output);
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
   const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
-  let guestArgvJSON = '{}';
-  try {
-    guestArgvJSON = await readBaseFile('argv.json');
-  } catch (ex) {
-    // todo: only catch ENOENT
-    console.log('no argv', ex);
-  }
-  const guestArgv = buildArgv(v, guestArgvJSON);
+  const guestArgvJSON = await readBaseFile('argv.json');
+  const guestArgv = await buildArgv(v, guestArgvJSON, readBaseFile);
 
   await v.initializeCode(rootSturdyRef, guestArgv);
   console.log(`rootSturdyRef: ${rootSturdyRef}`);
@@ -235,16 +236,24 @@ async function run(argv) {
 
 export async function main() {
   yargs
-    .command('create <basedir> <hostname> <port>', 'create a new Vat in BASEDIR', (yargs) => {
+    .command('create <basedir> <addr> <port>', 'create a new Vat in BASEDIR', (yargs) => {
       yargs
         .positional('basedir', {
           describe: 'directory to create, must not already exist',
         })
-        .positional('hostname', {
-          describe: 'hostname to advertise in BASEDIR/addresses, start with 127.0.0.1',
+        .positional('addr', {
+          describe: 'IP addr (not hostname) to advertise in BASEDIR/addresses, start with 127.0.0.1',
         })
         .positional('port', {
           describe: 'TCP port to listen on, choose something unique',
+        })
+        .coerce('addr', (addr) => {
+          if (!/^[\d\.]+$/.test(addr)) {
+            throw new Error(`addr=${addr} must be a dotted-quad numeric IP address, not a hostname`);
+          }
+          // libp2p doesn't do hostname resolution, at least not the way
+          // we're using it
+          return addr;
         })
       ;
     }, (argv) => create(argv))
@@ -255,5 +264,8 @@ export async function main() {
         })
       ;
     }, (argv) => run(argv))
+    .command('*', false, () => {}, (argv) => {
+      console.log('no subcommand specified, try "vat create" or "vat run"');
+    })
     .parse();
 }
