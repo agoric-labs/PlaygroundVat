@@ -6,6 +6,7 @@ import PeerId from 'peer-id';
 import PeerInfo from 'peer-info';
 import TCP from 'libp2p-tcp';
 import WS from 'libp2p-websockets';
+import SECIO from 'libp2p-secio';
 import defaultsDeep from '@nodeutils/defaults-deep';
 import pullStream from 'pull-stream';
 import pullSplit from 'pull-split';
@@ -16,7 +17,8 @@ class CommsNode extends Node {
     const defaults = {
       modules: {
         transport: [ TCP,
-                     WS ]
+                     WS ],
+        connEncryption: [ SECIO ],
       }
       // config
     };
@@ -68,7 +70,7 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
                               //conn.end();
                               //doner();
                              });
-  pusher.push(`set-vatID ${myVatID}`);
+  //pusher.push(`set-vatID ${myVatID}`);
   const c = {
     send(msg) {
       console.log(`send/push ${msg}`);
@@ -106,16 +108,25 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
 
 async function handleConnection(vat, protocol, conn) {
   console.log(`got ${protocol} connection`);
-  //const vatID = 'VATID??';
+  let vatID;
 
-  /*conn.getPeerInfo((err, pi) => {
-  // I think plain TCP sockets don't have peerinfo
-  if (err) {
-  console.log(` from ERR ${err}`);
-  } else {
-  console.log(` from ${pi.id.toB58String()}`);
+  conn.getPeerInfo((err, pi) => {
+    if (err) {
+      // plain TCP sockets don't have peerinfo
+      console.log(` from ERR ${err}`);
+    } else {
+      // but secio connections do
+      console.log(` from ${pi.id.toB58String()}`);
+      vatID = pi.id.toB58String();
+    }
+  });
+  // I cheat and assume the peerId will be available right away. Nominally
+  // this should produce a promise, and we should queue any messages until it
+  // fires
+  if (!vatID) {
+    throw new Error('unable to get vatID in time');
   }
-  });*/
+
   conn.getObservedAddrs((err, ma) => {
     console.log(` from ${ma}`);
   });
@@ -141,8 +152,8 @@ async function handleConnection(vat, protocol, conn) {
   // for now, the first line must start with 'set-vatID ' and then a vatID.
   // We defer connectionMade until we hear what vat the peer is pretending
   // to be
-  let vatID;
-  //vat.connectionMade(vatID, c);
+  //let vatID;
+  vat.connectionMade(vatID, c);
 
   pullStream(conn,
              pullSplit('\n'),
@@ -150,7 +161,8 @@ async function handleConnection(vat, protocol, conn) {
                console.log(`got line on inbound '${line}'`);
                if (!line)
                  return;
-               if (!vatID) {
+               //if (!vatID) {
+               if (0) {
                  if (!line.startsWith('set-vatID ')) {
                    throw new Error('first comms line must be "set-vatID $VATID"');
                  }
