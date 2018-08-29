@@ -110,24 +110,22 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
 
 async function handleConnection(vat, protocol, conn) {
   console.log(`got ${protocol} connection`);
-  let vatID;
+  let vatIDres, vatIDrej;
+  const vatIDp = new Promise((res, rej) => { vatIDres = res; vatIDrej = rej; });
 
   conn.getPeerInfo((err, pi) => {
     if (err) {
       // plain TCP sockets don't have peerinfo
       console.log(` from ERR ${err}`);
+      vatIDrej(err);
     } else {
       // but secio connections do
       console.log(` from ${pi.id.toB58String()}`);
-      vatID = pi.id.toB58String();
+      vatIDres(pi.id.toB58String());
     }
   });
-  // I cheat and assume the peerId will be available right away. Nominally
-  // this should produce a promise, and we should queue any messages until it
-  // fires
-  if (!vatID) {
-    throw new Error('unable to get vatID in time');
-  }
+
+  const vatID = await vatIDp;
 
   conn.getObservedAddrs((err, ma) => {
     console.log(` from ${ma}`);
@@ -163,17 +161,7 @@ async function handleConnection(vat, protocol, conn) {
                console.log(`got line on inbound '${line}'`);
                if (!line)
                  return;
-               //if (!vatID) {
-               if (0) {
-                 if (!line.startsWith('set-vatID ')) {
-                   throw new Error('first comms line must be "set-vatID $VATID"');
-                 }
-                 vatID = line.split(' ')[1];
-                 console.log(`comms set vatID to ${vatID}`);
-                 vat.connectionMade(vatID, c);
-               } else {
-                 vat.commsReceived(vatID, line);
-               }
+               vat.commsReceived(vatID, line);
              }),
              pullStream.drain()
             );
