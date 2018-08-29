@@ -116,6 +116,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   // RemoteVow).
 
   const manager = makeRemoteManager();
+  const resolutionNotifiers = new WeakMap(); // vow -> { swissnum, Set(vatID) }
 
   let inTurn = false;
 
@@ -160,6 +161,26 @@ export function makeVat(endowments, myVatID, initialSource) {
     manager.sendTo(targetVatID, bodyJson);
   }
 
+  function notifyUponResolution(value, targetVatID, swissnum) {
+    //log('notifyUponResolution', targetVatID, swissnum);
+    if (targetVatID === null) {
+      return;
+    }
+    if (!resolutionNotifiers.has(value)) {
+      const followers = new Set();
+      resolutionNotifiers.set(value, { swissnum, followers });
+      function notify(result) {
+        //log(' nUR.notify', result);
+        for (let id of followers) {
+          //log('  to', id, swissnum);
+          opResolve(id, swissnum, result);
+        }
+      }
+      value.then(notify, notify);
+    }
+    resolutionNotifiers.get(value).followers.add(targetVatID);
+  }
+
   function allocateSwissStuff() {
     return marshal.allocateSwissStuff();
   }
@@ -169,7 +190,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   }
 
   const serializer = {
-    startTurn, finishTurn, opSend, opResolve,
+    startTurn, finishTurn, opSend, opResolve, notifyUponResolution,
     allocateSwissStuff, registerRemoteVow,
   };
 
@@ -203,15 +224,14 @@ export function makeVat(endowments, myVatID, initialSource) {
       const res = doSendInternal(body);
       if (body.resultSwissbase) {
         const resolverSwissnum = doSwissHashing(body.resultSwissbase);
-        marshal.registerTarget(res, resolverSwissnum, resolutionOf);
-        done = res.then(res => serializer.opResolve(senderVatID, resolverSwissnum, res),
-                        rej => serializer.opResolve(senderVatID, resolverSwissnum, rej));
+        // registerTarget arranges to notify senderVatID when this resolves
+        marshal.registerTarget(res, resolverSwissnum, senderVatID, resolutionOf);
         // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
       } else {
         // else it was really a sendOnly
         log(`commsReceived got sendOnly, dropping result`);
-        done = res; // for testing
       }
+      done = res; // for testing
     } else if (body.op === `resolve`) {
       const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
       //log(`h: ${h}`);
@@ -273,7 +293,9 @@ export function makeVat(endowments, myVatID, initialSource) {
       const root = await Vow.resolve().then(_ => e(argv));
       // we wait for that to resolve before executing the transcript
       if (root) {
-        marshal.registerTarget(root, rootSwissnum, resolutionOf);
+        // we register this, but nobody is waiting on it yet, so we don't
+        // have to tell registerTarget a vat to notify when it resolves
+        marshal.registerTarget(root, rootSwissnum, null, resolutionOf);
       }
       return root; // for testing
     },

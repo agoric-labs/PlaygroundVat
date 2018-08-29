@@ -104,7 +104,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     return JSON.stringify({vatID: data.vatID, swissnum: data.swissnum});
   }
 
-  // Record: { value, vatID, swissnum, serialized }
+  // Record: { value, vatID, swissnum, serialized, notify }
   // holds both objects (pass-by-presence) and unresolved promises
   const val2Record = new WeakMap();
   const webkey2Record = new Map();
@@ -153,6 +153,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     // * other (resolved to pass-by-copy)
 
     let type;
+    let notify = false;
 
     if (isVow(val)) {
       const r = resolutionOf(val);
@@ -163,10 +164,12 @@ export function makeWebkeyMarshal(myVatID, serializer) {
         // identity, so no swissnum (although the value it resolves to
         // might).
 
-        return def({
-          [QCLASS]: 'resolvedVow',
-          value: serialize(r, resolutionOf, targetVatID)
-        });
+        return { notify: false,
+                 serialized: def({
+                   [QCLASS]: 'resolvedVow',
+                   value: serialize(r, resolutionOf, targetVatID)
+                 }),
+               };
       }
 
       // unresolved Vows are send as QCLASS: unresolvedVow, with a vatID and
@@ -175,6 +178,9 @@ export function makeWebkeyMarshal(myVatID, serializer) {
       // LocalVow or NearVow, and we need to allocate a swissnum and put it
       // in the table.
       type = 'unresolvedVow';
+
+      // in addition, we need to let them know when it resolves
+      notify = true;
     } else {
       // non-Vows. This will only be local pass-by-presence objects that we
       // haven't already sent, because the other pass-by-presence is a Presence
@@ -191,6 +197,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     const rec = def({ value: val,
                       vatID: myVatID,
                       swissnum: swissnum,
+                      notify: notify,
                       serialized: {
                         [QCLASS]: type,
                         vatID: myVatID,
@@ -201,7 +208,7 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     val2Record.set(val, rec);
     const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
     webkey2Record.set(key, rec);
-    return rec.serialized;
+    return rec;
 
     // It must be a Vow.
 
@@ -335,7 +342,15 @@ export function makeWebkeyMarshal(myVatID, serializer) {
       // if we've serialized it before, or if it arrived from the outside
       // (and is thus in the table), use the previous serialization
       if (val2Record.has(val)) {
-        return val2Record.get(val).serialized;
+        const rec = val2Record.get(val);
+        if (rec.notify) {
+          // we only serialize things once, but we must notify every
+          // recipient we send it to
+          serializer.notifyUponResolution(val, targetVatID, rec.swissnum);
+          // todo: unit test to make sure sending a previously-serialized
+          // UnresolvedVow to a new target prepares a second notification
+        }
+        return rec.serialized;
       }
 
       // We can serialize some things as plain pass-by-copy: arrays, and
@@ -364,7 +379,13 @@ export function makeWebkeyMarshal(myVatID, serializer) {
       // serialize pass-by-reference objects, including cache/table
       // management
 
-      return serializePassByPresence(val, resolutionOf, targetVatID);
+      const rec = serializePassByPresence(val, resolutionOf, targetVatID);
+      if (rec.notify) {
+        // Remember to notify whomever we're sending this unresolved Vow to.
+        // notifyUponResolution will make sure to only notify them once.
+        serializer.notifyUponResolution(val, targetVatID, rec.swissnum);
+      }
+      return rec.serialized;
     };
   }
 
@@ -496,9 +517,11 @@ export function makeWebkeyMarshal(myVatID, serializer) {
     return { swissbase, swissnum };
   }
 
-  function registerTarget(val, swissnum, resolutionOf) {
-    const targetVatID = null;
-    serializePassByPresence(val, resolutionOf, targetVatID, swissnum);
+  function registerTarget(val, swissnum, targetVatID, resolutionOf) {
+    const rec = serializePassByPresence(val, resolutionOf, targetVatID, swissnum);
+    if (rec.notify) {
+      serializer.notifyUponResolution(val, targetVatID, swissnum);
+    }
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
