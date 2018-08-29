@@ -6,6 +6,7 @@ import PeerId from 'peer-id';
 import PeerInfo from 'peer-info';
 import TCP from 'libp2p-tcp';
 import WS from 'libp2p-websockets';
+import MPLEX from 'libp2p-mplex';
 import SECIO from 'libp2p-secio';
 import defaultsDeep from '@nodeutils/defaults-deep';
 import pullStream from 'pull-stream';
@@ -18,6 +19,7 @@ class CommsNode extends Node {
       modules: {
         transport: [ TCP,
                      WS ],
+        streamMuxer: [ MPLEX ],
         connEncryption: [ SECIO ],
       }
       // config
