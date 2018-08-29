@@ -1,0 +1,8 @@
+{
+  "mint": { "sturdyref": "QmNtqu3WNhNGPkWkxQDwZd2FPUp43v22YGdx13xMx7RD54/0" },
+  "alice": { "sturdyref": "QmTxsHYt2a5sWpatR6LTaW4eHR9d4BozAyKMUH89YjFHsE/0" },
+  "bob": { "sturdyref": "QmRqcYjecavhxrGm3pXKnAc6PUAouRwCygeoMCjfWE2E4X/0" },
+  "host": { "sturdyref": "QmWw6P4xieSGYd6ug27nZ5XyrXbF3Zj1E9teHowzv8yEb6/0" },
+
+  "which": { "string": "mint" }
+}
