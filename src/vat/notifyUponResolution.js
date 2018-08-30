@@ -29,7 +29,8 @@ export function makeResolutionNotifier(log, myVatID, opResolve) {
         // untidy.
         for (let id of rec.followers) {
           // TODO: notification order depends upon Set iteration, will this
-          // cause nondeterminism?
+          // cause nondeterminism? OTOH, these messages are strictly sent to
+          // different vats, so it isn't observable by a single outside vat
           notify(id, swissnum, result);
         }
       }

@@ -151,6 +151,8 @@ export function makeVat(endowments, myVatID, initialSource) {
   function opResolve(targetVatID, targetSwissnum, value) {
     log('opResolve', targetVatID, targetSwissnum, value);
     const seqnum = manager.nextOutboundSeqnum(targetVatID);
+    // todo: rename targetSwissnum to mySwissnum? The thing being resolved
+    // lives on the sender, not the recipient.
     const bodyJson = marshal.serialize(def({seqnum,
                                             op: 'resolve',
                                             targetSwissnum,
