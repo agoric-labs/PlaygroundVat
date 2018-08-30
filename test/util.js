@@ -30,23 +30,39 @@ export function funcToSource(f) {
 export function makeQueues(t) {
   const queues = new Map();
 
+  function toKey(a, b) {
+    return `${a}->${b}`;
+  }
+
   function addQueue(a, b) {
+    const key = toKey(a, b);
     const q = [];
-    queues.set(`${a}-${b}`, q);
+    queues.set(key, q);
     const c = {
       send(msg) {
-        console.log(`SEND ${a}-${b}`, msg);
+        console.log(`SEND ${key}`, msg);
         q.push(msg);
       },
     };
     return c;
   }
 
+  function dump() {
+    console.log('queues:');
+    for (let k of queues.keys()) {
+      console.log(k, queues.get(k));
+    }
+  }
+
   function expect(a, b, msg) {
-    const q = queues.get(`${a}-${b}`);
-    t.ok(q.length);
-    //console.log('expect', a, b, q);
+    const key = toKey(a, b);
+    const q = queues.get(key);
+    t.ok(q.length > 0);
+    if (!q.length)
+      throw new Error('ugh');
+    console.log('expect', a, b, q);
     const got = q.shift();
+    t.notEqual(got, undefined);
     t.deepEqual(JSON.parse(got), msg);
     return got;
   }
@@ -57,9 +73,10 @@ export function makeQueues(t) {
   }
 
   function expectEmpty(a, b) {
-    const q = queues.get(`${a}-${b}`);
+    const key = toKey(a, b);
+    const q = queues.get(key);
     t.equal(q.length, 0);
   }
 
-  return { addQueue, expect, expectAndDeliverAck, expectEmpty };
+  return { dump, addQueue, expect, expectAndDeliverAck, expectEmpty };
 }
