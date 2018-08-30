@@ -1,6 +1,6 @@
 import { test } from 'tape-promise/tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
-import { makeTranscript, funcToSource } from './util';
+import { makeTranscript, funcToSource, makeQueues } from './util';
 
 function t1_sender() {
   exports.default = function(argv) {
@@ -277,7 +277,7 @@ function t3_three() {
   };
 }
 
-test.only('sending third-party Vow', async (t) => {
+test('sending third-party Vow', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t3_one);
@@ -296,105 +296,65 @@ test.only('sending third-party Vow', async (t) => {
   const v3 = await buildVat(s, 'vat3', tr.writeOutput, v3src);
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
+  const q = makeQueues(t);
 
-  const v1_to_v2 = [];
-  const c12 = {
-    send(msg) { console.log('SEND12', msg);
-                v1_to_v2.push(msg);
-              },
-  };
-  v1.connectionMade('vat2', c12);
+  v1.connectionMade('vat2', q.addQueue(1, 2));
+  v1.connectionMade('vat3', q.addQueue(1, 3));
+  v2.connectionMade('vat1', q.addQueue(2, 1));
+  v3.connectionMade('vat1', q.addQueue(3, 1));
 
-  t.equal(v1_to_v2.length, 1);
-  t.deepEqual(JSON.parse(v1_to_v2[0]),
-              { seqnum: 0, op: 'send',
-                resultSwissbase: 'base-1',
-                targetSwissnum: '0',
-                methodName: 'getVow',
-                args: [],
-              });
+  let got;
 
-  v2.commsReceived('vat1', v1_to_v2[0]);
+  got = q.expect(1, 2, { seqnum: 0, op: 'send',
+                         resultSwissbase: 'base-1',
+                         targetSwissnum: '0',
+                         methodName: 'getVow',
+                         args: [],
+                       });
+  v2.commsReceived('vat1', got);
 
-  const v2_to_v1 = [];
-  const c21 = {
-    send(msg) { console.log('SEND21', msg);
-                v2_to_v1.push(msg);
-              },
-  };
-  v2.connectionMade('vat1', c21);
   // that immediately provokes an ack
 
-  t.equal(v2_to_v1.length, 1);
-  t.deepEqual(JSON.parse(v2_to_v1[0]),
-              { ackSeqnum: 0, op: 'ack',
-              });
+  q.expectAndDeliverAck(2, 1, v1, 0);
 
   // the getVow isn't executed until a turn later
   await Promise.resolve(0);
 
   // because getVow() returned an unresolved Vow, no opResolve is sent yet:
   // nothing is sent until it is resolved by v2root.fire()
-  t.equal(v2_to_v1.length, 1);
-
-  // now allow the messages to three to be delivered
-  const v1_to_v3 = [];
-  const c13 = {
-    send(msg) { console.log('SEND13', msg);
-                v1_to_v3.push(msg);
-              },
-  };
-  v1.connectionMade('vat3', c13);
+  q.expectEmpty(2, 1);
 
   // we don't currently forward unresolved vows to their most-likely target,
   // so when we send 'two' to three.pleaseWait, we send a vat1 vow, not the
   // original vat2 vow
-  t.equal(v1_to_v3.length, 1);
-  t.deepEqual(JSON.parse(v1_to_v3[0]),
-              { seqnum: 0, op: 'send',
-                resultSwissbase: 'base-2',
-                targetSwissnum: '0',
-                methodName: 'pleaseWait',
-                args: [{ '@qclass': 'unresolvedVow',
-                         vatID: 'vat1', // owned by vat1
-                         swissnum: 3,
-                       }],
-              });
-
-
-  const v3_to_v1 = [];
-  const c31 = {
-    send(msg) { console.log('SEND31', msg);
-                v3_to_v1.push(msg);
-              },
-  };
-  v3.connectionMade('vat1', c31);
-  t.equal(v3_to_v1.length, 0);
-
-  v3.commsReceived('vat1', v1_to_v3[0]);
+  got = q.expect(1, 3,
+                 { seqnum: 0, op: 'send',
+                   resultSwissbase: 'base-2',
+                   targetSwissnum: '0',
+                   methodName: 'pleaseWait',
+                   args: [{ '@qclass': 'unresolvedVow',
+                            vatID: 'vat1', // owned by vat1
+                            swissnum: 3,
+                          }],
+                 });
+  q.expectEmpty(3, 1);
+  v3.commsReceived('vat1', got);
 
   // that returns an immediate ack, and a turn later we send a (for
   // 'undefined') of the answer to pleaseWait()
 
-  t.equal(v3_to_v1.length, 1);
-  t.deepEqual(JSON.parse(v3_to_v1[0]),
-              { ackSeqnum: 0, op: 'ack',
-              });
+  q.expectAndDeliverAck(3, 1, v1, 0);
+  q.expectEmpty(3, 1);
   await Promise.resolve(0);
-  t.equal(v3_to_v1.length, 2);
-  t.deepEqual(JSON.parse(v3_to_v1[1]),
-              { seqnum: 0, op: 'resolve',
-                targetSwissnum: 'hash-of-base-2',
-                value: {'@qclass': 'undefined' },
-              });
+  got = q.expect(3, 1, { seqnum: 0, op: 'resolve',
+                         targetSwissnum: 'hash-of-base-2',
+                         value: {'@qclass': 'undefined' },
+                       });
+  q.expectEmpty(3, 1);
 
-  v1.commsReceived('vat3', v3_to_v1[0]);
-  v1.commsReceived('vat3', v3_to_v1[1]);
+  v1.commsReceived('vat3', got);
 
-  t.equal(v1_to_v3.length, 2);
-  t.deepEqual(JSON.parse(v1_to_v3[1]),
-              { ackSeqnum: 0, op: 'ack',
-              });
+  q.expectAndDeliverAck(1, 3, v3, 0);
 
   t.equal(v3root.getFired(), false);
   // ok, now we tell vat2 to resolve the Vow, and we expect vat3 to
@@ -403,43 +363,32 @@ test.only('sending third-party Vow', async (t) => {
   v2root.fire('burns');
 
   // nothing happens for a turn
-  t.equal(v2_to_v1.length, 1);
+  q.expectEmpty(2, 1);
   await Promise.resolve(0);
 
   // first, vat2 should tell vat1 about the resolution
-  t.equal(v2_to_v1.length, 2);
-  t.deepEqual(JSON.parse(v2_to_v1[1]),
-              { seqnum: 0, op: 'resolve',
-                targetSwissnum: 'hash-of-base-1',
-                value: 'burns',
-              });
+  got = q.expect(2, 1, { seqnum: 0, op: 'resolve',
+                         targetSwissnum: 'hash-of-base-1',
+                         value: 'burns',
+                       });
 
-  v1.commsReceived('vat2', v2_to_v1[1]);
-  t.equal(v1_to_v2.length, 2);
-  t.deepEqual(JSON.parse(v1_to_v2[1]),
-              { ackSeqnum: 0, op: 'ack',
-              });
-  v2.commsReceived('vat1', v1_to_v2[1]);
+  v1.commsReceived('vat2', got);
+  q.expectAndDeliverAck(1, 2, v2, 0);
 
   // and vat1 now tells vat3 about the resolution, after a turn
-  t.equal(v1_to_v3.length, 2);
+  q.expectEmpty(1, 3);
   await Promise.resolve(0);
-  t.equal(v1_to_v3.length, 3);
-  t.deepEqual(JSON.parse(v1_to_v3[2]),
-              { seqnum: 1, op: 'resolve',
-                targetSwissnum: 3,
-                value: 'burns',
-              });
-  v3.commsReceived('vat1', v1_to_v3[2]);
+  got = q.expect(1, 3, { seqnum: 1, op: 'resolve',
+                         targetSwissnum: 3,
+                         value: 'burns',
+                       });
+  v3.commsReceived('vat1', got);
 
   t.equal(v3root.getFired(), false);
   await Promise.resolve(0);
   t.equal(v3root.getFired(), 'burns');
 
-  t.equal(v3_to_v1.length, 3);
-  t.deepEqual(JSON.parse(v3_to_v1[2]),
-              { ackSeqnum: 1, op: 'ack',
-              });
+  q.expectAndDeliverAck(3, 1, v1, 1);
 
   t.end();
 });
