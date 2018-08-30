@@ -2,6 +2,7 @@ import { test } from 'tape-promise/tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
+import { makeTranscript, funcToSource } from './util';
 
 function s1() {
   exports.default = function(argv) {
@@ -54,13 +55,6 @@ function s2() {
   };
 }
 
-function funcToSource(f) {
-  let code = `${f}`;
-  code = code.replace(/^function .* {/, '');
-  code = code.replace(/}$/, '');
-  return code;
-}
-
 test('confineVatSource', (t) => {
   const s = SES.makeSESRootRealm();
   const s1code = funcToSource(s1);
@@ -71,27 +65,6 @@ test('confineVatSource', (t) => {
   t.equal(e.decrement(), 1);
   t.end();
 });
-
-function makeTranscript() {
-  const lines = [];
-  const waiters = [];
-
-  return {
-    writeOutput(line) {
-      lines.push(line);
-      const w = waiters.shift();
-      if (w) {
-        w(line);
-      }
-    },
-
-    lines,
-
-    wait() {
-      return new Promise(r => waiters.push(r));
-    },
-  };
-}
 
 test('methods can send messages via doSendOnly', async (t) => { // todo remove
   const tr = makeTranscript();
