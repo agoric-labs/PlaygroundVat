@@ -8,22 +8,47 @@ export function makeResolutionNotifier(log, myVatID, opResolve) {
     if (targetVatID === null) {
       return;
     }
+
+    function notify(id, swissnum, result) {
+      //log('  to', id, swissnum);
+      opResolve(id, swissnum, result);
+    }
+
     if (!resolutionNotifiers.has(value)) {
-      let c = `${myVatID}-${nurCount++}`;
+      //let c = `${myVatID}-${nurCount++}`;
       //log(' nUR adding', c);
-      const followers = new Set();
-      resolutionNotifiers.set(value, { swissnum, followers, c });
-      function notify(result) {
-        //log(' nUR.notify', c, result);
-        for (let id of followers) {
-          //log('  to', id, swissnum);
-          opResolve(id, swissnum, result);
+      const rec = { followers: new Set(),
+                    resolved: false,
+                    //c,
+                  };
+      resolutionNotifiers.set(value, rec);
+      function done(result) {
+        rec.resolved = true;
+        // todo: there's probably a race here, if somehow opResolve reenters
+        // into notifyUponResolution and adds a new follower. Unlikely but
+        // untidy.
+        for (let id of rec.followers) {
+          // TODO: notification order depends upon Set iteration, will this
+          // cause nondeterminism?
+          notify(id, swissnum, result);
         }
       }
-      value.then(notify, notify);
+      value.then(done, done);
     }
-    //log(` adding ${targetVatID} to ${resolutionNotifiers.get(value).c}`);
-    resolutionNotifiers.get(value).followers.add(targetVatID);
+    const rec = resolutionNotifiers.get(value);
+
+    if (rec.followers.has(targetVatID)) {
+      return;
+    }
+    rec.followers.add(targetVatID);
+
+    if (rec.resolved) {
+      // done() already fired, this late follower needs to catch up
+      function notifyNow(result) {
+        notify(targetVatID, swissnum, result);
+      }
+      value.then(notifyNow, notifyNow);
+    }
   }
 
   return notifyUponResolution;
