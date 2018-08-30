@@ -43,61 +43,40 @@ test('comms, sending a message', async (t) => {
   const v2 = await buildVat(s, 'vat2', tr.writeOutput, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
+  const q = makeQueues(t);
+  let got;
 
-  const v1_to_v2 = [];
-  const c12 = {
-    send(msg) { //console.log('SEND12', msg);
-                v1_to_v2.push(msg);
-              },
-  };
-  v1.connectionMade('vat2', c12);
+  v1.connectionMade('vat2', q.addQueue(1, 2));
+  v2.connectionMade('vat1', q.addQueue(2, 1));
 
-  t.equal(v1_to_v2.length, 1);
-  t.deepEqual(JSON.parse(v1_to_v2[0]),
-              { seqnum: 0, op: 'send',
-                resultSwissbase: 'base-1',
-                targetSwissnum: '0',
-                methodName: 'pleaseRespond',
-                args: ['marco'],
-              });
+  got = q.expect(1, 2, { seqnum: 0, op: 'send',
+                         resultSwissbase: 'base-1',
+                         targetSwissnum: '0',
+                         methodName: 'pleaseRespond',
+                         args: ['marco'],
+                       });
+  v2.commsReceived('vat1', got);
 
-  v2.commsReceived('vat1', v1_to_v2[0]);
-
-  const v2_to_v1 = [];
-  const c21 = {
-    send(msg) { //console.log('SEND21', msg);
-                v2_to_v1.push(msg);
-              },
-  };
-  v2.connectionMade('vat1', c21);
   // that immediately provokes an ack
 
-  t.equal(v2_to_v1.length, 1);
-  t.deepEqual(JSON.parse(v2_to_v1[0]),
-              { ackSeqnum: 0, op: 'ack',
-              });
+  q.expectAndDeliverAck(2, 1, v1, 0);
 
   // the pleaseRespond isn't executed until a turn later
+  q.expectEmpty(2, 1);
   t.equal(v2root.getCalled(), false);
   await Promise.resolve(0);
   t.equal(v2root.getCalled(), true);
 
-  t.equal(v2_to_v1.length, 2);
-  t.deepEqual(JSON.parse(v2_to_v1[1]),
-              { seqnum: 0, op: 'resolve',
-                targetSwissnum: 'hash-of-base-1',
-                value: 'marco-polo',
-              });
+  got = q.expect(2, 1, { seqnum: 0, op: 'resolve',
+                         targetSwissnum: 'hash-of-base-1',
+                         value: 'marco-polo',
+                       });
 
-  // deliver the ack, doesn't cause any interesting externally-visible
-  // changes, and doesn't provoke any outbound messages
-  v1.commsReceived('vat2', v2_to_v1[0]);
-  t.equal(v1_to_v2.length, 1);
-
+  q.expectEmpty(1, 2);
   t.equal(v1root.getAnswer(), 'unanswered');
 
   // deliver the response
-  v1.commsReceived('vat2', v2_to_v1[1]);
+  v1.commsReceived('vat2', got);
   // that takes a turn to be processed
   await Promise.resolve(0);
 
@@ -150,93 +129,63 @@ test('sending unresolved local Vow', async (t) => {
   const v2 = await buildVat(s, 'vat2', tr.writeOutput, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
+  const q = makeQueues(t);
+  let got;
 
-  const v1_to_v2 = [];
-  const c12 = {
-    send(msg) { console.log('SEND12', msg);
-                v1_to_v2.push(msg);
-              },
-  };
-  v1.connectionMade('vat2', c12);
+  v1.connectionMade('vat2', q.addQueue(1, 2));
+  v2.connectionMade('vat1', q.addQueue(2, 1));
 
-  t.equal(v1_to_v2.length, 1);
-  t.deepEqual(JSON.parse(v1_to_v2[0]),
-              { seqnum: 0, op: 'send',
-                resultSwissbase: 'base-1',
-                targetSwissnum: '0',
-                methodName: 'pleaseWait',
-                args: [{'@qclass': 'unresolvedVow',
-                        vatID: 'vat1',
-                        swissnum: 2}],
-              });
-
-  v2.commsReceived('vat1', v1_to_v2[0]);
-
-  const v2_to_v1 = [];
-  const c21 = {
-    send(msg) { console.log('SEND21', msg);
-                v2_to_v1.push(msg);
-              },
-  };
-  v2.connectionMade('vat1', c21);
+  got = q.expect(1, 2, { seqnum: 0, op: 'send',
+                         resultSwissbase: 'base-1',
+                         targetSwissnum: '0',
+                         methodName: 'pleaseWait',
+                         args: [{'@qclass': 'unresolvedVow',
+                                 vatID: 'vat1',
+                                 swissnum: 2}],
+                       });
+  q.expectEmpty(1, 2);
+  v2.commsReceived('vat1', got);
   // that immediately provokes an ack
 
-  t.equal(v2_to_v1.length, 1);
-  t.deepEqual(JSON.parse(v2_to_v1[0]),
-              { ackSeqnum: 0, op: 'ack',
-              });
+  // deliver the ack, doesn't cause any interesting externally-visible
+  // changes, and doesn't provoke any outbound messages
+  q.expectAndDeliverAck(2, 1, v1, 0);
+  q.expectEmpty(2, 1);
+  q.expectEmpty(1, 2);
 
   // the pleaseRespond isn't executed until a turn later
   t.equal(v2root.getCalled(), false);
   await Promise.resolve(0);
   t.equal(v2root.getCalled(), true);
 
-  t.equal(v2_to_v1.length, 2);
-  t.deepEqual(JSON.parse(v2_to_v1[1]),
-              { seqnum: 0, op: 'resolve',
-                targetSwissnum: 'hash-of-base-1',
-                value: {'@qclass': 'undefined' },
-              });
-
-  // deliver the ack, doesn't cause any interesting externally-visible
-  // changes, and doesn't provoke any outbound messages
-  v1.commsReceived('vat2', v2_to_v1[0]);
-  t.equal(v1_to_v2.length, 1);
-
+  got = q.expect(2, 1, { seqnum: 0, op: 'resolve',
+                         targetSwissnum: 'hash-of-base-1',
+                         value: {'@qclass': 'undefined' },
+                       });
   t.equal(v2root.getAnswer(), 'not yet');
 
   // pleaseWait() returned 'undefined', so now the caller's Vow gets resolved
   // (although nobody cares)
-  v1.commsReceived('vat2', v2_to_v1[1]);
+  v1.commsReceived('vat2', got);
   // that takes a turn to be processed
   await Promise.resolve(0);
   t.equal(v2root.getAnswer(), 'not yet');
 
   // that sends another ack
-  t.equal(v1_to_v2.length, 2);
-  t.deepEqual(JSON.parse(v1_to_v2[1]),
-              { ackSeqnum: 0, op: 'ack',
-              });
-  v2.commsReceived('vat1', v2_to_v1[1]);
+  q.expectAndDeliverAck(1, 2, v2, 0);
 
   // now tell the sender to resolve the Vow they sent to the responder
   v1root.fire('pretty');
-  t.equal(v1_to_v2.length, 2);
+  q.expectEmpty(1, 2);
 
   await Promise.resolve(0);
 
-  t.equal(v1_to_v2.length, 3);
-  t.deepEqual(JSON.parse(v1_to_v2[2]),
-              { seqnum: 1, op: 'resolve',
-                targetSwissnum: 2,
-                value: 'pretty',
-              });
-
-  v2.commsReceived('vat1', v1_to_v2[2]);
-  t.equal(v2_to_v1.length, 3);
-  t.deepEqual(JSON.parse(v2_to_v1[2]),
-              { ackSeqnum: 1, op: 'ack',
-              });
+  got = q.expect(1, 2, { seqnum: 1, op: 'resolve',
+                         targetSwissnum: 2,
+                         value: 'pretty',
+                       });
+  v2.commsReceived('vat1', got);
+  q.expectAndDeliverAck(2, 1, v1, 1);
 
   t.equal(v2root.getAnswer(), 'not yet');
   await Promise.resolve(0);

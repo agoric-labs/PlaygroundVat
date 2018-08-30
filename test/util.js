@@ -45,6 +45,7 @@ export function makeQueues(t) {
   function expect(a, b, msg) {
     const q = queues.get(`${a}-${b}`);
     t.ok(q.length);
+    //console.log('expect', a, b, q);
     const got = q.shift();
     t.deepEqual(JSON.parse(got), msg);
     return got;
