@@ -857,7 +857,9 @@ test('breaking something sending third-party Vow back home', async (t) => {
                        });
 
   vatDRIVER.commsReceived('vatMINT', got17); // resolved emptyPurse
-  // now vatDRIVER can forward the deposit(), and sends emptyPurse to alice
+  // now vatDRIVER can forward the deposit() to vatMINT, resolve the
+  // purseP/three_purse argument to vatMINT, and also sends emptyPurse to
+  // alice
   await Promise.resolve(0);
 
   let got18 = q.expect(DRIVER, MINT,
@@ -866,104 +868,91 @@ test('breaking something sending third-party Vow back home', async (t) => {
                         targetSwissnum: 4,
                         methodName: 'deposit',
                         args: [10,  { '@qclass': 'unresolvedVow',
-                                     vatID: 'vatDRIVER', // ???
+                                     vatID: 'vatDRIVER',
                                      swissnum: 4 } ],
                       });
   q.expectAndDeliverAck(DRIVER, MINT, vatMINT, 3);
 
-  let got19 = q.expect(DRIVER, ALICE,
+  // got19 is the same resolution as got12, but to MINT instead of ALICE
+  let got19 = q.expect(DRIVER, MINT,
+                       { seqnum: 5, op: 'resolve',
+                         targetSwissnum: 4,
+                         value: { '@qclass': 'presence',
+                                  vatID: 'vatMINT',
+                                  swissnum: 2 } // purseP/three_purse
+                       });
+
+  // got20 is the same resolution as got17, but DRIVER->ALICE instead of
+  // MINT->DRIVER
+  let got20 = q.expect(DRIVER, ALICE,
                        { seqnum: 4, op: 'resolve',
                          targetSwissnum: 'hash-of-base-2',
                          value: { '@qclass': 'presence',
                                   vatID: 'vatMINT',
-                                  swissnum: 4 } // emptyPurse
+                                  swissnum: 4 } // paymentP/emptyPurse
                        });
 
-  vatALICE.commsReceived('vatDRIVER', got19);
-  q.expectAndDeliverAck(ALICE, DRIVER, vatDRIVER, 4);
+  // pending: got18, got19, got20
 
-  // pending: got18
   vatMINT.commsReceived('vatDRIVER', got18); // deposit()
   q.expectAndDeliverAck(MINT, DRIVER, vatDRIVER, 4);
 
   await Promise.resolve(0);
 
-  let got20 = q.expect(MINT, DRIVER,
+  let got21 = q.expect(MINT, DRIVER,
                        { seqnum: 4, op: 'resolve',
                          targetSwissnum: 'hash-of-base-8',
                          value: 'did deposit',
                        });
-  t.equal(v2root.getDepositComplete(), false); // plausible
-  await Promise.resolve(0);
-  t.equal(v2root.getDepositComplete(), true); // HERE IS THE BUG
 
-  vatDRIVER.commsReceived('vatMINT', got20);
+  // pending: got19, got20, got21
+
+  t.equal(v2root.getDepositComplete(), false);
+
+  // this allows the MINT's deposit() to finish
+  vatMINT.commsReceived('vatDRIVER', got19);
+  q.expectAndDeliverAck(MINT, DRIVER, vatDRIVER, 5);
+
+  t.equal(v2root.getDepositComplete(), false);
+  await Promise.resolve(0);
+  t.equal(v2root.getDepositComplete(), true);
+
+  // pending: got20, got21
+
+  // tell alice that paymentP/emptyPurse has resolved, although she doesn't
+  // care
+  vatALICE.commsReceived('vatDRIVER', got20);
+  q.expectAndDeliverAck(ALICE, DRIVER, vatDRIVER, 4);
+
+  // let the MINT tell DRIVER that deposit has finished. This will prompt
+  // DRIVER to forward the resolution to Alice
+
+  vatDRIVER.commsReceived('vatMINT', got21);
   q.expectAndDeliverAck(DRIVER, MINT, vatMINT, 4);
 
   await Promise.resolve(0);
 
-  // DRIVER forwards the results of deposit() on to ALICE
-  let got21 = q.expect(DRIVER, ALICE,
+  let got22 = q.expect(DRIVER, ALICE,
                        { seqnum: 5, op: 'resolve',
                          targetSwissnum: 'hash-of-base-3',
                          value: 'did deposit',
                        });
-  vatALICE.commsReceived('vatDRIVER', got21);
+  
+
+  // finally tell alice that the deposit has finished
+  t.equal(v3root.getDepositComplete(), false);
+  vatALICE.commsReceived('vatDRIVER', got22);
   q.expectAndDeliverAck(ALICE, DRIVER, vatDRIVER, 5);
 
   await Promise.resolve(0);
-  t.ok(v3root.getDepositComplete(), true);
 
+  t.equal(v3root.getDepositComplete(), true);
 
+  // now everything is finally quiescent
 
-  await Promise.resolve(0);
-  q.dump();
-  return t.end();
-
-
-  vatALICE.commsReceived('vatDRIVER', got4);
-  q.expectAndDeliverAck(ALICE, DRIVER, vatDRIVER, 1);
-
-
-  // leave the mint hanging for a while. Alice should send:
-  let got5X = q.expect(ALICE, MINT,
-                      { seqnum: 0, op: 'send',
-                        resultSwissbase: 'base-1',
-                        targetSwissnum: '0',
-                        methodName: 'makeEmptyPurse',
-                        args: [],
-                      });
-  let got6X = q.expect(ALICE, MINT,
-                      { seqnum: 0, op: 'send',
-                        resultSwissbase: 'base-2',
-                        targetSwissnum: 'hash-of-base-1',
-                        methodName: 'deposit',
-                        args: [10, { '@qclass': 'unresolvedVow',
-                                     vatID: 'vatALICE', // got vatDRIVER
-                                     swissnum: 4 } ],
-                      });
-  // she also has a pending message for when paymentP resolves
-
-  // let makeEmptyPurse arrive
-  vatMINT.commsReceived('vatALICE', got5);
-  q.expectAndDeliverAck(MINT, ALICE, vatMINT, 0);
-  // and the deposit
-  vatMINT.commsReceived('vatALICE', got6);
-  q.expectAndDeliverAck(MINT, ALICE, vatMINT, 1);
-  return t.end();
-
-  q.dump();
-  // and let the response get back
-  let got7X = q.expect(MINT, ALICE, {});
-
-  /*
-  // driver delivers makeMint/getPurse to the mint
-  vatMINT.commsReceived('vatDRIVER', got1);
-  q.expectAndDeliverAck(MINT, DRIVER, vatDRIVER, 0);
-  vatMINT.commsReceived('vatDRIVER', got2);
-  q.expectAndDeliverAck(MINT, DRIVER, vatDRIVER, 1);
-*/
-
+  //await Promise.resolve(0);
+  //q.dump();
+  //return t.end();
 
   t.end();
 });

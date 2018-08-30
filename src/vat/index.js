@@ -7,6 +7,7 @@ import { makeWebkeyMarshal, doSwissHashing } from './webkey';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
+import { makeResolutionNotifier } from './notifyUponResolution';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -116,7 +117,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   // RemoteVow).
 
   const manager = makeRemoteManager();
-  const resolutionNotifiers = new WeakMap(); // vow -> { swissnum, Set(vatID) }
+  const notifyUponResolution = makeResolutionNotifier(log, myVatID, opResolve);
 
   let inTurn = false;
 
@@ -150,6 +151,8 @@ export function makeVat(endowments, myVatID, initialSource) {
   function opResolve(targetVatID, targetSwissnum, value) {
     log('opResolve', targetVatID, targetSwissnum, value);
     const seqnum = manager.nextOutboundSeqnum(targetVatID);
+    // todo: rename targetSwissnum to mySwissnum? The thing being resolved
+    // lives on the sender, not the recipient.
     const bodyJson = marshal.serialize(def({seqnum,
                                             op: 'resolve',
                                             targetSwissnum,
@@ -159,26 +162,6 @@ export function makeVat(endowments, myVatID, initialSource) {
                                        targetVatID);
     endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
     manager.sendTo(targetVatID, bodyJson);
-  }
-
-  function notifyUponResolution(value, targetVatID, swissnum) {
-    //log('notifyUponResolution', targetVatID, swissnum);
-    if (targetVatID === null) {
-      return;
-    }
-    if (!resolutionNotifiers.has(value)) {
-      const followers = new Set();
-      resolutionNotifiers.set(value, { swissnum, followers });
-      function notify(result) {
-        //log(' nUR.notify', result);
-        for (let id of followers) {
-          //log('  to', id, swissnum);
-          opResolve(id, swissnum, result);
-        }
-      }
-      value.then(notify, notify);
-    }
-    resolutionNotifiers.get(value).followers.add(targetVatID);
   }
 
   function allocateSwissStuff() {
