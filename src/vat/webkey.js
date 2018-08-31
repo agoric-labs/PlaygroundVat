@@ -356,6 +356,13 @@ export function makeWebkeyMarshal(myVatID, serializer) {
       // We can serialize some things as plain pass-by-copy: arrays, and
       // objects with one or more data properties but no method properties.
 
+      // todo: handle this properly, by constructing a @qclass: error
+      if (val instanceof Error) {
+        log('cannot yet serialize Errors correctly', val);
+        log('stack was:', val);
+        throw new Error('cannot yet serialize Errors correctly');
+      }
+
       if (canPassByCopy(val)) {
         //log(`canPassByCopy: ${val}`);
         // Purposely in-band for readability, but creates need for
