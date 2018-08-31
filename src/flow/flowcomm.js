@@ -63,6 +63,11 @@ function debugLogDelivery(target, methodName) {
   }
 }
 
+function frozenRejection(res) {
+  // todo: we need to marshal these usefully
+  return Object.freeze(Promise.reject(Object.freeze(res)));
+}
+
 class PendingDelivery {
   constructor(methodName, args, handler) {
     this.methodName = methodName;
@@ -78,7 +83,8 @@ class PendingDelivery {
         res = target[methodName](...args);
       } catch (reason) {
         // debugLog(`@@@@####$$$$ ${methodName} $$$$####@@@@`);
-        res = Promise.reject(reason);
+        debugLog(`exception during delivery[${methodName}]`, reason, reason.stack);
+        res = frozenRejection(reason);
       }
       // handler shouldn't ever throw an exception, but just in case let's look
       // at it separately
@@ -86,7 +92,8 @@ class PendingDelivery {
     };
 
     this.onReject = (reason) => {
-      handler.resolve(Promise.reject(reason));
+      // shallow freeze in case it is an exception
+      handler.resolve(frozenRejection(reason));
     };
 
     //log(`PendingDelivery[${which}] ${op}, ${args}`);
@@ -109,7 +116,7 @@ class PendingThen {
       try {
         res = onFulfill ? onFulfill(target) : target;
       } catch (reason) {
-        res = Promise.reject(reason);
+        res = frozenRejection(reason);
       }
       handler.resolve(res);
     };
@@ -117,9 +124,9 @@ class PendingThen {
     this.onReject = (reason) => {
       let res;
       try {
-        res = onReject ? onReject(reason) : Promise.reject(reason);
+        res = onReject ? onReject(reason) : frozenRejection(reason);
       } catch (reason) {
-        res = Promise.reject(reason);
+        res = frozenRejection(reason);
       }
       handler.resolve(res);
     };
