@@ -1,5 +1,5 @@
 /*global Vow def*/
-export function escrowExchange(a, b) {  // a from Alice , b from Bob
+function escrowExchange(a, b) {  // a from Alice , b from Bob
   function makeTransfer(srcPurseP, dstPurseP, amount) {
     const issuerP = Vow.join(srcPurseP.e.getIssuer(),
                              dstPurseP.e.getIssuer());
@@ -24,4 +24,4 @@ export function escrowExchange(a, b) {  // a from Alice , b from Bob
                    failOnly(b.cancellationP)])
     .then( x => Vow.all([aT.phase2(), bT.phase2()]),
            ex => Vow.all([aT.abort(), bT.abort()]));
-};
+}
