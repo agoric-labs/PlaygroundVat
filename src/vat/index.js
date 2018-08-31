@@ -3,11 +3,13 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
-import { makeWebkeyMarshal, doSwissHashing } from './webkey';
+import { makeWebkeyMarshal } from './webkey';
+import { doSwissHashing } from './swissCrypto';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
 import { makeResolutionNotifier } from './notifyUponResolution';
+import { makeEngine } from './executionEngine';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -182,15 +184,9 @@ export function makeVat(endowments, myVatID, initialSource) {
   const marshal = makeWebkeyMarshal(myVatID, serializer);
   // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
-  function doSendInternal(body) {
-    const target = marshal.getMyTargetBySwissnum(body.targetSwissnum);
-    if (!target) {
-      throw new Error(`unrecognized target swissnum ${body.targetSwissnum}`);
-    }
-    // todo: sometimes causes turn delay, could fastpath if target is
-    // resolved
-    return Vow.resolve(target).e[body.methodName](...body.args);
-  }
+  const engine = makeEngine(def, Vow, handlerOf, resolutionOf,
+                            myVatID,
+                            marshal);
 
   // This is the host's interface to the Vat. It must act as a sort of
   // airlock: host objects passed into these functions should not be exposed
@@ -201,28 +197,9 @@ export function makeVat(endowments, myVatID, initialSource) {
     serializer.startTurn();
     const { body, bodyJson } = message;
     endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
-    log(`op ${body.op}`);
-    let done;
-    if (body.op === 'send') {
-      const res = doSendInternal(body);
-      if (body.resultSwissbase) {
-        const resolverSwissnum = doSwissHashing(body.resultSwissbase);
-        // registerTarget arranges to notify senderVatID when this resolves
-        marshal.registerTarget(res, resolverSwissnum, senderVatID, resolutionOf);
-        // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
-      } else {
-        // else it was really a sendOnly
-        log(`commsReceived got sendOnly, dropping result`);
-      }
-      done = res; // for testing
-    } else if (body.op === `resolve`) {
-      const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
-      //log(`h: ${h}`);
-      h.resolve(body.value);
-    }
     // todo: when should we commit/release? after all promises created by
     // opSend have settled?
-    serializer.finishTurn();
+    const done = engine.rxMessage(senderVatID, bodyJson);
     return done; // for testing, to wait until things are done
   }
 
@@ -306,8 +283,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     },
 
     doSendOnly(bodyJson) {
-      const body = marshal.unserialize(bodyJson);
-      return doSendInternal(body);
+      return engine.rxSendOnly(bodyJson);
     },
 
     executeTranscriptLine(line) {

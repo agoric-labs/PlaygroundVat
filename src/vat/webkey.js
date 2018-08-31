@@ -1,4 +1,5 @@
 import { Vow, isVow, Flow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
+import { doSwissHashing } from './swissCrypto';
 
 // objects can only be passed in one of two/three forms:
 // 1: pass-by-presence: all properties (own and inherited) are methods,
@@ -77,10 +78,6 @@ function insist(condition, exception) {
   if (!condition) {
     throw exception;
   }
-}
-
-export function doSwissHashing(base) {
-  return `hash-of-${base}`; // todo hahaha
 }
 
 export function makeWebkeyMarshal(myVatID, serializer) {
