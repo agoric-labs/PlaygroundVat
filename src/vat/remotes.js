@@ -8,7 +8,7 @@ function makeRemote(vatID) {
 
   const remote = def({
 
-    gotConnection(c, marshal) {
+    gotConnection(c) {
       connection = c;
       if (nextInboundSeqnum > 0) {
         // I'm using JSON.stringify instead of marshal.serialize because that
@@ -35,7 +35,7 @@ function makeRemote(vatID) {
       queuedInboundMessages.set(seqnum, msg);
     },
 
-    processInboundQueue(deliver, marshal) {
+    processInboundQueue(deliver) {
       //log(`processInboundQueue starting`);
       while (true) {
         //log(` looking for ${nextInboundSeqnum} have [${Array.from(queuedInboundMessages.keys())}]`);
@@ -99,8 +99,8 @@ export function makeRemoteManager(managerWriteOutput) {
 
   const manager = def({
 
-    gotConnection(vatID, connection, marshal) {
-      getRemote(vatID).gotConnection(connection, marshal);
+    gotConnection(vatID, connection) {
+      getRemote(vatID).gotConnection(connection);
     },
 
     lostConnection(vatID) {
@@ -119,8 +119,8 @@ export function makeRemoteManager(managerWriteOutput) {
       getRemote(vatID).queueInbound(seqnum, msg);
     },
 
-    processInboundQueue(vatID, deliver, marshal) {
-      getRemote(vatID).processInboundQueue(deliver, marshal);
+    processInboundQueue(vatID, deliver) {
+      getRemote(vatID).processInboundQueue(deliver);
     },
 
     // outbound

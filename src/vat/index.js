@@ -155,7 +155,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       throw new Error(`message is missing seqnum: ${bodyJson}`);
     }
     manager.queueInbound(senderVatID, body.seqnum, { body, bodyJson });
-    manager.processInboundQueue(senderVatID, deliverMessage, marshal);
+    manager.processInboundQueue(senderVatID, deliverMessage);
   }
 
   function buildSturdyRef(vatID, swissnum) {
@@ -210,7 +210,7 @@ export function makeVat(endowments, myVatID, initialSource) {
           connection.send(msg);
         }
       };
-      manager.gotConnection(`${vatID}`, c, marshal);
+      manager.gotConnection(`${vatID}`, c);
     },
 
     connectionLost(vatID) {
