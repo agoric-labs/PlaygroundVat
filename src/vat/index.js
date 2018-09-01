@@ -115,11 +115,11 @@ export function makeVat(endowments, myVatID, initialSource) {
   // not a SendOnly), and rows allocated by the far side (when receiving a
   // RemoteVow).
 
-  function managerWriteInput(senderVatID, msg) {
-    endowments.writeOutput(`msg: ${senderVatID}->${myVatID} ${msg}\n`);
+  function managerWriteInput(senderVatID, seqnum, msg) {
+    endowments.writeOutput(`msg: ${senderVatID}->${myVatID}[${seqnum}] ${msg}\n`);
   }
-  function managerWriteOutput(targetVatID, msg) {
-    endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${msg}\n`);
+  function managerWriteOutput(targetVatID, seqnum, msg) {
+    endowments.writeOutput(`msg: ${myVatID}->${targetVatID}[${seqnum}] ${msg}\n`);
   }
   const manager = makeRemoteManager(managerWriteInput, managerWriteOutput);
 
@@ -213,8 +213,8 @@ export function makeVat(endowments, myVatID, initialSource) {
       return engine.rxSendOnly(bodyJson);
     },
 
-    debugRxMessage(senderVatID, bodyJson) {
-      managerWriteInput(senderVatID, bodyJson);
+    debugRxMessage(senderVatID, seqnum, bodyJson) {
+      managerWriteInput(senderVatID, seqnum, bodyJson);
       return engine.rxMessage(senderVatID, bodyJson);
     },
 

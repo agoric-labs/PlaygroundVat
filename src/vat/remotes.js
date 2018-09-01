@@ -15,7 +15,7 @@ function makeRemote(vatID, engine, managerWriteInput) {
         // now requires extra stuff like target vatID, in case the thing
         // being serialized includes unresolved Vows, and for opAck we know
         // we don't need that
-        const ackBodyJson = JSON.stringify({op: 'ack', ackSeqnum: nextInboundSeqnum-1});
+        const ackBodyJson = JSON.stringify({type: 'ack', ackSeqnum: nextInboundSeqnum-1});
         connection.send(ackBodyJson);
       }
       for (let msg of queuedMessages) {
@@ -45,11 +45,11 @@ function makeRemote(vatID, engine, managerWriteInput) {
           queuedInboundMessages.delete(seqnum);
           nextInboundSeqnum += 1;
           //log(` found it, delivering`);
-          managerWriteInput(vatID, msg.bodyJson);
-          engine.rxMessage(vatID, msg.bodyJson);
+          managerWriteInput(vatID, seqnum, msg);
+          engine.rxMessage(vatID, msg);
           // deliver() adds the message to our checkpoint, so time to ack it
           if (connection) {
-            const ackBodyJson = JSON.stringify({op: 'ack', ackSeqnum: seqnum});
+            const ackBodyJson = JSON.stringify({type: 'ack', ackSeqnum: seqnum});
             connection.send(ackBodyJson);
           }
         } else {
@@ -102,17 +102,19 @@ export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
     return remotes.get(vatID);
   }
 
-  function commsReceived(senderVatID, bodyJson, marshal) {
-    log(`commsReceived ${senderVatID}, ${bodyJson}`);
-    const body = marshal.unserialize(bodyJson);
-    if (body.op === 'ack') {
-      ackOutbound(senderVatID, body.ackSeqnum);
+  function commsReceived(senderVatID, payloadJson, marshal) {
+    log(`commsReceived ${senderVatID}, ${payloadJson}`);
+    const payload = JSON.parse(payloadJson);
+    if (payload.type === 'ack') {
+      ackOutbound(senderVatID, payload.ackSeqnum);
       return;
     }
-    if (body.seqnum === undefined) {
-      throw new Error(`message is missing seqnum: ${bodyJson}`);
+    if (payload.seqnum === undefined) {
+      throw new Error(`message is missing seqnum: ${payloadJson}`);
     }
-    getRemote(senderVatID).queueInbound(body.seqnum, { body, bodyJson });
+    // todo: payload.targetVatID is the composite target, use it to select
+    // the scoreboard to populate, and check that senderVatID is a member
+    getRemote(senderVatID).queueInbound(payload.seqnum, payload.msg);
     getRemote(senderVatID).processInboundQueue();
   }
 
@@ -139,11 +141,21 @@ export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
   }
 
   function sendTo(vatID, msg) {
-    // add to a per-targetVatID queue, and if we have a current connection,
-    // send it
-    log(`sendTo ${vatID} ${msg}`);
-    getRemote(vatID).sendTo(msg);
-    managerWriteOutput(vatID, msg);
+    if (typeof msg !== 'string') {
+      throw new Error('sendTo must be given a string');
+    }
+    const seqnum = getRemote(vatID).nextOutboundSeqnum();
+    log(`sendTo ${vatID} [${seqnum}] ${msg}`);
+    const payloadJson = { type: 'op',
+                          targetVatID: vatID,
+                          seqnum: seqnum,
+                          msg: msg };
+    // we don't need webkey.marshal, this is just plain JSON
+    const payload = JSON.stringify(payloadJson);
+    // now add to a per-targetVatID queue, and if we have a current
+    // connection, send it
+    getRemote(vatID).sendTo(payload);
+    managerWriteOutput(vatID, seqnum, payload);
   }
 
   const manager = def({

@@ -84,8 +84,12 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
   t.equal(tr.lines.length, 1);
   const pieces = tr.lines[0].split(' '); // cheap
   t.equal(pieces[0], 'msg:');
-  t.equal(pieces[1], 'v1->vat2');
-  const args = JSON.parse(pieces[2]);
+  t.equal(pieces[1], 'v1->vat2[0]');
+  const argsPayload = JSON.parse(pieces[2]);
+  t.equal(argsPayload.type, 'op');
+  t.equal(argsPayload.seqnum, 0);
+  t.equal(argsPayload.targetVatID, 'vat2');
+  const args = JSON.parse(argsPayload.msg);
   t.equal(args.op, 'send');
   t.equal(args.targetSwissnum, 123);
   t.equal(args.methodName, 'foo');
@@ -101,23 +105,29 @@ test('methods can send messages via commsReceived', async (t) => {
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
   await v.initializeCode('v1/0');
 
-  const bodyJson = JSON.stringify({seqnum: 0,
-                                   op: 'send',
+  const bodyJson = JSON.stringify({op: 'send',
                                    targetSwissnum: '0',
                                    methodName: 'send',
                                    args: [{'@qclass': 'presence',
                                            vatID: 'vat2',
                                            swissnum: 123
                                           }]});
+  const payload = JSON.stringify({type: 'op',
+                                  seqnum: 0,
+                                  msg: bodyJson});
   // note: commsReceived's return value doesn't wait for the method to be
   // invoked, it discards that Promise, unlike debugRxMessage
-  await v.commsReceived('vat2', bodyJson);
+  await v.commsReceived('vat2', payload);
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 2);
   const pieces = tr.lines[1].split(' '); // cheap
   t.equal(pieces[0], 'msg:');
-  t.equal(pieces[1], 'v1->vat2');
-  const args = JSON.parse(pieces[2]);
+  t.equal(pieces[1], 'v1->vat2[0]');
+  const argsPayload = JSON.parse(pieces[2]);
+  t.equal(argsPayload.type, 'op');
+  t.equal(argsPayload.seqnum, 0);
+  t.equal(argsPayload.targetVatID, 'vat2');
+  const args = JSON.parse(argsPayload.msg);
   t.equal(args.op, 'send');
   t.equal(args.targetSwissnum, 123);
   t.equal(args.methodName, 'foo');
@@ -132,20 +142,26 @@ test('method results are sent back', async (t) => {
   const s = makeRealm();
   const v = await buildVat(s, 'v1', tr.writeOutput, funcToSource(s2));
   await v.initializeCode('v1/0');
-  const body = {seqnum: 0,
-                op: 'send',
+  const body = {op: 'send',
                 resultSwissbase: '5',
                 targetSwissnum: '0',
                 methodName: 'returnValue',
                 args: [3]};
   const bodyJson = JSON.stringify(body);
-  await v.debugRxMessage('vat2', bodyJson);
+  const payload = JSON.stringify({type: 'op',
+                                  seqnum: 0,
+                                  msg: bodyJson});
+  await v.debugRxMessage('vat2', 0, bodyJson);
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 2);
   const pieces = tr.lines[1].split(' '); // cheap
   t.equal(pieces[0], 'msg:');
-  t.equal(pieces[1], 'v1->vat2');
-  const args = JSON.parse(pieces[2]);
+  t.equal(pieces[1], 'v1->vat2[0]');
+  const argsPayload = JSON.parse(pieces[2]);
+  t.equal(argsPayload.type, 'op');
+  t.equal(argsPayload.seqnum, 0);
+  t.equal(argsPayload.targetVatID, 'vat2');
+  const args = JSON.parse(argsPayload.msg);
   t.equal(args.op, 'resolve');
   t.equal(args.targetSwissnum, 'hash-of-5');
   t.deepEqual(args.value, 3);

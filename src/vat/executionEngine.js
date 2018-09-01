@@ -22,9 +22,7 @@ export function makeEngine(def,
   // todo: queue this until finishTurn
   function opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
                   resolutionOf) {
-    const seqnum = manager.nextOutboundSeqnum(targetVatID);
-    const bodyJson = marshal.serialize(def({seqnum,
-                                            op: 'send',
+    const bodyJson = marshal.serialize(def({op: 'send',
                                             resultSwissbase,
                                             targetSwissnum,
                                             methodName,
@@ -49,11 +47,9 @@ export function makeEngine(def,
   const ext = Vow.resolve(makePresence(serializer, 'v2', 'swiss1'));
 
   function opResolve(targetVatID, targetSwissnum, value) {
-    const seqnum = manager.nextOutboundSeqnum(targetVatID);
     // todo: rename targetSwissnum to mySwissnum? The thing being resolved
     // lives on the sender, not the recipient.
-    const bodyJson = marshal.serialize(def({seqnum,
-                                            op: 'resolve',
+    const bodyJson = marshal.serialize(def({op: 'resolve',
                                             targetSwissnum,
                                             value,
                                            }),
