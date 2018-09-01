@@ -172,7 +172,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     },
 
     createPresence(sturdyref) {
-      return marshal.createPresence(sturdyref);
+      return engine.createPresence(sturdyref);
     },
 
     async initializeCode(rootSturdyRef, argv) {
@@ -194,7 +194,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       if (root) {
         // we register this, but nobody is waiting on it yet, so we don't
         // have to tell registerTarget a vat to notify when it resolves
-        marshal.registerTarget(root, rootSwissnum, null, resolutionOf);
+        engine.registerTarget(root, rootSwissnum);
       }
       return root; // for testing
     },
@@ -218,7 +218,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     },
 
     serialize(val, targetVatID) {
-      return marshal.serialize(val, resolutionOf, targetVatID);
+      return engine.serialize(val, targetVatID);
     },
 
     doSendOnly(bodyJson) {

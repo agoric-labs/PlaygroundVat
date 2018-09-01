@@ -111,10 +111,21 @@ export function makeEngine(def,
   const engine = {
     rxMessage,
     rxSendOnly,
+    createPresence(sturdyref) {
+      return marshal.createPresence(sturdyref);
+    },
+    registerTarget(target, swissnum) {
+        marshal.registerTarget(target, swissnum, null, resolutionOf);
+    },
     // temporary
     marshal,
     serializer,
     ext,
+    // tests
+    serialize(val, targetVatID) {
+      return marshal.serialize(val, resolutionOf, targetVatID);
+    },
+
   };
 
   return def(engine);
