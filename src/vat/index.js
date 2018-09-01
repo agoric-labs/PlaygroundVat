@@ -137,15 +137,6 @@ export function makeVat(endowments, myVatID, initialSource) {
   // to other code, to avoid accidentally exposing primal-realm
   // Object/Function/etc.
 
-  function deliverMessage(senderVatID, message) {
-    const { body, bodyJson } = message;
-    managerWriteInput(senderVatID, bodyJson);
-    // todo: when should we commit/release? after all promises created by
-    // opSend have settled?
-    const done = engine.rxMessage(senderVatID, bodyJson);
-    return done; // for testing, to wait until things are done
-  }
-
   function buildSturdyRef(vatID, swissnum) {
     return `${vatID}/${swissnum}`;
   }
@@ -213,7 +204,6 @@ export function makeVat(endowments, myVatID, initialSource) {
     connectionMade,
     connectionLost,
     commsReceived,
-    deliverMessage,
 
     serialize(val, targetVatID) {
       return engine.serialize(val, targetVatID);
@@ -221,6 +211,11 @@ export function makeVat(endowments, myVatID, initialSource) {
 
     doSendOnly(bodyJson) {
       return engine.rxSendOnly(bodyJson);
+    },
+
+    debugRxMessage(senderVatID, bodyJson) {
+      managerWriteInput(senderVatID, bodyJson);
+      return engine.rxMessage(senderVatID, bodyJson);
     },
 
     executeTranscriptLine(line) {

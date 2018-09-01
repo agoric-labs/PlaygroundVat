@@ -110,7 +110,7 @@ test('methods can send messages via commsReceived', async (t) => {
                                            swissnum: 123
                                           }]});
   // note: commsReceived's return value doesn't wait for the method to be
-  // invoked, it discards that Promise, unlike deliverMessage
+  // invoked, it discards that Promise, unlike debugRxMessage
   await v.commsReceived('vat2', bodyJson);
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 2);
@@ -139,7 +139,7 @@ test('method results are sent back', async (t) => {
                 methodName: 'returnValue',
                 args: [3]};
   const bodyJson = JSON.stringify(body);
-  await v.deliverMessage('vat2', { body, bodyJson });
+  await v.debugRxMessage('vat2', bodyJson);
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 2);
   const pieces = tr.lines[1].split(' '); // cheap
