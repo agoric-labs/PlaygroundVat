@@ -115,10 +115,13 @@ export function makeVat(endowments, myVatID, initialSource) {
   // not a SendOnly), and rows allocated by the far side (when receiving a
   // RemoteVow).
 
+  function managerWriteInput(senderVatID, msg) {
+    endowments.writeOutput(`msg: ${senderVatID}->${myVatID} ${msg}\n`);
+  }
   function managerWriteOutput(targetVatID, msg) {
     endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${msg}\n`);
   }
-  const manager = makeRemoteManager(managerWriteOutput);
+  const manager = makeRemoteManager(managerWriteInput, managerWriteOutput);
 
   const engine = makeEngine(def,
                             Vow, isVow, Flow,
@@ -126,6 +129,7 @@ export function makeVat(endowments, myVatID, initialSource) {
                             handlerOf, resolutionOf,
                             myVatID,
                             manager);
+  manager.setEngine(engine);
   const marshal = engine.marshal;
 
   // This is the host's interface to the Vat. It must act as a sort of
@@ -135,7 +139,7 @@ export function makeVat(endowments, myVatID, initialSource) {
 
   function deliverMessage(senderVatID, message) {
     const { body, bodyJson } = message;
-    endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
+    managerWriteInput(senderVatID, bodyJson);
     // todo: when should we commit/release? after all promises created by
     // opSend have settled?
     const done = engine.rxMessage(senderVatID, bodyJson);
@@ -165,7 +169,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   }
 
   function commsReceived(vatID, line) {
-    manager.commsReceived(`${vatID}`, `${line}`, marshal, deliverMessage);
+    manager.commsReceived(`${vatID}`, `${line}`, marshal);
   }
 
   return {

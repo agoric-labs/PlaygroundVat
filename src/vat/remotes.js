@@ -1,5 +1,5 @@
 
-function makeRemote(vatID) {
+function makeRemote(vatID, engine, managerWriteInput) {
   let queuedMessages = [];
   let nextOutboundSeqnum = 0;
   let nextInboundSeqnum = 0;
@@ -35,7 +35,7 @@ function makeRemote(vatID) {
       queuedInboundMessages.set(seqnum, msg);
     },
 
-    processInboundQueue(deliver) {
+    processInboundQueue() {
       //log(`processInboundQueue starting`);
       while (true) {
         //log(` looking for ${nextInboundSeqnum} have [${Array.from(queuedInboundMessages.keys())}]`);
@@ -45,7 +45,8 @@ function makeRemote(vatID) {
           queuedInboundMessages.delete(seqnum);
           nextInboundSeqnum += 1;
           //log(` found it, delivering`);
-          deliver(vatID, msg);
+          managerWriteInput(vatID, msg.bodyJson);
+          engine.rxMessage(vatID, msg.bodyJson);
           // deliver() adds the message to our checkpoint, so time to ack it
           if (connection) {
             const ackBodyJson = JSON.stringify({op: 'ack', ackSeqnum: seqnum});
@@ -87,17 +88,21 @@ function makeRemote(vatID) {
   return remote;
 }
 
-export function makeRemoteManager(managerWriteOutput) {
+export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
   const remotes = new Map();
+  let engine;
 
   function getRemote(vatID) {
     if (!remotes.has(vatID)) {
-      remotes.set(vatID, makeRemote(vatID));
+      if (!engine) {
+        throw new Error('engine is not yet set');
+      }
+      remotes.set(vatID, makeRemote(vatID, engine, managerWriteInput));
     }
     return remotes.get(vatID);
   }
 
-  function commsReceived(senderVatID, bodyJson, marshal, deliverMessage) {
+  function commsReceived(senderVatID, bodyJson, marshal) {
     log(`commsReceived ${senderVatID}, ${bodyJson}`);
     const body = marshal.unserialize(bodyJson);
     if (body.op === 'ack') {
@@ -108,7 +113,7 @@ export function makeRemoteManager(managerWriteOutput) {
       throw new Error(`message is missing seqnum: ${bodyJson}`);
     }
     getRemote(senderVatID).queueInbound(body.seqnum, { body, bodyJson });
-    getRemote(senderVatID).processInboundQueue(deliverMessage);
+    getRemote(senderVatID).processInboundQueue();
   }
 
   function ackOutbound(vatID, ackSeqnum) {
@@ -142,6 +147,10 @@ export function makeRemoteManager(managerWriteOutput) {
   }
 
   const manager = def({
+    setEngine(e) {
+      engine = e;
+    },
+
     gotConnection,
     lostConnection,
     whatConnectionsDoYouWant,
