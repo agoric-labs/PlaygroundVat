@@ -107,9 +107,10 @@ export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
 
   function commsReceived(senderVatID, payloadJson, marshal) {
     log(`commsReceived ${senderVatID}, ${payloadJson}`);
+    const r = getRemote(senderVatID);
     const payload = JSON.parse(payloadJson);
     if (payload.type === 'ack') {
-      ackOutbound(senderVatID, payload.ackSeqnum);
+      r.ackOutbound(payload.ackSeqnum);
       return;
     }
     if (payload.seqnum === undefined) {
@@ -117,12 +118,8 @@ export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
     }
     // todo: payload.targetVatID is the composite target, use it to select
     // the scoreboard to populate, and check that senderVatID is a member
-    getRemote(senderVatID).queueInbound(payload.seqnum, payload.msg);
-    getRemote(senderVatID).processInboundQueue();
-  }
-
-  function ackOutbound(vatID, ackSeqnum) {
-    getRemote(vatID).ackOutbound(ackSeqnum);
+    r.queueInbound(payload.seqnum, payload.msg);
+    r.processInboundQueue();
   }
 
   function gotConnection(vatID, connection) {
@@ -176,8 +173,6 @@ export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
     // outbound
     nextOutboundSeqnum,
     sendTo,
-
-    ackOutbound,
   });
   return manager;
 }
