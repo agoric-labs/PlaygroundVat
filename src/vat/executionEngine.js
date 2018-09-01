@@ -1,12 +1,14 @@
 // the execution engine
 import { doSwissHashing } from './swissCrypto';
 import { makeResolutionNotifier } from './notifyUponResolution';
+import { makeWebkeyMarshal } from './webkey';
 
-export function makeEngine(def, Vow, makePresence, handlerOf, resolutionOf,
+export function makeEngine(def,
+                           Vow, isVow, Flow,
+                           makePresence, makeUnresolvedRemoteVow,
+                           handlerOf, resolutionOf,
                            myVatID,
                            manager) {
-  let marshal;
-
   const notifyUponResolution = makeResolutionNotifier(log, myVatID, opResolve);
 
   function allocateSwissStuff() {
@@ -37,6 +39,11 @@ export function makeEngine(def, Vow, makePresence, handlerOf, resolutionOf,
     opSend,
     notifyUponResolution, allocateSwissStuff, registerRemoteVow,
   };
+  const marshal = makeWebkeyMarshal(log,
+                                    Vow, isVow, Flow,
+                                    makePresence, makeUnresolvedRemoteVow,
+                                    myVatID, serializer);
+  // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
   // temporary, for tests
   const ext = Vow.resolve(makePresence(serializer, 'v2', 'swiss1'));
@@ -105,9 +112,7 @@ export function makeEngine(def, Vow, makePresence, handlerOf, resolutionOf,
     rxMessage,
     rxSendOnly,
     // temporary
-    setMarshal(m) {
-      marshal = m;
-    },
+    marshal,
     serializer,
     ext,
   };

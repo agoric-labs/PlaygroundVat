@@ -3,8 +3,6 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
-import { makeWebkeyMarshal } from './webkey';
-import { doSwissHashing } from './swissCrypto';
 import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
@@ -122,17 +120,13 @@ export function makeVat(endowments, myVatID, initialSource) {
   }
   const manager = makeRemoteManager(managerWriteOutput);
 
-  const engine = makeEngine(def, Vow, makePresence, handlerOf, resolutionOf,
+  const engine = makeEngine(def,
+                            Vow, isVow, Flow,
+                            makePresence, makeUnresolvedRemoteVow,
+                            handlerOf, resolutionOf,
                             myVatID,
                             manager);
-
-  // todo: this cycle wants to all move into the engine
-  const marshal = makeWebkeyMarshal(log,
-                                    Vow, isVow, Flow,
-                                    makePresence, makeUnresolvedRemoteVow,
-                                    myVatID, engine.serializer);
-  engine.setMarshal(marshal);
-  // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
+  const marshal = engine.marshal;
 
   // This is the host's interface to the Vat. It must act as a sort of
   // airlock: host objects passed into these functions should not be exposed
