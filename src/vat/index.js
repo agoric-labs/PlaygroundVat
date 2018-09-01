@@ -5,7 +5,7 @@
 
 import { makeWebkeyMarshal } from './webkey';
 import { doSwissHashing } from './swissCrypto';
-import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
+import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
 import { makeEngine } from './executionEngine';
@@ -127,7 +127,10 @@ export function makeVat(endowments, myVatID, initialSource) {
                             manager);
 
   // todo: this cycle wants to all move into the engine
-  const marshal = makeWebkeyMarshal(myVatID, engine.serializer);
+  const marshal = makeWebkeyMarshal(log,
+                                    Vow, isVow, Flow,
+                                    makePresence, makeUnresolvedRemoteVow,
+                                    myVatID, engine.serializer);
   engine.setMarshal(marshal);
   // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
