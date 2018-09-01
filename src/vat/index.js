@@ -3,11 +3,10 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
-import { makeWebkeyMarshal, doSwissHashing } from './webkey';
-import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
+import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
-import { makeResolutionNotifier } from './notifyUponResolution';
+import { makeEngine } from './executionEngine';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -116,134 +115,52 @@ export function makeVat(endowments, myVatID, initialSource) {
   // not a SendOnly), and rows allocated by the far side (when receiving a
   // RemoteVow).
 
-  const manager = makeRemoteManager();
-  const notifyUponResolution = makeResolutionNotifier(log, myVatID, opResolve);
-
-  let inTurn = false;
-
-  function startTurn() {
-    inTurn = true;
-    //endowments.writeOutput(`turn-begin`);
+  function managerWriteInput(senderVatID, seqnum, msg) {
+    endowments.writeOutput(`msg: ${senderVatID}->${myVatID}[${seqnum}] ${msg}\n`);
   }
-
-  function finishTurn() {
-    inTurn = false;
-    //endowments.writeOutput(`turn-end`);
+  function managerWriteOutput(targetVatID, seqnum, msg) {
+    endowments.writeOutput(`msg: ${myVatID}->${targetVatID}[${seqnum}] ${msg}\n`);
   }
+  const manager = makeRemoteManager(managerWriteInput, managerWriteOutput);
 
-  // todo: queue this until finishTurn
-  function opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
-                  resolutionOf) {
-    const seqnum = manager.nextOutboundSeqnum(targetVatID);
-    const bodyJson = marshal.serialize(def({seqnum,
-                                            op: 'send',
-                                            resultSwissbase,
-                                            targetSwissnum,
-                                            methodName,
-                                            args,
-                                           }),
-                                       resolutionOf,
-                                       targetVatID);
-    endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-    manager.sendTo(targetVatID, bodyJson);
-  }
-
-  function opResolve(targetVatID, targetSwissnum, value) {
-    log('opResolve', targetVatID, targetSwissnum, value);
-    const seqnum = manager.nextOutboundSeqnum(targetVatID);
-    // todo: rename targetSwissnum to mySwissnum? The thing being resolved
-    // lives on the sender, not the recipient.
-    const bodyJson = marshal.serialize(def({seqnum,
-                                            op: 'resolve',
-                                            targetSwissnum,
-                                            value,
-                                           }),
-                                       resolutionOf,
-                                       targetVatID);
-    endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-    manager.sendTo(targetVatID, bodyJson);
-  }
-
-  function allocateSwissStuff() {
-    return marshal.allocateSwissStuff();
-  }
-
-  function registerRemoteVow(vatID, swissnum, resultVow) {
-    marshal.registerRemoteVow(vatID, swissnum, resultVow);
-  }
-
-  const serializer = {
-    startTurn, finishTurn, opSend, opResolve, notifyUponResolution,
-    allocateSwissStuff, registerRemoteVow,
-  };
-
-  const ext = Vow.resolve(makePresence(serializer, 'v2', 'swiss1'));
-
-  const marshal = makeWebkeyMarshal(myVatID, serializer);
-  // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
-
-  function doSendInternal(body) {
-    const target = marshal.getMyTargetBySwissnum(body.targetSwissnum);
-    if (!target) {
-      throw new Error(`unrecognized target swissnum ${body.targetSwissnum}`);
-    }
-    // todo: sometimes causes turn delay, could fastpath if target is
-    // resolved
-    return Vow.resolve(target).e[body.methodName](...body.args);
-  }
+  const engine = makeEngine(def,
+                            Vow, isVow, Flow,
+                            makePresence, makeUnresolvedRemoteVow,
+                            handlerOf, resolutionOf,
+                            myVatID,
+                            manager);
+  manager.setEngine(engine);
+  const marshal = engine.marshal;
 
   // This is the host's interface to the Vat. It must act as a sort of
   // airlock: host objects passed into these functions should not be exposed
   // to other code, to avoid accidentally exposing primal-realm
   // Object/Function/etc.
 
-  function deliverMessage(senderVatID, message) {
-    serializer.startTurn();
-    const { body, bodyJson } = message;
-    endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
-    log(`op ${body.op}`);
-    let done;
-    if (body.op === 'send') {
-      const res = doSendInternal(body);
-      if (body.resultSwissbase) {
-        const resolverSwissnum = doSwissHashing(body.resultSwissbase);
-        // registerTarget arranges to notify senderVatID when this resolves
-        marshal.registerTarget(res, resolverSwissnum, senderVatID, resolutionOf);
-        // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
-      } else {
-        // else it was really a sendOnly
-        log(`commsReceived got sendOnly, dropping result`);
-      }
-      done = res; // for testing
-    } else if (body.op === `resolve`) {
-      const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
-      //log(`h: ${h}`);
-      h.resolve(body.value);
-    }
-    // todo: when should we commit/release? after all promises created by
-    // opSend have settled?
-    serializer.finishTurn();
-    return done; // for testing, to wait until things are done
-  }
-
-  function commsReceived(senderVatID, bodyJson) {
-    senderVatID = `${senderVatID}`;
-    bodyJson = `${bodyJson}`;
-    log(`commsReceived ${senderVatID}, ${bodyJson}`);
-    const body = marshal.unserialize(bodyJson);
-    if (body.op === 'ack') {
-      manager.ackOutbound(senderVatID, body.ackSeqnum);
-      return;
-    }
-    if (body.seqnum === undefined) {
-      throw new Error(`message is missing seqnum: ${bodyJson}`);
-    }
-    manager.queueInbound(senderVatID, body.seqnum, { body, bodyJson });
-    manager.processInboundQueue(senderVatID, deliverMessage, marshal);
-  }
-
   function buildSturdyRef(vatID, swissnum) {
     return `${vatID}/${swissnum}`;
+  }
+
+  function whatConnectionsDoYouWant() {
+    return manager.whatConnectionsDoYouWant();
+  }
+
+  function connectionMade(vatID, connection) {
+    log(`connectionMade for ${vatID}`);
+    const c = {
+      send(msg) {
+        connection.send(msg);
+      }
+    };
+    manager.gotConnection(`${vatID}`, c);
+  }
+
+  function connectionLost(vatID) {
+    manager.lostConnection(`${vatID}`);
+  }
+
+  function commsReceived(vatID, line) {
+    manager.commsReceived(`${vatID}`, `${line}`, marshal);
   }
 
   return {
@@ -256,7 +173,7 @@ export function makeVat(endowments, myVatID, initialSource) {
     },
 
     createPresence(sturdyref) {
-      return marshal.createPresence(sturdyref);
+      return engine.createPresence(sturdyref);
     },
 
     async initializeCode(rootSturdyRef, argv) {
@@ -270,7 +187,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       // the top-level code executes now, during evaluation
       const e = confineGuestSource(initialSource,
                                    { isVow, asVow, Flow, Vow,
-                                     ext
+                                     ext: engine.ext,
                                    }).default;
       // then we execute whatever was exported as the 'default'
       const root = await Vow.resolve().then(_ => e(argv));
@@ -278,36 +195,27 @@ export function makeVat(endowments, myVatID, initialSource) {
       if (root) {
         // we register this, but nobody is waiting on it yet, so we don't
         // have to tell registerTarget a vat to notify when it resolves
-        marshal.registerTarget(root, rootSwissnum, null, resolutionOf);
+        engine.registerTarget(root, rootSwissnum);
       }
       return root; // for testing
     },
 
-    whatConnectionsDoYouWant() {
-      return manager.whatConnectionsDoYouWant();
-    },
-
-    connectionMade(vatID, connection) {
-      log(`connectionMade for ${vatID}`);
-      const c = {
-        send(msg) {
-          connection.send(msg);
-        }
-      };
-      manager.gotConnection(`${vatID}`, c, marshal);
-    },
-
-    connectionLost(vatID) {
-      manager.lostConnection(`${vatID}`);
-    },
+    whatConnectionsDoYouWant,
+    connectionMade,
+    connectionLost,
+    commsReceived,
 
     serialize(val, targetVatID) {
-      return marshal.serialize(val, resolutionOf, targetVatID);
+      return engine.serialize(val, targetVatID);
     },
 
     doSendOnly(bodyJson) {
-      const body = marshal.unserialize(bodyJson);
-      return doSendInternal(body);
+      return engine.rxSendOnly(bodyJson);
+    },
+
+    debugRxMessage(senderVatID, seqnum, bodyJson) {
+      managerWriteInput(senderVatID, seqnum, bodyJson);
+      return engine.rxMessage(senderVatID, bodyJson);
     },
 
     executeTranscriptLine(line) {
@@ -336,9 +244,6 @@ export function makeVat(endowments, myVatID, initialSource) {
         log(`unknown line: ${line}`);
       }
     },
-
-    deliverMessage,
-    commsReceived,
 
     /*
     sendReceived(op, sourceVatID, resultSwissbase) {

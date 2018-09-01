@@ -1,4 +1,4 @@
-import { Vow, isVow, Flow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
+import { doSwissHashing } from './swissCrypto';
 
 // objects can only be passed in one of two/three forms:
 // 1: pass-by-presence: all properties (own and inherited) are methods,
@@ -79,11 +79,10 @@ function insist(condition, exception) {
   }
 }
 
-export function doSwissHashing(base) {
-  return `hash-of-${base}`; // todo hahaha
-}
-
-export function makeWebkeyMarshal(myVatID, serializer) {
+export function makeWebkeyMarshal(log,
+                                  Vow, isVow, Flow,
+                                  makePresence, makeUnresolvedRemoteVow,
+                                  myVatID, serializer) {
 
   // val might be a primitive, a pass by (shallow) copy object, a
   // remote reference, or other.  We treat all other as a local object

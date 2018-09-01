@@ -2,6 +2,7 @@ import test from 'tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
+import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
 
 
 test('marshal', async (t) => {
@@ -33,7 +34,10 @@ test('marshal', async (t) => {
     return s.evaluate(`def(${template[0]})`);
   }
 
-  const m = e.makeWebkeyMarshal('v1', h.serializer);
+  const m = e.makeWebkeyMarshal(console.log,
+                                Vow, isVow, Flow,
+                                makePresence, makeUnresolvedRemoteVow,
+                                'v1', h.serializer);
   function resolutionOf(val) {
     return val;
   }

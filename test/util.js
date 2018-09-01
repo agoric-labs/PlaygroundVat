@@ -54,7 +54,7 @@ export function makeQueues(t) {
     }
   }
 
-  function expect(a, b, msg) {
+  function expect(a, b, frame, msg) {
     const key = toKey(a, b);
     const q = queues.get(key);
     t.ok(q.length > 0);
@@ -63,12 +63,22 @@ export function makeQueues(t) {
     console.log('expect', a, b, q);
     const got = q.shift();
     t.notEqual(got, undefined);
-    t.deepEqual(JSON.parse(got), msg);
+    const payload = JSON.parse(got);
+    if (msg) {
+      if (!payload.hasOwnProperty('msg')) {
+        t.fail(`expected .msg but didn't find one in ${got}`);
+        return undefined;
+      }
+      const gotMsg = JSON.parse(payload.msg);
+      delete payload.msg;
+      t.deepEqual(gotMsg, msg);
+    }
+    t.deepEqual(payload, frame);
     return got;
   }
 
   function expectAndDeliverAck(a, b, targetVat, ackSeqnum) {
-    const got = expect(a, b, { ackSeqnum, op: 'ack' });
+    const got = expect(a, b, { ackSeqnum, type: 'ack' }, undefined);
     targetVat.commsReceived(`vat${a}`, got);
   }
 

@@ -1,5 +1,5 @@
 
-function makeRemote(vatID) {
+function makeRemote(vatID, engine, managerWriteInput) {
   let queuedMessages = [];
   let nextOutboundSeqnum = 0;
   let nextInboundSeqnum = 0;
@@ -8,14 +8,14 @@ function makeRemote(vatID) {
 
   const remote = def({
 
-    gotConnection(c, marshal) {
+    gotConnection(c) {
       connection = c;
       if (nextInboundSeqnum > 0) {
         // I'm using JSON.stringify instead of marshal.serialize because that
         // now requires extra stuff like target vatID, in case the thing
         // being serialized includes unresolved Vows, and for opAck we know
         // we don't need that
-        const ackBodyJson = JSON.stringify({op: 'ack', ackSeqnum: nextInboundSeqnum-1});
+        const ackBodyJson = JSON.stringify({type: 'ack', ackSeqnum: nextInboundSeqnum-1});
         connection.send(ackBodyJson);
       }
       for (let msg of queuedMessages) {
@@ -35,7 +35,7 @@ function makeRemote(vatID) {
       queuedInboundMessages.set(seqnum, msg);
     },
 
-    processInboundQueue(deliver, marshal) {
+    processInboundQueue() {
       //log(`processInboundQueue starting`);
       while (true) {
         //log(` looking for ${nextInboundSeqnum} have [${Array.from(queuedInboundMessages.keys())}]`);
@@ -45,10 +45,11 @@ function makeRemote(vatID) {
           queuedInboundMessages.delete(seqnum);
           nextInboundSeqnum += 1;
           //log(` found it, delivering`);
-          deliver(vatID, msg);
+          managerWriteInput(vatID, seqnum, msg);
+          engine.rxMessage(vatID, msg);
           // deliver() adds the message to our checkpoint, so time to ack it
           if (connection) {
-            const ackBodyJson = JSON.stringify({op: 'ack', ackSeqnum: seqnum});
+            const ackBodyJson = JSON.stringify({type: 'ack', ackSeqnum: seqnum});
             connection.send(ackBodyJson);
           }
         } else {
@@ -87,58 +88,93 @@ function makeRemote(vatID) {
   return remote;
 }
 
-export function makeRemoteManager() {
+export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
   const remotes = new Map();
+  let engine;
 
   function getRemote(vatID) {
     if (!remotes.has(vatID)) {
-      remotes.set(vatID, makeRemote(vatID));
+      if (!engine) {
+        throw new Error('engine is not yet set');
+      }
+      remotes.set(vatID, makeRemote(vatID, engine, managerWriteInput));
     }
     return remotes.get(vatID);
   }
 
+  function commsReceived(senderVatID, payloadJson, marshal) {
+    log(`commsReceived ${senderVatID}, ${payloadJson}`);
+    const payload = JSON.parse(payloadJson);
+    if (payload.type === 'ack') {
+      ackOutbound(senderVatID, payload.ackSeqnum);
+      return;
+    }
+    if (payload.seqnum === undefined) {
+      throw new Error(`message is missing seqnum: ${payloadJson}`);
+    }
+    // todo: payload.targetVatID is the composite target, use it to select
+    // the scoreboard to populate, and check that senderVatID is a member
+    getRemote(senderVatID).queueInbound(payload.seqnum, payload.msg);
+    getRemote(senderVatID).processInboundQueue();
+  }
+
+  function ackOutbound(vatID, ackSeqnum) {
+    getRemote(vatID).ackOutbound(ackSeqnum);
+  }
+
+  function gotConnection(vatID, connection) {
+    getRemote(vatID).gotConnection(connection);
+  }
+
+  function lostConnection(vatID) {
+    getRemote(vatID).lostConnection();
+  }
+
+  function whatConnectionsDoYouWant() {
+    return Array.from(remotes.keys()).filter(vatID => {
+      return remotes.get(vatID).haveOutbound();
+    });
+  }
+
+  function nextOutboundSeqnum(vatID) {
+    return getRemote(vatID).nextOutboundSeqnum();
+  }
+
+  function sendTo(vatID, msg) {
+    if (typeof msg !== 'string') {
+      throw new Error('sendTo must be given a string');
+    }
+    const seqnum = getRemote(vatID).nextOutboundSeqnum();
+    log(`sendTo ${vatID} [${seqnum}] ${msg}`);
+    const payloadJson = { type: 'op',
+                          targetVatID: vatID,
+                          seqnum: seqnum,
+                          msg: msg };
+    // we don't need webkey.marshal, this is just plain JSON
+    const payload = JSON.stringify(payloadJson);
+    // now add to a per-targetVatID queue, and if we have a current
+    // connection, send it
+    getRemote(vatID).sendTo(payload);
+    managerWriteOutput(vatID, seqnum, payload);
+  }
+
   const manager = def({
-
-    gotConnection(vatID, connection, marshal) {
-      getRemote(vatID).gotConnection(connection, marshal);
+    setEngine(e) {
+      engine = e;
     },
 
-    lostConnection(vatID) {
-      getRemote(vatID).lostConnection();
-    },
-
-    whatConnectionsDoYouWant() {
-      return Array.from(remotes.keys()).filter(vatID => {
-        return remotes.get(vatID).haveOutbound();
-      });
-    },
+    gotConnection,
+    lostConnection,
+    whatConnectionsDoYouWant,
 
     // inbound
-
-    queueInbound(vatID, seqnum, msg) {
-      getRemote(vatID).queueInbound(seqnum, msg);
-    },
-
-    processInboundQueue(vatID, deliver, marshal) {
-      getRemote(vatID).processInboundQueue(deliver, marshal);
-    },
+    commsReceived,
 
     // outbound
+    nextOutboundSeqnum,
+    sendTo,
 
-    nextOutboundSeqnum(vatID) {
-      return getRemote(vatID).nextOutboundSeqnum();
-    },
-
-    sendTo(vatID, msg) {
-      // add to a per-targetVatID queue, and if we have a current connection,
-      // send it
-      log(`sendTo ${vatID} ${msg}`);
-      getRemote(vatID).sendTo(msg);
-    },
-
-    ackOutbound(vatID, ackSeqnum) {
-      getRemote(vatID).ackOutbound(ackSeqnum);
-    },
+    ackOutbound,
   });
   return manager;
 }
