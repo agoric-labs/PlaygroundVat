@@ -1,9 +1,59 @@
 // the execution engine
 import { doSwissHashing } from './swissCrypto';
+import { makeResolutionNotifier } from './notifyUponResolution';
 
-export function makeEngine(def, Vow, handlerOf, resolutionOf,
+export function makeEngine(def, Vow, makePresence, handlerOf, resolutionOf,
                            myVatID,
-                           marshal) {
+                           manager) {
+  let marshal;
+
+  const notifyUponResolution = makeResolutionNotifier(log, myVatID, opResolve);
+
+  function allocateSwissStuff() {
+    return marshal.allocateSwissStuff();
+  }
+
+  function registerRemoteVow(vatID, swissnum, resultVow) {
+    marshal.registerRemoteVow(vatID, swissnum, resultVow);
+  }
+
+  // todo: queue this until finishTurn
+  function opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
+                  resolutionOf) {
+    const seqnum = manager.nextOutboundSeqnum(targetVatID);
+    const bodyJson = marshal.serialize(def({seqnum,
+                                            op: 'send',
+                                            resultSwissbase,
+                                            targetSwissnum,
+                                            methodName,
+                                            args,
+                                           }),
+                                       resolutionOf,
+                                       targetVatID);
+    manager.sendTo(targetVatID, bodyJson);
+  }
+
+  const serializer = {
+    opSend,
+    notifyUponResolution, allocateSwissStuff, registerRemoteVow,
+  };
+
+  // temporary, for tests
+  const ext = Vow.resolve(makePresence(serializer, 'v2', 'swiss1'));
+
+  function opResolve(targetVatID, targetSwissnum, value) {
+    const seqnum = manager.nextOutboundSeqnum(targetVatID);
+    // todo: rename targetSwissnum to mySwissnum? The thing being resolved
+    // lives on the sender, not the recipient.
+    const bodyJson = marshal.serialize(def({seqnum,
+                                            op: 'resolve',
+                                            targetSwissnum,
+                                            value,
+                                           }),
+                                       resolutionOf,
+                                       targetVatID);
+    manager.sendTo(targetVatID, bodyJson);
+  }
 
   function rxSendOnly(message) { // currently just for debugging
     const body = marshal.unserialize(message);
@@ -54,6 +104,12 @@ export function makeEngine(def, Vow, handlerOf, resolutionOf,
   const engine = {
     rxMessage,
     rxSendOnly,
+    // temporary
+    setMarshal(m) {
+      marshal = m;
+    },
+    serializer,
+    ext,
   };
 
   return def(engine);

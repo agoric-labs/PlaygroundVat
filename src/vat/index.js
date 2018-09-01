@@ -8,7 +8,6 @@ import { doSwissHashing } from './swissCrypto';
 import { isVow, asVow, Flow, Vow, makePresence } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
-import { makeResolutionNotifier } from './notifyUponResolution';
 import { makeEngine } from './executionEngine';
 
 const msgre = /^msg: (\w+)->(\w+) (.*)$/;
@@ -118,75 +117,19 @@ export function makeVat(endowments, myVatID, initialSource) {
   // not a SendOnly), and rows allocated by the far side (when receiving a
   // RemoteVow).
 
-  const manager = makeRemoteManager();
-  const notifyUponResolution = makeResolutionNotifier(log, myVatID, opResolve);
-
-  let inTurn = false;
-
-  function startTurn() {
-    inTurn = true;
-    //endowments.writeOutput(`turn-begin`);
+  function managerWriteOutput(targetVatID, msg) {
+    endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${msg}\n`);
   }
+  const manager = makeRemoteManager(managerWriteOutput);
 
-  function finishTurn() {
-    inTurn = false;
-    //endowments.writeOutput(`turn-end`);
-  }
-
-  // todo: queue this until finishTurn
-  function opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
-                  resolutionOf) {
-    const seqnum = manager.nextOutboundSeqnum(targetVatID);
-    const bodyJson = marshal.serialize(def({seqnum,
-                                            op: 'send',
-                                            resultSwissbase,
-                                            targetSwissnum,
-                                            methodName,
-                                            args,
-                                           }),
-                                       resolutionOf,
-                                       targetVatID);
-    endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-    manager.sendTo(targetVatID, bodyJson);
-  }
-
-  function opResolve(targetVatID, targetSwissnum, value) {
-    log('opResolve', targetVatID, targetSwissnum, value);
-    const seqnum = manager.nextOutboundSeqnum(targetVatID);
-    // todo: rename targetSwissnum to mySwissnum? The thing being resolved
-    // lives on the sender, not the recipient.
-    const bodyJson = marshal.serialize(def({seqnum,
-                                            op: 'resolve',
-                                            targetSwissnum,
-                                            value,
-                                           }),
-                                       resolutionOf,
-                                       targetVatID);
-    endowments.writeOutput(`msg: ${myVatID}->${targetVatID} ${bodyJson}\n`);
-    manager.sendTo(targetVatID, bodyJson);
-  }
-
-  function allocateSwissStuff() {
-    return marshal.allocateSwissStuff();
-  }
-
-  function registerRemoteVow(vatID, swissnum, resultVow) {
-    marshal.registerRemoteVow(vatID, swissnum, resultVow);
-  }
-
-  const serializer = {
-    startTurn, finishTurn, opSend, opResolve, notifyUponResolution,
-    allocateSwissStuff, registerRemoteVow,
-  };
-
-  const ext = Vow.resolve(makePresence(serializer, 'v2', 'swiss1'));
-
-  const marshal = makeWebkeyMarshal(myVatID, serializer);
-  // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
-
-  const engine = makeEngine(def, Vow, handlerOf, resolutionOf,
+  const engine = makeEngine(def, Vow, makePresence, handlerOf, resolutionOf,
                             myVatID,
-                            marshal);
+                            manager);
+
+  // todo: this cycle wants to all move into the engine
+  const marshal = makeWebkeyMarshal(myVatID, engine.serializer);
+  engine.setMarshal(marshal);
+  // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
   // This is the host's interface to the Vat. It must act as a sort of
   // airlock: host objects passed into these functions should not be exposed
@@ -194,7 +137,6 @@ export function makeVat(endowments, myVatID, initialSource) {
   // Object/Function/etc.
 
   function deliverMessage(senderVatID, message) {
-    serializer.startTurn();
     const { body, bodyJson } = message;
     endowments.writeOutput(`msg ${senderVatID}->${myVatID} ${bodyJson}`);
     // todo: when should we commit/release? after all promises created by
@@ -247,7 +189,7 @@ export function makeVat(endowments, myVatID, initialSource) {
       // the top-level code executes now, during evaluation
       const e = confineGuestSource(initialSource,
                                    { isVow, asVow, Flow, Vow,
-                                     ext
+                                     ext: engine.ext,
                                    }).default;
       // then we execute whatever was exported as the 'default'
       const root = await Vow.resolve().then(_ => e(argv));

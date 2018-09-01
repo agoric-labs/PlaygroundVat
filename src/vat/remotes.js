@@ -87,7 +87,7 @@ function makeRemote(vatID) {
   return remote;
 }
 
-export function makeRemoteManager() {
+export function makeRemoteManager(managerWriteOutput) {
   const remotes = new Map();
 
   function getRemote(vatID) {
@@ -134,6 +134,7 @@ export function makeRemoteManager() {
       // send it
       log(`sendTo ${vatID} ${msg}`);
       getRemote(vatID).sendTo(msg);
+      managerWriteOutput(vatID, msg);
     },
 
     ackOutbound(vatID, ackSeqnum) {
