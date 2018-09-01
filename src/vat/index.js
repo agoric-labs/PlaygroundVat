@@ -146,6 +146,24 @@ export function makeVat(endowments, myVatID, initialSource) {
     return `${vatID}/${swissnum}`;
   }
 
+  function whatConnectionsDoYouWant() {
+    return manager.whatConnectionsDoYouWant();
+  }
+
+  function connectionMade(vatID, connection) {
+    log(`connectionMade for ${vatID}`);
+    const c = {
+      send(msg) {
+        connection.send(msg);
+      }
+    };
+    manager.gotConnection(`${vatID}`, c);
+  }
+
+  function connectionLost(vatID) {
+    manager.lostConnection(`${vatID}`);
+  }
+
   function commsReceived(vatID, line) {
     manager.commsReceived(`${vatID}`, `${line}`, marshal, deliverMessage);
   }
@@ -187,23 +205,11 @@ export function makeVat(endowments, myVatID, initialSource) {
       return root; // for testing
     },
 
-    whatConnectionsDoYouWant() {
-      return manager.whatConnectionsDoYouWant();
-    },
-
-    connectionMade(vatID, connection) {
-      log(`connectionMade for ${vatID}`);
-      const c = {
-        send(msg) {
-          connection.send(msg);
-        }
-      };
-      manager.gotConnection(`${vatID}`, c);
-    },
-
-    connectionLost(vatID) {
-      manager.lostConnection(`${vatID}`);
-    },
+    whatConnectionsDoYouWant,
+    connectionMade,
+    connectionLost,
+    commsReceived,
+    deliverMessage,
 
     serialize(val, targetVatID) {
       return engine.serialize(val, targetVatID);
@@ -239,9 +245,6 @@ export function makeVat(endowments, myVatID, initialSource) {
         log(`unknown line: ${line}`);
       }
     },
-
-    deliverMessage,
-    commsReceived,
 
     /*
     sendReceived(op, sourceVatID, resultSwissbase) {

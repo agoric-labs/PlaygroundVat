@@ -115,39 +115,43 @@ export function makeRemoteManager(managerWriteOutput) {
     getRemote(vatID).ackOutbound(ackSeqnum);
   }
 
+  function gotConnection(vatID, connection) {
+    getRemote(vatID).gotConnection(connection);
+  }
+
+  function lostConnection(vatID) {
+    getRemote(vatID).lostConnection();
+  }
+
+  function whatConnectionsDoYouWant() {
+    return Array.from(remotes.keys()).filter(vatID => {
+      return remotes.get(vatID).haveOutbound();
+    });
+  }
+
+  function nextOutboundSeqnum(vatID) {
+    return getRemote(vatID).nextOutboundSeqnum();
+  }
+
+  function sendTo(vatID, msg) {
+    // add to a per-targetVatID queue, and if we have a current connection,
+    // send it
+    log(`sendTo ${vatID} ${msg}`);
+    getRemote(vatID).sendTo(msg);
+    managerWriteOutput(vatID, msg);
+  }
+
   const manager = def({
-
-    gotConnection(vatID, connection) {
-      getRemote(vatID).gotConnection(connection);
-    },
-
-    lostConnection(vatID) {
-      getRemote(vatID).lostConnection();
-    },
-
-    whatConnectionsDoYouWant() {
-      return Array.from(remotes.keys()).filter(vatID => {
-        return remotes.get(vatID).haveOutbound();
-      });
-    },
+    gotConnection,
+    lostConnection,
+    whatConnectionsDoYouWant,
 
     // inbound
-
     commsReceived,
 
     // outbound
-
-    nextOutboundSeqnum(vatID) {
-      return getRemote(vatID).nextOutboundSeqnum();
-    },
-
-    sendTo(vatID, msg) {
-      // add to a per-targetVatID queue, and if we have a current connection,
-      // send it
-      log(`sendTo ${vatID} ${msg}`);
-      getRemote(vatID).sendTo(msg);
-      managerWriteOutput(vatID, msg);
-    },
+    nextOutboundSeqnum,
+    sendTo,
 
     ackOutbound,
   });
