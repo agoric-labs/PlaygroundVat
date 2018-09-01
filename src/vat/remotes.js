@@ -1,5 +1,8 @@
+function buildAck(ackSeqnum) {
+  return JSON.stringify({type: 'ack', ackSeqnum});
+}
 
-function makeRemote(vatID, engine, managerWriteInput) {
+function makeRemoteForVatID(vatID, engine, managerWriteInput) {
   let queuedMessages = [];
   let nextOutboundSeqnum = 0;
   let nextInboundSeqnum = 0;
@@ -15,7 +18,7 @@ function makeRemote(vatID, engine, managerWriteInput) {
         // now requires extra stuff like target vatID, in case the thing
         // being serialized includes unresolved Vows, and for opAck we know
         // we don't need that
-        const ackBodyJson = JSON.stringify({type: 'ack', ackSeqnum: nextInboundSeqnum-1});
+        const ackBodyJson = buildAck(nextInboundSeqnum);
         connection.send(ackBodyJson);
       }
       for (let msg of queuedMessages) {
@@ -49,7 +52,7 @@ function makeRemote(vatID, engine, managerWriteInput) {
           engine.rxMessage(vatID, msg);
           // deliver() adds the message to our checkpoint, so time to ack it
           if (connection) {
-            const ackBodyJson = JSON.stringify({type: 'ack', ackSeqnum: seqnum});
+            const ackBodyJson = buildAck(seqnum);
             connection.send(ackBodyJson);
           }
         } else {
@@ -97,7 +100,7 @@ export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
       if (!engine) {
         throw new Error('engine is not yet set');
       }
-      remotes.set(vatID, makeRemote(vatID, engine, managerWriteInput));
+      remotes.set(vatID, makeRemoteForVatID(vatID, engine, managerWriteInput));
     }
     return remotes.get(vatID);
   }
