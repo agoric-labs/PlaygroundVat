@@ -142,24 +142,12 @@ export function makeVat(endowments, myVatID, initialSource) {
     return done; // for testing, to wait until things are done
   }
 
-  function commsReceived(senderVatID, bodyJson) {
-    senderVatID = `${senderVatID}`;
-    bodyJson = `${bodyJson}`;
-    log(`commsReceived ${senderVatID}, ${bodyJson}`);
-    const body = marshal.unserialize(bodyJson);
-    if (body.op === 'ack') {
-      manager.ackOutbound(senderVatID, body.ackSeqnum);
-      return;
-    }
-    if (body.seqnum === undefined) {
-      throw new Error(`message is missing seqnum: ${bodyJson}`);
-    }
-    manager.queueInbound(senderVatID, body.seqnum, { body, bodyJson });
-    manager.processInboundQueue(senderVatID, deliverMessage);
-  }
-
   function buildSturdyRef(vatID, swissnum) {
     return `${vatID}/${swissnum}`;
+  }
+
+  function commsReceived(vatID, line) {
+    manager.commsReceived(`${vatID}`, `${line}`, marshal, deliverMessage);
   }
 
   return {

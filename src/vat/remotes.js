@@ -97,6 +97,24 @@ export function makeRemoteManager(managerWriteOutput) {
     return remotes.get(vatID);
   }
 
+  function commsReceived(senderVatID, bodyJson, marshal, deliverMessage) {
+    log(`commsReceived ${senderVatID}, ${bodyJson}`);
+    const body = marshal.unserialize(bodyJson);
+    if (body.op === 'ack') {
+      ackOutbound(senderVatID, body.ackSeqnum);
+      return;
+    }
+    if (body.seqnum === undefined) {
+      throw new Error(`message is missing seqnum: ${bodyJson}`);
+    }
+    getRemote(senderVatID).queueInbound(body.seqnum, { body, bodyJson });
+    getRemote(senderVatID).processInboundQueue(deliverMessage);
+  }
+
+  function ackOutbound(vatID, ackSeqnum) {
+    getRemote(vatID).ackOutbound(ackSeqnum);
+  }
+
   const manager = def({
 
     gotConnection(vatID, connection) {
@@ -115,13 +133,7 @@ export function makeRemoteManager(managerWriteOutput) {
 
     // inbound
 
-    queueInbound(vatID, seqnum, msg) {
-      getRemote(vatID).queueInbound(seqnum, msg);
-    },
-
-    processInboundQueue(vatID, deliver) {
-      getRemote(vatID).processInboundQueue(deliver);
-    },
+    commsReceived,
 
     // outbound
 
@@ -137,9 +149,7 @@ export function makeRemoteManager(managerWriteOutput) {
       managerWriteOutput(vatID, msg);
     },
 
-    ackOutbound(vatID, ackSeqnum) {
-      getRemote(vatID).ackOutbound(ackSeqnum);
-    },
+    ackOutbound,
   });
   return manager;
 }
