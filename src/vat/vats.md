@@ -1,5 +1,5 @@
 
-## Vats, Solo Vats, Consensus Vats
+## Vats, Solo Vats, Quorum Vats
 
 Vats are the container in which objects live. Objects in separate vats are
 limited to making asynchronous "**eventual send**" calls to each other. This
@@ -19,32 +19,32 @@ they can run), but for now we're starting with two types of general-purpose
 Vats that can support arbitrary ocap-style programs:
 
 * **Solo Vat**: this runs on a single computer
-* **Consensus Vat**: this runs across multiple computers, with a basic
-  consensus rule by which downstream vats (receiving messages from the
-  Consensus Vat) can determine whether a given message reflects the will of
-  the group, not just that of a single member. A message is considered valid
-  if a configured threshold of the members agree to the contents.
+* **Quorum Vat**: this runs across multiple computers, with a basic consensus
+  rule by which downstream vats (receiving messages from the Quorum Vat) can
+  determine whether a given message reflects the will of the group, not just
+  that of a single member. A message is considered valid if a configured
+  threshold of the members agree to the contents.
 
-(of course, for demonstration or testing, the consensus vat might be
-implemented as multiple processes on a single computer)
+(of course, for demonstration or testing, the quorum vat might be implemented
+as multiple processes on a single computer)
 
-Consensus vats can have improved credibility compared to a solo vat, because
+Quorum vats can have improved credibility compared to a solo vat, because
 there are more parties that must be willing to agree to the group decision.
 This makes the most sense when the individual machines are distributed across
 trust domains: if you and your business partners each operate one member of a
-consensus vat, you can feel more confident that the joint behavior will match
+quorum vat, you can feel more confident that the joint behavior will match
 your expectations.
 
-Objects cannot tell whether they're running on a Solo or a Consensus vat. The
+Objects cannot tell whether they're running on a Solo or a Quorum vat. The
 difference lies in the "comms layer" through which the vats communicate.
 
 We define a **Host** as a single process (on a single computer). Solo Vats
-use a single host, while consensus vats involve multiple hosts. An object
-that "lives" in a consensus vat will be replicated across all the hosts.
-Those hosts will receive and act upon exactly the same sequence of messages,
-and will all contain exactly the same set of objects. Since Vat computation
-is a deterministic function of the inbound messages, all these hosts will
-produce exactly the same sequence of outbound messages.
+use a single host, while quorum vats involve multiple hosts. An object that
+"lives" in a quorum vat will be replicated across all the hosts. Those hosts
+will receive and act upon exactly the same sequence of messages, and will all
+contain exactly the same set of objects. Since Vat computation is a
+deterministic function of the inbound messages, all these hosts will produce
+exactly the same sequence of outbound messages.
 
 ## Messages, Encryption, Comms Layers
 
@@ -58,33 +58,35 @@ provides a connection-oriented API (dial/listen/accept), but for generality
 our comms layer does not depend upon this. We treat each new connection as an
 opportunity to (re-)deliver any remaining outbound messages, and retain all
 such messages until the receiving end sends an explicit acknowledgement.
+
 Since inbound connections are securely associated with an identity, we use
 them for outbound messages to that same host. A convenient side-effect is
 that only one side of each connection must have a public IP address, and the
 other can live behind a NAT box or firewall without loss of connectivity.
 
 Solo Vats, which use only one host, share a Vat ID with that host. So the
-VatID of a solo vat could be `QmNtqu3WNhNGPkWkxQDwZd2FPUp43v22YGdx13xMx7RD54`.
+VatID of a solo vat could be
+`QmNtqu3WNhNGPkWkxQDwZd2FPUp43v22YGdx13xMx7RD54`.
 
-Consensus Vats, in their current form, contain an explicit and fixed list of
+Quorum Vats, in their current form, contain an explicit and fixed list of
 Hosts, and also have a threshold count which says how many of those hosts
 must agree to a message for it to be valid. The VatID is a combination of
 these strings, encoded in a form that retains the ability to be used in URIs.
-So a 2-out-of-3 Consensus VatID could look like:
+So a 2-out-of-3 Quorum VatID could look like:
 
-`c2-QmP1yPTRZLKiB9mNDDBvfSCPbi1mBH2w8uLsurcr2iS47X-QmTxsHYt2a5sWpatR6LTaW4eHR9d4BozAyKMUH89YjFHsE-QmRqcYjecavhxrGm3pXKnAc6PUAouRwCygeoMCjfWE2E4X`
+`q2-QmP1yPTRZLKiB9mNDDBvfSCPbi1mBH2w8uLsurcr2iS47X-QmTxsHYt2a5sWpatR6LTaW4eHR9d4BozAyKMUH89YjFHsE-QmRqcYjecavhxrGm3pXKnAc6PUAouRwCygeoMCjfWE2E4X`
 
-(where the `c` means consensus vat, and the `2` means that at least two hosts
+(where the `q` means quorum vat, and the `2` means that at least two hosts
 must agree).
 
-Vats (whether Solo or Consensus) exchange Vat Messages. When an object in one
+Vats (whether Solo or Quorum) exchange Vat Messages. When an object in one
 vat invokes a method on an object in a different vat, a Vat Message will be
 sent from one to the other.
 
 Vat Messages are internal data structures, just like objects. When a Vat
 Message is transmitted, what really emerges is a collection of Host Messages,
 sent from the host (or hosts) of the sending vat, to the host (or hosts) of
-the receiving vat. The receiving hosts comms layers know the consensus rules,
+the receiving vat. The receiving hosts comms layers know the quorum rules,
 and only deliver the vat message if the requirements are met.
 
 So each host message exchanged between hosts includes four identifiers:
@@ -107,9 +109,8 @@ strictly in order of sequence number, with no gaps (if the target receives
 messages 1, 3, and 4, it will deliver 1 but withhold the result until it gets
 2 first).
 
-No single Host should be a member of multiple Consensus Vats (which would be
-confusing at best), however the data structures are easier to build as if
-they could tolerate this situation.
+No single Host should be a member of multiple Quorum Vats. We could possibly
+accomodate such an arrangement, but it would be confusing at best.
 
 There are two types of Vat Messages: **opSend** and **opResolve** (and we
 might add **opReject** in the future). "opSend" messages include the target
@@ -120,21 +121,22 @@ to. These are combined with the operation type, and serialized into the
 "inner message". The comms layer does not look at the inner message at all,
 it merely passes it around as a string.
 
-There are three kinds of Host Messages: **op**, **ack**, and **lead**. The
+There are three kinds of Host Messages: **op**, **ack**, and **decide**. The
 first two are sent when the containing Vat wants to send an opSend or
 opResolve to a member of some other Vat, or acknowledge the same, and both
-contain an inner serialized Vat message. The "lead" message is used
-internally among members of a Consensus Vat to coordinate their actions.
+contain an inner serialized Vat message. The "decide" message is used
+internally among members of a Quorum Vat to coordinate their actions, and
+contains a "decision seqnum", a Sender Vat ID, and a message seqnum.
 
 ## Arrival Order Non-Determinism
 
 For any given sequence of inbound messages, Vat computation is deterministic.
 The only deviation we tolerate is called "arrival order non-determinism", and
 is an inevitable consequence of the finite speed of light. The improved
-integrity/credibility of a consensus vat comes at the cost of slower
-operations to accomodate coordination between the member hosts.
+integrity/credibility of a quorum vat comes at the cost of slower operations
+to accomodate coordination between the member hosts.
 
-To keep a group of Hosts (members of a Consensus Vat) in sync, we must ensure
+To keep a group of Hosts (members of a Quorum Vat) in sync, we must ensure
 they all see the same sequence of messages. The question they must achieve
 consensus about is the order in which they will process inbound messages.
 
@@ -154,30 +156,29 @@ ignore these replays.
 We remember each outbound message until it is acknowledged by the recipient
 Vat. This will not happen until that Vat has written the message to its
 durable transcript, transferring responsibility from the sender to the
-recipient. Deleting messages is a space optimization: the protocol simply
-retains all messages forever.
+recipient. Deleting messages is a space optimization: the prototype simply
+retains all messages forever (which enables us to detect and report
+mismatches after delivery).
 
 TODO: there is a confusion here between the target Vat acknowledging the Vat
-message, and an individual Host acknowledging the host message. A consensus
-vat does not have a single input transcript; rather, the individual hosts
-each have one. We're avoiding this question for now by ignoring acks and
-retaining all messages forever, but eventually we must figure this out. The
-more likely answer is that we retain outbound Host messages until we get an
-ack from the specific host we sent it to, but those hosts won't send the ack
-until they deliver the Vat message to their execution engine (and
-transcript). The less likely answer is that acks are strictly vat-to-vat (not
-host-to-host), and must meet a threshold requirement just like opSend and
-opResolve.
+message, and an individual Host acknowledging the host message. A quorum vat
+does not have a single input transcript; rather, the individual hosts each
+have one. We're avoiding this question for now by ignoring acks and retaining
+all messages forever, but eventually we must figure this out. The more likely
+answer is that we retain outbound Host messages until we get an ack from the
+specific host we sent it to, but those hosts won't send the ack until they
+deliver the Vat message to their execution engine (and transcript). The less
+likely answer is that acks are strictly vat-to-vat (not host-to-host), and
+must meet a threshold requirement just like opSend and opResolve.
 
-## Consensus Leaders and Followers
+## Quorum Leaders and Followers
 
 The consensus algorithm we use for this prototype is a simple fixed
-leader/follower protocol. When the Consensus Vat is first created, one
-specific Host is named the Leader, and the rest are Followers. We minimize
-internal coordination by declaring the first host of the consensus VatID list
-as the leader (although other Vats are generally unaware of the difference:
-they send to the Vat as a whole, and don't care about how the internal
-politics).
+leader/follower protocol. When the Quorum Vat is first created, one specific
+Host is named the Leader, and the rest are Followers. We minimize internal
+coordination by declaring the first host of the quorum VatID list as the
+leader (although other Vats are generally unaware of the difference: they
+send to the Vat as a whole, and don't care about how the internal politics).
 
 Leaders make the decision about which message to deliver. Followers (are
 supposed to) receive the same messages as leaders, but they refrain from
@@ -189,74 +190,75 @@ send their individual host messages to downstream hosts.
 
 Solo Vats are their own Leaders.
 
-## Scoreboard, Next, Approval Queue
+## Scoreboard, Next Seqnum, Threshold, Decision List
 
-Each host, in the receiving comms layer, maintains two or three data
-structures to keep track inbound Host Messages and their delivery to the
+Each host, in the receiving comms layer, maintains a data structure named the
+**scoreboard** to keep track inbound Host Messages and their delivery to the
 execution engine.
 
-All of these structures are implicitly indexed by Recipient Host ID, because
-any given process will only have data for a single Recipient Host (itself).
-They are nominally indexed by Recipient Vat ID, even though in sensible
-configurations a single Host would not be a member of multiple consensus
-vats. We can avoid some host coordination by tolerating this situation.
+This structure is implicitly indexed by Recipient Host ID, because any given
+process will only have data for a single Recipient Host (itself). Likewise it
+is implicitly indexed by Recipient Vat ID, since a single Host should not be
+a member of multiple quorum vats.
 
-The first data structure is the **next queue**. This remembers the next
-sequence number for a given (Sender Vat ID, Recipient Vat ID) pair. The comms
-layer is only allowed to deliver the next seqnum: all lower-numbered messages
-are discarded, and all higher-number seqnums are buffered in the hopes of
-being delivered layer.
+The scoreboard is a mapping from Sender Vat ID to a record with three fields:
 
 ```
-nextQueue[rVatID][sVatID] = nextSeqnum
+scoreboard[sVatID].nextSeqnum = message-seqnum (integer)
+scoreboard[sVatID].msgs[messageSeqnum][msgID] = set(sHostID)
+scoreboard[sVatID].threshold = integer
 ```
 
-The second is a **scoreboard** to keep track of which Vat Messages are ready
-for delivery. This data structure is indexed first by Recipient Vat ID, then
-Sender Vat ID, then seqnum, then Sender Host ID.
+The first field records the next acceptable sequence number for a given
+(Sender Vat ID, Recipient Vat ID) pair. The comms layer is only allowed to
+deliver messages in rigid order, so all lower-numbered messages are
+discarded, and all higher-number seqnums are buffered in the hopes of being
+delivered later.
 
-```
-scoreboard[rVatID][sVatID].msgs[seqnum][msgID] = set(sHostID)
-scoreboard[rVatID][sVatID].threshold = integer
-```
+The second field tracks which Vat Messages are ready for delivery because we
+have seen sufficient evidence that their Sender Vat did in fact mean them to
+the sent (i.e. multiple hosts for a Quorum Vat). This section is additionally
+indexed by then seqnum, then Sender Host ID. Each entry holds a "message ID",
+which is either the full contents of the inner vat message, or a secure hash
+of it, so it can be used to tell whether two separate hosts are referring to
+the same Vat message or not (if we only hold the hash, we must also retain at
+least one copy of the full message so we'll have something to deliver).
 
-Each entry holds a "message ID", which is either the full contents of the
-inner vat message, or a secure hash of it, so it can be used to tell whether
-two separate hosts are referring to the same Vat message or not. If we only
-hold the hash, we must also retain at least one copy of the full message so
-we'll have something to deliver.
-
-The scoreboard also remembers the threshold for the Sender Vat ID. For our
+The third field remembers the threshold for the Sender Vat ID. For our
 current scheme, this is easily parsed out of the VatID, but a future scheme
 might require more work. If the upstream vat is a Solo Vat, the threshold
 will be 1, and the set of Sender Host IDs could be replaced by a boolean (or
 the table of msgIDs could be replaced by a string-or-None Option type).
 
-If the host is a Follower, they maintain a third structure: the **approval
-list**. This is populated by ``lead`` message from the Leader. ``lead``
-messages are only accepted if the Sender Host ID matches the first component
-of the Recipient Vat ID. (In a future system, host messages may include a
-signed cryptographic certificate demonstrating the host's membership in a
-Vat, in which case the criteria will be that the Sender Host ID is mentioned
-in a certificate that is signed by the Sender Vat ID).
+If the host is a Follower, it maintains a second data structure: the
+**decision list**. This is populated by ``decide`` message from the Leader.
+``decide`` messages are only accepted if the Sender Host ID matches the first
+component of the Recipient Vat ID. (In a future system, host messages may
+include a signed cryptographic certificate demonstrating the host's
+membership in a Vat, in which case the criteria will be that the Sender Host
+ID is mentioned in a certificate that is signed by the Sender Vat ID).
+
+If the host is a Leader (or a Solo Vat), there is no decision list, and
+messages are processed as soon as they meet the scoreboard criteria.
 
 ```
-approval[rVatID][sVatID] = list of seqnums
+decisionList = list({decision-seqnum, sVatID, message-seqnum})
 ```
 
-Implementation notes:
+The decision list is ordered by a "decision seqnum" associated with each
+entry. This enables the Leader to deliver ``decide`` messages over a
+transport that does not preserve ordering (such as when the connection is
+lost and then reestablished). Any ``decide`` message that contains a
+``decision-seqnum`` which is already on the list is ignored (after
+checking/logging that its contents are identical). We can only deliver the
+lowest entry on the decision list, and we remove it from the list upon
+delivery.
 
-* we will refer to the smallest seqnum frequently
-* the leader will normally only add seqnums that are higher than all previous
-  seqnums, but duplicates and/or out-of-order additions could occur if
-  messages are retransmitted for whatever reason
-* seqnums can be removed after we commit to a message and write it into the
-  durable input transcript
-
-The comms layer cannot recognize a Vat Message until all the data structures
-approve. The "next queue" is updated after each delivery. The pending
-messages must be reevaluated after each inbound Host Message (which might
-increase a scoreboard item beyond the consensus threshold), or inbound
-``lead`` message (which might make a previously-consensus-ed message
-eligible), or actual delivery (which might make the next seqnum ready). It
-must loop until no more work can be done.
+The comms layer cannot recognize a Vat Message until all the fields in both
+data structures approve it. The "nextSeqnum" is updated after each delivery.
+The pending messages must be reevaluated after each inbound Host Message
+(which might increase a scoreboard item beyond the quorum threshold), or
+inbound ``decide`` message (which might make a previously-quorum-ed message
+eligible), or actual delivery (which might make the next messageSeqnum
+ready). It must loop until no more work can be done, because the arrival of
+an older Host Message may unblock multiple Vat Messages in a single step.
