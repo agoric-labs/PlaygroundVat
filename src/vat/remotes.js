@@ -2,7 +2,7 @@ function buildAck(ackSeqnum) {
   return JSON.stringify({type: 'ack', ackSeqnum});
 }
 
-function makeRemoteForVatID(vatID, engine, managerWriteInput) {
+function makeRemoteForHostID(hostID, engine, managerWriteInput) {
   let queuedMessages = [];
   let nextOutboundSeqnum = 0;
   let nextInboundSeqnum = 0;
@@ -48,8 +48,8 @@ function makeRemoteForVatID(vatID, engine, managerWriteInput) {
           queuedInboundMessages.delete(seqnum);
           nextInboundSeqnum += 1;
           //log(` found it, delivering`);
-          managerWriteInput(vatID, seqnum, msg);
-          engine.rxMessage(vatID, msg);
+          managerWriteInput(hostID, seqnum, msg);
+          engine.rxMessage(hostID, msg);
           // deliver() adds the message to our checkpoint, so time to ack it
           if (connection) {
             const ackBodyJson = buildAck(seqnum);
@@ -83,7 +83,7 @@ function makeRemoteForVatID(vatID, engine, managerWriteInput) {
 
     // inbound acks remove outbound messages from the pending queue
 
-    ackOutbound(vatID, ackSeqnum) {
+    ackOutbound(hostID, ackSeqnum) {
       queuedMessages = queuedMessages.filter(m => m.seqnum !== ackSeqnum);
     },
 
@@ -95,14 +95,14 @@ export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
   const remotes = new Map();
   let engine;
 
-  function getRemote(vatID) {
-    if (!remotes.has(vatID)) {
+  function getRemote(hostID) {
+    if (!remotes.has(hostID)) {
       if (!engine) {
         throw new Error('engine is not yet set');
       }
-      remotes.set(vatID, makeRemoteForVatID(vatID, engine, managerWriteInput));
+      remotes.set(hostID, makeRemoteForHostID(hostID, engine, managerWriteInput));
     }
-    return remotes.get(vatID);
+    return remotes.get(hostID);
   }
 
   function commsReceived(senderVatID, payloadJson, marshal) {
@@ -122,40 +122,40 @@ export function makeRemoteManager(managerWriteInput, managerWriteOutput) {
     r.processInboundQueue();
   }
 
-  function gotConnection(vatID, connection) {
-    getRemote(vatID).gotConnection(connection);
+  function gotConnection(hostID, connection) {
+    getRemote(hostID).gotConnection(connection);
   }
 
-  function lostConnection(vatID) {
-    getRemote(vatID).lostConnection();
+  function lostConnection(hostID) {
+    getRemote(hostID).lostConnection();
   }
 
   function whatConnectionsDoYouWant() {
-    return Array.from(remotes.keys()).filter(vatID => {
-      return remotes.get(vatID).haveOutbound();
+    return Array.from(remotes.keys()).filter(hostID => {
+      return remotes.get(hostID).haveOutbound();
     });
   }
 
-  function nextOutboundSeqnum(vatID) {
-    return getRemote(vatID).nextOutboundSeqnum();
+  function nextOutboundSeqnum(hostID) {
+    return getRemote(hostID).nextOutboundSeqnum();
   }
 
-  function sendTo(vatID, msg) {
+  function sendTo(hostID, msg) {
     if (typeof msg !== 'string') {
       throw new Error('sendTo must be given a string');
     }
-    const seqnum = getRemote(vatID).nextOutboundSeqnum();
-    log(`sendTo ${vatID} [${seqnum}] ${msg}`);
+    const seqnum = getRemote(hostID).nextOutboundSeqnum();
+    log(`sendTo ${hostID} [${seqnum}] ${msg}`);
     const payloadJson = { type: 'op',
-                          targetVatID: vatID,
+                          targetVatID: hostID,
                           seqnum: seqnum,
                           msg: msg };
     // we don't need webkey.marshal, this is just plain JSON
     const payload = JSON.stringify(payloadJson);
     // now add to a per-targetVatID queue, and if we have a current
     // connection, send it
-    getRemote(vatID).sendTo(payload);
-    managerWriteOutput(vatID, seqnum, payload);
+    getRemote(hostID).sendTo(payload);
+    managerWriteOutput(hostID, seqnum, payload);
   }
 
   const manager = def({

@@ -145,22 +145,22 @@ export function makeVat(endowments, myVatID, initialSource) {
     return manager.whatConnectionsDoYouWant();
   }
 
-  function connectionMade(vatID, connection) {
-    log(`connectionMade for ${vatID}`);
+  function connectionMade(hostID, connection) {
+    log(`connectionMade for ${hostID}`);
     const c = {
       send(msg) {
         connection.send(msg);
       }
     };
-    manager.gotConnection(`${vatID}`, c);
+    manager.gotConnection(`${hostID}`, c);
   }
 
-  function connectionLost(vatID) {
-    manager.lostConnection(`${vatID}`);
+  function connectionLost(hostID) {
+    manager.lostConnection(`${hostID}`);
   }
 
-  function commsReceived(vatID, line) {
-    manager.commsReceived(`${vatID}`, `${line}`, marshal);
+  function commsReceived(hostID, line) {
+    manager.commsReceived(`${hostID}`, `${line}`, marshal);
   }
 
   return {
