@@ -121,7 +121,8 @@ export function makeVat(endowments, myVatID, initialSource) {
   function managerWriteOutput(targetVatID, seqnum, msg) {
     endowments.writeOutput(`msg: ${myVatID}->${targetVatID}[${seqnum}] ${msg}\n`);
   }
-  const manager = makeRemoteManager(managerWriteInput, managerWriteOutput);
+  const manager = makeRemoteManager(myVatID,
+                                    managerWriteInput, managerWriteOutput);
 
   const engine = makeEngine(def,
                             Vow, isVow, Flow,
