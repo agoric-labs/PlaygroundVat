@@ -22,15 +22,14 @@ export function makeEngine(def,
   // todo: queue this until finishTurn
   function opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
                   resolutionOf) {
-    const bodyJson = marshal.serialize(def({op: 'send',
-                                            resultSwissbase,
-                                            targetSwissnum,
-                                            methodName,
-                                            args,
-                                           }),
-                                       resolutionOf,
-                                       targetVatID);
-    manager.sendTo(targetVatID, bodyJson);
+    const argsS = marshal.serialize(args, resolutionOf, targetVatID);
+    const body = def({op: 'send',
+                      targetSwissnum,
+                      methodName,
+                      argsS,
+                      resultSwissbase,
+                     });
+    manager.sendTo(targetVatID, body);
   }
 
   const serializer = {
@@ -49,13 +48,12 @@ export function makeEngine(def,
   function opResolve(targetVatID, targetSwissnum, value) {
     // todo: rename targetSwissnum to mySwissnum? The thing being resolved
     // lives on the sender, not the recipient.
-    const bodyJson = marshal.serialize(def({op: 'resolve',
-                                            targetSwissnum,
-                                            value,
-                                           }),
-                                       resolutionOf,
-                                       targetVatID);
-    manager.sendTo(targetVatID, bodyJson);
+    const valueS = marshal.serialize(value, resolutionOf, targetVatID);
+    const body = def({op: 'resolve',
+                      targetSwissnum,
+                      valueS,
+                     });
+    manager.sendTo(targetVatID, body);
   }
 
   function rxSendOnly(message) { // currently just for debugging
