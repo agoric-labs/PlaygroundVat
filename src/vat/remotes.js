@@ -1,4 +1,5 @@
 import { makeScoreboard } from './scoreboard';
+import { insist } from '../insist';
 
 function buildAck(ackSeqnum) {
   return JSON.stringify({type: 'ack', ackSeqnum});
@@ -7,10 +8,11 @@ function buildAck(ackSeqnum) {
 const OP = 'op ';
 const DECIDE = 'decide ';
 
-function parseVatID(vatID) {
+export function parseVatID(vatID) {
   if (vatID.indexOf('-') === -1) {
-    return { count: 1,
-             members: new Set([vatID]),
+    const members = new Set([vatID]);
+    return { threshold: 1,
+             members,
              leader: vatID,
            }; // solo vat
   } else {
@@ -18,7 +20,9 @@ function parseVatID(vatID) {
     if (!pieces[0].startsWith('q')) {
       throw new Error(`unknown VatID type: ${vatID}`);
     }
-    const count = Number.from(pieces[0].slice(1));
+    const count = Number(pieces[0].slice(1));
+    // todo: use Nat, in a way that still lets us unit-test this function
+    insist(`${count}` === pieces[0].slice(1), new Error('threshold must be integer'));
     return { threshold: count,
              members: new Set(pieces.slice(1)),
              leader: pieces[1],
@@ -26,7 +30,7 @@ function parseVatID(vatID) {
   }
 }
 
-function makeRemoteForVatID(vatID, def, insist, logConflict) {
+export function makeRemoteForVatID(vatID, def, log, logConflict) {
   let nextOutboundSeqnum = 0;
 
   // inbound management
@@ -43,7 +47,19 @@ function makeRemoteForVatID(vatID, def, insist, logConflict) {
     return componentIDs.size >= threshold;
   }
 
-  const scoreboard = makeScoreboard(quorumTest, def, insist, logConflict);
+  const scoreboard = makeScoreboard(quorumTest, def, logConflict);
+
+  function getReadyMessage() {
+    const res = readyMessage;
+    if (res) {
+      // if there was already a message ready, return it, and replace the
+      // stored value with a new one (or nothing) from the scoreboard
+      readyMessage = scoreboard.getNext();
+      return res;
+    }
+    // else poll the scoreboard
+    return scoreboard.getNext();
+  }
 
   function gotHostMessage(fromHostID, msgID, hostMessage) {
     const fromVatID = hostMessage.fromVatID;
@@ -51,17 +67,14 @@ function makeRemoteForVatID(vatID, def, insist, logConflict) {
       throw new Error(`message is missing seqnum: ${hostMessage}`);
     }
     if (!members.has(fromHostID)) {
-      log(`not a member`);
-      return false; // todo: drop the connection
+      log(`not a member`, Array.from(members.values()), fromHostID);
+      return undefined; // todo: drop the connection
     }
     if (scoreboard.acceptProtoMsg(fromHostID, hostMessage.seqnum,
                                   msgID, hostMessage)) {
-      if (!readyMessage) {
-        readyMessage = scoreboard.getMessage();
-        return readyMessage;
-      }
+      return getReadyMessage();
     }
-    return false;
+    return undefined;
   }
 
   return {
@@ -71,9 +84,7 @@ function makeRemoteForVatID(vatID, def, insist, logConflict) {
       return seqnum;
     },
     gotHostMessage,
-    getReadyMessage() {
-      return readyMessage;
-    },
+    getReadyMessage,
   };
 }
 
@@ -148,7 +159,7 @@ function makeDecisionList(isLeader, getVatRemote, deliver) {
 
 export function makeRemoteManager(myVatID, leaderHostID, isLeader,
                                   managerWriteInput, managerWriteOutput,
-                                  def, insist, logConflict) {
+                                  def, log, logConflict) {
   const remotes = new Map();
   let engine;
   //let leaderHostID = parseVatID(myVatID).leader;
@@ -168,7 +179,7 @@ export function makeRemoteManager(myVatID, leaderHostID, isLeader,
       if (!engine) {
         throw new Error('engine is not yet set');
       }
-      remotes.set(vatID, makeRemoteForVatID(vatID, def, insist, logConflict));
+      remotes.set(vatID, makeRemoteForVatID(vatID, def, log, logConflict));
     }
     return remotes.get(vatID);
   }
@@ -189,7 +200,7 @@ export function makeRemoteManager(myVatID, leaderHostID, isLeader,
     // * decide JSON(leaderDecision)
     if (line.startsWith(OP)) {
       const hostMessage = JSON.parse(line.slice(OP.length));
-      const msgID = line.slice(OP.length); // todo: could be a hash
+      const msgID = 'msgID:' + line.slice(OP.length); // todo: could be a hash
       const r = getVatRemote(hostMessage.fromVatID);
       const newMessage = r.gotHostMessage(fromHostID, msgID, hostMessage);
       if (newMessage) {

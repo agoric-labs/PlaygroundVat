@@ -69,7 +69,7 @@ export function makeScoreboard(quorumTest, def, logConflict) {
                       componentID, seqNum, msgID, msg);
         }
       }
-      const {msg, componentIDs} = record;
+      const { componentIDs } = record;
       componentIDs.add(componentID);
       return seqNum === currentSeqNum;
     },
