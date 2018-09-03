@@ -1,3 +1,5 @@
+import { insist } from '../insist';
+
 /**
  * A scoreboard is an object that accepts proto messages, where each
  * proto message is already authenticated as being a signed
@@ -21,7 +23,7 @@
  * or remember the set it is passed. By monotonic, if it says true for
  * set X, it must say true for any superset of set X.
  */
-export function makeScoreboard(quorumTest, def, insist, logConflict) {
+export function makeScoreboard(quorumTest, def, logConflict) {
 
   // map of seqNum to sequence-maps, where a sequence-map is a map
   // from msgID to a record of a `msg` and the set of `componentIDs`
