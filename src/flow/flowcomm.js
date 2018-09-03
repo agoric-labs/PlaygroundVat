@@ -1,23 +1,12 @@
 // A simple comm systme using Flows for ordering
 'use strict';
 
+import { insist, insistFn } from '../insist';
+
 //const debugLog = typeof log === 'undefined' ? console.log : log;
 function debugLog() {} // disabled
 
 const scheduleHack = Promise.resolve(null);
-
-// TODO what if exeption is undefined?
-function insist(condition, exception) {
-  if (!condition) {
-    throw exception;
-  }
-}
-function insistFn(arg) {
-  if (typeof arg !== 'function' && arg !== undefined) {
-    throw new Error(`function expected: ${typeof arg}: ${arg}`);
-  }
-  return arg;
-}
 
 // TODO: remove this in favor of the global deep-freezing def() that SES
 // provides. However make sure test-flow.js can still work, which doesn't run
