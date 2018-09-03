@@ -1,4 +1,5 @@
 import { doSwissHashing } from './swissCrypto';
+import { insist } from '../insist';
 
 // objects can only be passed in one of two/three forms:
 // 1: pass-by-presence: all properties (own and inherited) are methods,
@@ -72,12 +73,6 @@ function mustPassByPresence(val) { // throws exception if cannot
 // Special property name that indicates an encoding that needs special
 // decoding.
 const QCLASS = '@qclass';
-
-function insist(condition, exception) {
-  if (!condition) {
-    throw exception;
-  }
-}
 
 export function makeWebkeyMarshal(log,
                                   Vow, isVow, Flow,
