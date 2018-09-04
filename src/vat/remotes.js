@@ -90,6 +90,7 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
       nextOutboundSeqnum += 1;
       return seqnum;
     },
+    hostIDs: members,
     gotHostMessage,
     getReadyMessage,
     consumeReadyMessage,
@@ -263,8 +264,10 @@ export function makeRemoteManager(myVatID, myHostID,
                               getReadyMessages, deliver, sendDecisionTo);
 
   function deliver(fromVatID, m) {
-    managerWriteInput(XX);
-    engine.rxMessage(fromVatID, m);
+    // todo: retain the serialized form, for the transcript
+    log('DELIVER', fromVatID, m);
+    //managerWriteInput(XX);
+    engine.rxMessage(fromVatID, m.opMsg);
     // todo: now send an ack
   }
 

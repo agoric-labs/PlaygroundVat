@@ -121,7 +121,11 @@ export function makeVat(endowments, myVatID, initialSource) {
   function managerWriteOutput(msg) {
     endowments.writeOutput(`output: ${msg}\n`);
   }
-  const manager = makeRemoteManager(myVatID, leaderHostID, isLeader,
+  const myHostID = myVatID; // todo
+  function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {
+    log(issue, `${seqMap.size} msgIDs, from hostID ${componentID} [${seqNum}]`);
+  }
+  const manager = makeRemoteManager(myVatID, myHostID,
                                     managerWriteInput, managerWriteOutput,
                                     def, log, logConflict);
 
