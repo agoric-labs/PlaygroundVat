@@ -75,6 +75,12 @@ export function makeScoreboard(quorumTest, def, logConflict) {
     },
 
     getNext() {
+      /*console.log('queue:');
+      for (let q of queue.values()) {
+        for (let [k,v] of q.entries()) {
+          console.log(' k,v=', k, '=>',  v);
+        }}*/
+
       const msg = fetchReadyMsg(currentSeqNum);
       if (!msg) {
         return undefined;

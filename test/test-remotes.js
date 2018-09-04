@@ -1,5 +1,5 @@
 import { test } from 'tape-promise/tape';
-import { parseVatID, makeRemoteForVatID } from '../src/vat/remotes';
+import { parseVatID, makeRemoteForVatID, makeDecisionList } from '../src/vat/remotes';
 
 function shallowDef(obj) {
   return Object.freeze(obj);
@@ -160,6 +160,30 @@ test('vatRemote inbound quorum', (t) => {
   t.equal(got(hm5z, 'vat2c'), undefined);
   t.deepEqual(got(hm5x, 'vat2c'), hm5x);
   t.equal(r.getReadyMessage(), undefined);
+
+  t.end();
+});
+
+test.only('decisionList leader', (t) => {
+  const remotes = new Map();
+  function getVatRemote(vatID) {
+    if (!remotes.has(vatID)) {
+      remotes.set(vatID, makeRemoteForVatID(vatID, shallowDef, console.log, logConflict));
+    }
+    return remotes.get(vatID);
+  }
+
+  const deliveries = [];
+  const deliver = (fromVatID, msg) => deliveries.push({ fromVatID, msg });
+    
+  const dl = makeDecisionList(true, getVatRemote, deliver);
+  const hm20 = makeMsg('vat2', 0);
+  const hm21 = makeMsg('vat2', 1);
+  const hm30 = makeMsg('vat3', 0);
+  const hm31 = makeMsg('vat3', 1);
+
+  dl.addMessage(
+
 
   t.end();
 });

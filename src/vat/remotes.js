@@ -88,9 +88,13 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
   };
 }
 
-function makeDecisionList(isLeader, getVatRemote, deliver) {
+export function makeDecisionList(isLeader, getVatRemote, deliver) {
   let nextDecisionSeqnum = 0;
-  const decisionList = []; // { decisionSeqnum, fromVatID, vatSeqnum }
+  const decisionList = []; // { decisionSeqnum, fromVatID, msgID }
+  // msgID is nominally a hash of (fromVatID, toVatID, messageSeqnum, body),
+  // but for now we just use a serialization of the whole thing. We track
+  // fromVatID separately because we need it to find the actual messages for
+  // delivery.
 
   function checkDelivery() {
     while(decisionList.length) {
@@ -105,14 +109,14 @@ function makeDecisionList(isLeader, getVatRemote, deliver) {
     }
   }
 
-  function addMessage(fromVatID, m) {
+  function addMessage(m) {
     if (isLeader) {
       // If we're the Leader (or we're in a Solo Vat, so we're our own Leader),
       // each complete message will arrive here, and we'll add it to the list.
       // In this case, we're the only one adding to the list, so it will always
       // be sorted.
       decisionList.push({ decisionSeqnum: nextDecisionSeqnum,
-                          fromVatID: fromVatID,
+                          fromVatID: m.fromVatID,
                           vatSeqnum: m.seqnum });
       nextDecisionSeqnum += 1;
       // todo: notify followers
@@ -121,26 +125,26 @@ function makeDecisionList(isLeader, getVatRemote, deliver) {
     checkDelivery();
   }
 
-  function addDecision(m) {
+  function addDecision(dm) {
     // add to the queue if not already there, sort, checkDelivery
     if (isLeader) {
       log(`I am the leader, don't tell me what to do`);
       return;
     }
     for (let d in decisionList) {
-      if (d.decisionSeqnum === m.decisionSeqnum) {
-        if (d.fromVatID !== m.fromVatID ||
-            d.vatSeqnum !== m.vatSeqnum) {
-          log(`leader equivocated, says ${JSON.stringify(m)} but previously said ${JSON.stringify(d)}`);
+      if (d.decisionSeqnum === dm.decisionSeqnum) {
+        if (d.fromVatID !== dm.fromVatID ||
+            d.vatSeqnum !== dm.vatSeqnum) {
+          log(`leader equivocated, says ${JSON.stringify(dm)} but previously said ${JSON.stringify(d)}`);
           return;
         }
         // otherwise it is a duplicate, so ignore it
       }
     }
     // todo: be clever, remember the right insertion index instead of sorting
-    decisionList.push({ decisionSeqnum: m.decisionSeqnum,
-                        fromVatID: m.fromVatID,
-                        vatSeqnum: m.vatSeqnum });
+    decisionList.push({ decisionSeqnum: dm.decisionSeqnum,
+                        fromVatID: dm.fromVatID,
+                        vatSeqnum: dm.vatSeqnum });
     function cmp(a, b) {
       if (a < b) return -1;
       if (a > b) return 1;
@@ -176,9 +180,6 @@ export function makeRemoteManager(myVatID, leaderHostID, isLeader,
 
   function getVatRemote(vatID) {
     if (!remotes.has(vatID)) {
-      if (!engine) {
-        throw new Error('engine is not yet set');
-      }
       remotes.set(vatID, makeRemoteForVatID(vatID, def, log, logConflict));
     }
     return remotes.get(vatID);
@@ -192,33 +193,35 @@ export function makeRemoteManager(myVatID, leaderHostID, isLeader,
     // todo: now send an ack
   }
 
-  function commsReceived(fromHostID, line, marshal) {
-    log(`commsReceived ${fromHostID}, ${line}`);
+  function commsReceived(fromHostID, wireMessage, marshal) {
+    log(`commsReceived ${fromHostID}, ${wireMessage}`);
     const hr = getHostRemote(fromHostID);
-    // 'line' is one of:
+    // 'wireMessage' is one of:
     // * op JSON(vatMessage)
     // * decide JSON(leaderDecision)
-    if (line.startsWith(OP)) {
-      const hostMessage = JSON.parse(line.slice(OP.length));
-      const msgID = 'msgID:' + line.slice(OP.length); // todo: could be a hash
-      const r = getVatRemote(hostMessage.fromVatID);
+    if (wireMessage.startsWith(OP)) {
+      const hostMessage = JSON.parse(wireMessage.slice(OP.length));
+      const msgID = 'msgID:' + wireMessage.slice(OP.length); // todo: could be a hash
+      const fromVatID = hostMessage.fromVatID;
+      const toVatID = hostMessage.toVatID; // todo: assert that toVatID === myVatID
+      const r = getVatRemote(fromVatID);
       const newMessage = r.gotHostMessage(fromHostID, msgID, hostMessage);
       if (newMessage) {
         // there is a new message ready for this sender
-        dl.addMessage(hostMessage.fromVatID, newMessage); // does checkDelivery()
+        dl.addMessage(fromVatID, msgID); // does checkDelivery()
       }
       // else either there was an old message ready, or there are no messages
       // ready, so receipt of this host message cannot trigger any deliveries
-    } else if (line.startsWith(DECIDE)) {
+    } else if (wireMessage.startsWith(DECIDE)) {
       if (fromHostID !== leaderHostID) {
         log(`got DECIDE from ${fromHostID} but my leader is ${leaderHostID}, ignoring`);
         // todo: drop connection
         return;
       }
-      const decideMessage = JSON.parse(line.slice(DECIDE.length));
-      dl.addDecision(decideMessage);
+      const decisionMessage = JSON.parse(wireMessage.slice(DECIDE.length));
+      dl.addDecision(decisionMessage);
     } else {
-      log(`unrecognized line: ${line}`);
+      log(`unrecognized wireMessage: ${wireMessage}`);
       // todo: drop this connection
       return;
     }
@@ -248,18 +251,18 @@ export function makeRemoteManager(myVatID, leaderHostID, isLeader,
     const vatMessageJson = { fromVatID: myVatID,
                              toVatID: vatID,
                              seqnum: seqnum,
-                             msg: body,
+                             opMsg: body,
                            };
     // we don't need webkey.marshal, this is just plain JSON
     const vatMessage = JSON.stringify(vatMessageJson);
-    const hostMessage = `${OP}${vatMessage}`; // future todo: append signature
-    log(`sendTo ${vatID} [${seqnum}] ${hostMessage}`);
-    managerWriteOutput(hostMessage);
+    const wireMessage = `${OP}${vatMessage}`; // future todo: append signature
+    log(`sendTo ${vatID} [${seqnum}] ${wireMessage}`);
+    managerWriteOutput(wireMessage);
 
     for (let hostID of vatRemote.hostIDs) {
       // now add to a per-targetHostID queue, and if we have a current
       // connection, send it
-      getHostRemote(hostID).sendHostMessage(hostMessage);
+      getHostRemote(hostID).sendHostMessage(wireMessage);
     }
   }
 
