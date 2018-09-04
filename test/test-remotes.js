@@ -32,7 +32,8 @@ test('parseVatID', (t) => {
 });
 
 
-function logConflict(text, componentID, seqNum, msgID, msg) {
+function logConflict(text, componentID, seqNum, msgID, msg, seqMap) {
+  throw new Error('logConflict');
 }
 
 
@@ -96,12 +97,20 @@ test('vatRemote inbound solo', (t) => {
 
   t.equal(r.getReadyMessage(), undefined);
 
+  // duplicate delivery should be tolerated and ignored
+  got(hm3, 'vat2');
+  t.equal(r.getReadyMessage(), undefined);
+
   t.end();
 });
 
 test('vatRemote inbound quorum', (t) => {
   // I am vat1, upstream is q2-vat2a-vat2b-vat2c
   const fromVatID = 'q2-vat2a-vat2b-vat2c';
+  const conflicts = [];
+  function logConflict(...args) {
+    conflicts.push(args);
+  }
   const r = makeRemoteForVatID(fromVatID, shallowDef, console.log, logConflict);
   function got(hm, host, msgID=null) {
     msgID = msgID || hm.id;
@@ -164,6 +173,7 @@ test('vatRemote inbound quorum', (t) => {
   const hm4y = makeMsg(fromVatID, 4, 'y');
   t.equal(got(hm4x, 'vat2a'), undefined);
   t.equal(got(hm4y, 'vat2b'), undefined);
+  t.equal(conflicts.length, 1);
   t.deepEqual(got(hm4x, 'vat2c'), hm4x);
   t.deepEqual(r.getReadyMessage(), hm4x);
   r.consumeReadyMessage();
@@ -174,10 +184,14 @@ test('vatRemote inbound quorum', (t) => {
   const hm5x = makeMsg(fromVatID, 5, 'x');
   const hm5y = makeMsg(fromVatID, 5, 'y');
   const hm5z = makeMsg(fromVatID, 5, 'z');
+  t.equal(conflicts.length, 1);
   t.equal(got(hm5x, 'vat2a'), undefined);
   t.equal(got(hm5y, 'vat2b'), undefined);
+  t.equal(conflicts.length, 2);
   t.equal(got(hm5z, 'vat2c'), undefined);
+  t.equal(conflicts.length, 3);
   t.deepEqual(got(hm5x, 'vat2c'), hm5x);
+  t.equal(conflicts.length, 3);
   t.deepEqual(r.getReadyMessage(), hm5x);
   r.consumeReadyMessage();
   t.equal(r.getReadyMessage(), undefined);

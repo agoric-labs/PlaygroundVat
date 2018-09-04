@@ -64,9 +64,9 @@ export function makeScoreboard(quorumTest, def, logConflict) {
           componentIDs: new Set()
         };
         seqMap.set(msgID, record);
-        if (seqMap.size >= 1) {
+        if (seqMap.size > 1) {
           logConflict('Conflicting alleged messages',
-                      componentID, seqNum, msgID, msg);
+                      componentID, seqNum, msgID, msg, seqMap);
         }
       }
       const { componentIDs } = record;
