@@ -94,25 +94,45 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
   };
 }
 
-export function makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver) {
-  let nextDecisionSeqnum = 0;
-  const decisionList = []; // { decisionSeqnum, fromVatID, msgID }
-  // msgID is nominally a hash of (fromVatID, toVatID, messageSeqnum, body),
-  // but for now we just use a serialization of the whole thing. We track
-  // fromVatID separately because we need it to find the actual messages for
-  // delivery.
+export function makeDecisionList(log, myVatID, isLeader,
+                                 getReadyMessages, deliver) {
+  let nextLeaderSeqnum = 0;
+  let nextDeliverySeqnum = 0;
+  const decisionList = []; // each entry contains:
+  // toVatID: always equal to myVatID (else we'd have rejected it)
+  // decisionSeqnum
+  // vatMessageID (nominally a hash of the Vat Message)
+  // and other debug* fields
+  //
+  // for now vatMessageID is just a serialization of the whole thing
 
   function checkDelivery() {
+    //console.log('decisionList:', decisionList);
     while(decisionList.length) {
+      //console.log('looking for', nextDeliverySeqnum);
       const next = decisionList[0];
-      const r = getVatRemote(next.fromVatID);
-      const sm = r.getReadyMessage();
-      if (!sm || sm.id !== next.msgID) {
+      if (next.decisionSeqnum !== nextDeliverySeqnum) {
+        // we received decisions out of order, wait for the right one
+        //console.log(' seqnum bail');
         return;
       }
-      r.consumeReadyMessage();
-      deliver(next.fromVatID, sm.msg);
-      decisionList.shift();
+      let found = false;
+      for (let [ vatID, sm, consume ] of getReadyMessages()) {
+        //console.log(' looking at', sm);
+        //console.log(' comparing ', next.vatMessageID);
+        if (sm.id === next.vatMessageID) {
+          //console.log('  delivering');
+          decisionList.shift();
+          consume();
+          nextDeliverySeqnum = next.decisionSeqnum+1;
+          deliver(vatID, sm.msg);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        return;
+      }
     }
   }
 
@@ -122,12 +142,13 @@ export function makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver) 
       // each complete message will arrive here, and we'll add it to the list.
       // In this case, we're the only one adding to the list, so it will always
       // be sorted.
-      decisionList.push({ decisionSeqnum: nextDecisionSeqnum,
-                          toVatID: myVatID,
+      decisionList.push({ toVatID: myVatID,
+                          decisionSeqnum: nextLeaderSeqnum,
                           vatMessageID: sm.id,
-                          fromVatID: sm.msg.fromVatID,
-                          vatSeqnum: sm.msg.seqnum });
-      nextDecisionSeqnum += 1;
+                          // these are for debugging
+                          debug_fromVatID: sm.msg.fromVatID,
+                          debug_vatSeqnum: sm.msg.seqnum });
+      nextLeaderSeqnum += 1;
       // todo: notify followers
     }
     // in either case, we now check to see if something can be delivered
@@ -135,8 +156,10 @@ export function makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver) 
   }
 
   function addDecision(dm) {
-    // dm is { decisionSeqnum, toVatID, vatMessageID, fromVatID, vatSeqnum }
-    // vatMessageID is authoritative, fromVatID/vatSeqnum are alleged
+    // dm is { toVatID, decisionSeqnum, vatMessageID, debug_fromVatID,
+    // debug_vatSeqnum }
+
+    // vatMessageID is authoritative, debug_* are alleged and ignored
 
     // add to the queue if not already there, sort, checkDelivery
     if (isLeader) {
@@ -149,11 +172,14 @@ export function makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver) 
       return;
     }
 
+    if (dm.decisionSeqnum < nextDeliverySeqnum) {
+      // got stale decision, ignore it
+      return;
+    }
+
     for (let d in decisionList) {
       if (d.decisionSeqnum === dm.decisionSeqnum) {
-        if (d.vatMessageID !== dm.vatMessageID ||
-            d.fromVatID !== dm.fromVatID ||
-            d.vatSeqnum !== dm.vatSeqnum) {
+        if (d.vatMessageID !== dm.vatMessageID) {
           log(`leader equivocated, says ${JSON.stringify(dm)} but previously said ${JSON.stringify(d)}`);
           return;
         }
@@ -175,6 +201,9 @@ export function makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver) 
   return {
     addMessage,
     addDecision,
+    debug_getDecisionList() { return decisionList; },
+    debug_getNextLeaderSeqnum() { return nextLeaderSeqnum; },
+    debug_getNextDeliverySeqnum() { return nextDeliverySeqnum; },
   };
 
 }
@@ -182,30 +211,42 @@ export function makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver) 
 export function makeRemoteManager(myVatID, myHostID,
                                   managerWriteInput, managerWriteOutput,
                                   def, log, logConflict) {
-  const remotes = new Map();
+  const vatRemotes = new Map();
+  const hostRemotes = new Map();
   let engine;
   const parsed = parseVatID(myVatID);
   const leaderHostID = parsed.leader;
   const isLeader = (leaderHostID === myHostID);
 
   function getHostRemote(hostID) {
-    if (!remotes.has(hostID)) {
+    if (!hostRemotes.has(hostID)) {
       if (!engine) {
         throw new Error('engine is not yet set');
       }
-      remotes.set(hostID, makeRemoteForHostID(hostID, engine, managerWriteInput));
+      hostRemotes.set(hostID, makeRemoteForHostID(hostID, engine, def,
+                                              managerWriteInput));
     }
-    return remotes.get(hostID);
+    return hostRemotes.get(hostID);
   }
 
   function getVatRemote(vatID) {
-    if (!remotes.has(vatID)) {
-      remotes.set(vatID, makeRemoteForVatID(vatID, def, log, logConflict));
+    if (!vatRemotes.has(vatID)) {
+      vatRemotes.set(vatID, makeRemoteForVatID(vatID, def, log, logConflict));
     }
-    return remotes.get(vatID);
+    return vatRemotes.get(vatID);
   }
 
-  const dl = makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver);
+  function* getReadyMessages() {
+    for (let [vatID, r] of vatRemotes.entries()) {
+      const sm = r.getReadyMessage();
+      if (sm) {
+        yield [vatID, sm, r.consumeReadyMessage];
+      }
+    }
+  }
+
+  const dl = makeDecisionList(log, myVatID, isLeader,
+                              getReadyMessages, deliver);
 
   function deliver(fromVatID, m) {
     managerWriteInput(XX);
@@ -260,8 +301,8 @@ export function makeRemoteManager(myVatID, myHostID,
   }
 
   function whatConnectionsDoYouWant() {
-    return Array.from(remotes.keys()).filter(hostID => {
-      return remotes.get(hostID).haveOutbound();
+    return Array.from(hostRemotes.keys()).filter(hostID => {
+      return hostRemotes.get(hostID).haveOutbound();
     });
   }
 
@@ -308,8 +349,8 @@ export function makeRemoteManager(myVatID, myHostID,
 }
 
 
-
-function makeRemoteForHostID(hostID, engine, managerWriteInput) {
+// this is just for outbound messages, but todo future maybe acks too
+function makeRemoteForHostID(hostID, engine, def, managerWriteInput) {
   let queuedMessages = [];
   let nextInboundSeqnum = 0;
   let queuedInboundMessages = new Map(); // seqnum -> msg
