@@ -65,6 +65,9 @@ export function makeEngine(def,
     if (!target) {
       throw new Error(`unrecognized target, swissnum=${opMsg.targetSwissnum}`);
     }
+    if (!opMsg.argsS) {
+      throw new Error('opMsg is missing .argsS');
+    }
     const args = marshal.unserialize(opMsg.argsS);
     // todo: sometimes causes turn delay, could fastpath if target is
     // resolved

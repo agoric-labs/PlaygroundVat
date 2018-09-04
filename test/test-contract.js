@@ -3,14 +3,13 @@ import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
 
-function NOTtest() {}
-
 function sendCall(v, methodName, ...args) {
-  const op = {op: 'send',
-               targetSwissnum: '0',
-               methodName: methodName,
-               args: args};
-  return v.doSendOnly(JSON.stringify(op));
+  const opMsg = { op: 'send',
+                  targetSwissnum: '0',
+                  methodName: methodName,
+                  argsS: JSON.stringify(args),
+                };
+  return v.doSendOnly(opMsg);
 }
 
 async function buildContractVat(source='../examples/contract') {
@@ -57,7 +56,8 @@ test('contract test Bob first', async (t) => {
   t.end();
 });
 
-NOTtest('contract test Bob lies', async (t) => {
+// this is broken until we can deliver Rejection properly
+test.skip('contract test Bob lies', async (t) => {
   const v = await buildContractVat();
   const p = sendCall(v, 'betterContractTestBobFirst', true);
   await p.then(e => t.fail('should have broken'),
