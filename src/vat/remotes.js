@@ -15,6 +15,7 @@ export function parseVatID(vatID) {
     return { threshold: 1,
              members,
              leader: vatID,
+             followers: [],
            }; // solo vat
   } else {
     const pieces = vatID.split('-');
@@ -27,6 +28,7 @@ export function parseVatID(vatID) {
     return { threshold: count,
              members: new Set(pieces.slice(1)),
              leader: pieces[1],
+             followers: pieces.slice(2),
            };
   }
 }
@@ -94,8 +96,8 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
   };
 }
 
-export function makeDecisionList(log, myVatID, isLeader,
-                                 getReadyMessages, deliver) {
+export function makeDecisionList(log, myVatID, isLeader, followers,
+                                 getReadyMessages, deliver, sendDecisionTo) {
   let nextLeaderSeqnum = 0;
   let nextDeliverySeqnum = 0;
   const decisionList = []; // each entry contains:
@@ -142,14 +144,18 @@ export function makeDecisionList(log, myVatID, isLeader,
       // each complete message will arrive here, and we'll add it to the list.
       // In this case, we're the only one adding to the list, so it will always
       // be sorted.
-      decisionList.push({ toVatID: myVatID,
-                          decisionSeqnum: nextLeaderSeqnum,
-                          vatMessageID: sm.id,
-                          // these are for debugging
-                          debug_fromVatID: sm.msg.fromVatID,
-                          debug_vatSeqnum: sm.msg.seqnum });
+      const dm = { toVatID: myVatID,
+                   decisionSeqnum: nextLeaderSeqnum,
+                   vatMessageID: sm.id,
+                   // these are for debugging
+                   debug_fromVatID: sm.msg.fromVatID,
+                   debug_vatSeqnum: sm.msg.seqnum };
+      decisionList.push(dm);
       nextLeaderSeqnum += 1;
-      // todo: notify followers
+      // notify followers
+      for (let hostID of followers) {
+        sendDecisionTo(hostID, dm);
+      }
     }
     // in either case, we now check to see if something can be delivered
     checkDelivery();
@@ -217,6 +223,7 @@ export function makeRemoteManager(myVatID, myHostID,
   const parsed = parseVatID(myVatID);
   const leaderHostID = parsed.leader;
   const isLeader = (leaderHostID === myHostID);
+  const followers = parsed.followers;
 
   function getHostRemote(hostID) {
     if (!hostRemotes.has(hostID)) {
@@ -224,7 +231,7 @@ export function makeRemoteManager(myVatID, myHostID,
         throw new Error('engine is not yet set');
       }
       hostRemotes.set(hostID, makeRemoteForHostID(hostID, engine, def,
-                                              managerWriteInput));
+                                                  managerWriteInput));
     }
     return hostRemotes.get(hostID);
   }
@@ -245,8 +252,15 @@ export function makeRemoteManager(myVatID, myHostID,
     }
   }
 
-  const dl = makeDecisionList(log, myVatID, isLeader,
-                              getReadyMessages, deliver);
+  function sendDecisionTo(toHostID, decisionMessageJson) {
+    const decisionMessage = JSON.stringify(decisionMessageJson);
+    // future todo: append signature
+    const wireMessage = `${DECIDE}${decisionMessage}`;
+    getHostRemote(toHostID).sendHostMessage(wireMessage);
+  }
+
+  const dl = makeDecisionList(log, myVatID, isLeader, followers,
+                              getReadyMessages, deliver, sendDecisionTo);
 
   function deliver(fromVatID, m) {
     managerWriteInput(XX);

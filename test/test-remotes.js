@@ -15,14 +15,16 @@ test('parseVatID', (t) => {
   t.ok(r1.members.has('vat1'));
   t.notOk(r1.members.has('vat2'));
   t.deepEqual(Array.from(r1.members.values()).sort(), ['vat1']);
+  t.deepEqual(r1.followers, []);
 
   const r2 = parseVatID('q2-vat1-vat2-vat3');
   t.equal(r2.threshold, 2);
   t.equal(r2.leader, 'vat1');
   t.equal(r2.members.size, 3);
-  t.ok(r1.members.has('vat1'));
-  t.notOk(r1.members.has('vat4'));
+  t.ok(r2.members.has('vat1'));
+  t.notOk(r2.members.has('vat4'));
   t.deepEqual(Array.from(r2.members.values()).sort(), ['vat1', 'vat2', 'vat3']);
+  t.deepEqual(r2.followers, ['vat2', 'vat3']);
 
   t.throws(_ => parseVatID('m2-err-what'), /unknown VatID type: m2-err-what/);
 
@@ -42,9 +44,9 @@ test('vatRemote seqnum', (t) => {
   t.end();
 });
 
-function makeMsg(vat, seqnum, target='etc') {
+function makeMsg(vat, seqnum, target='etc', toVatID='vat1') {
   const msg = { fromVatID: vat,
-                toVatID: 'vat1',
+                toVatID,
                 seqnum,
                 msg: { op: 'send',
                        target },
@@ -191,9 +193,12 @@ test('decisionList solo', (t) => {
   let consumed = [];
   const deliveries = [];
   const deliver = (fromVatID, msg) => deliveries.push({ fromVatID, msg });
+  const decisionMessages = [];
+  const sendDecisionTo = (toHostID, msg) =>
+        decisionMessages.push({ toHostID, msg });
 
-  const dl = makeDecisionList(console.log, 'vat1', true,
-                              () => ready, deliver);
+  const dl = makeDecisionList(console.log, 'q2-vat1a-vat1b-vat1c', true, [],
+                              () => ready, deliver, sendDecisionTo);
   t.equal(dl.debug_getNextDeliverySeqnum(), 0);
 
   ready.push([ 'vat2', hm20, () => consumed.push(20) ]);
@@ -210,6 +215,8 @@ test('decisionList solo', (t) => {
   t.deepEqual(deliveries, [ { fromVatID: 'vat3', msg: hm30.msg } ]);
   t.deepEqual(consumed, [30]);
 
+  t.deepEqual(decisionMessages, []);
+
   t.end();
 
 });
@@ -224,14 +231,18 @@ test('decisionList follower', (t) => {
 
   const deliveries = [];
   const deliver = (fromVatID, msg) => deliveries.push({ fromVatID, msg });
+  const decisionMessages = [];
+  const sendDecisionTo = (toHostID, msg) =>
+        decisionMessages.push({ toHostID, msg });
 
-  const dl = makeDecisionList(console.log, 'vat1', false,
-                              getReadyMessages, deliver);
+  const dl = makeDecisionList(console.log, 'q2-vat1a-vat1b-vat1c', false,
+                              ['vat1b', 'vat1c'],
+                              getReadyMessages, deliver, sendDecisionTo);
   t.equal(dl.debug_getNextDeliverySeqnum(), 0);
-  const hm20 = makeMsg('vat2', 0);
-  const hm30 = makeMsg('vat3', 0);
-  const hm21 = makeMsg('vat2', 1);
-  const hm31 = makeMsg('vat3', 1);
+  const hm20 = makeMsg('vat2', 0, 'etc', 'q2-vat1a-vat1b-vat1c');
+  const hm30 = makeMsg('vat3', 0, 'etc', 'q2-vat1a-vat1b-vat1c');
+  const hm21 = makeMsg('vat2', 1, 'etc', 'q2-vat1a-vat1b-vat1c');
+  const hm31 = makeMsg('vat3', 1, 'etc', 'q2-vat1a-vat1b-vat1c');
 
   // message before decision
 
@@ -240,7 +251,7 @@ test('decisionList follower', (t) => {
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
-  dl.addDecision({ toVatID: 'vat1', decisionSeqnum: 0, vatMessageID: hm20.id});
+  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 0, vatMessageID: hm20.id});
   t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.msg } ]);
   t.deepEqual(consumed, [20]);
 
@@ -249,7 +260,7 @@ test('decisionList follower', (t) => {
 
   // decision before message
 
-  dl.addDecision({ toVatID: 'vat1', decisionSeqnum: 1, vatMessageID: hm30.id});
+  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 1, vatMessageID: hm30.id});
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
@@ -263,7 +274,7 @@ test('decisionList follower', (t) => {
 
   // duplicate decision does nothing
 
-  dl.addDecision({ toVatID: 'vat1', decisionSeqnum: 1, vatMessageID: hm30.id});
+  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 1, vatMessageID: hm30.id});
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
@@ -275,14 +286,60 @@ test('decisionList follower', (t) => {
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
-  dl.addDecision({ toVatID: 'vat1', decisionSeqnum: 3, vatMessageID: hm31.id});
+  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 3, vatMessageID: hm31.id});
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
-  dl.addDecision({ toVatID: 'vat1', decisionSeqnum: 2, vatMessageID: hm21.id});
+  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 2, vatMessageID: hm21.id});
   t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm21.msg },
                             { fromVatID: 'vat3', msg: hm31.msg } ]);
   t.deepEqual(consumed, [21, 31]);
+
+  t.deepEqual(decisionMessages, []);
+
+  t.end();
+
+});
+
+test('decisionList leader', (t) => {
+  const remotes = new Map();
+  let ready = [];
+  let consumed = [];
+  function getReadyMessages() {
+    return ready;
+  }
+
+  const deliveries = [];
+  const deliver = (fromVatID, msg) => deliveries.push({ fromVatID, msg });
+  const decisionMessages = [];
+  const sendDecisionTo = (toHostID, msg) =>
+        decisionMessages.push({ toHostID, msg });
+
+  const dl = makeDecisionList(console.log, 'q2-vat1a-vat1b-vat1c', true,
+                              ['vat1b', 'vat1c'],
+                              getReadyMessages, deliver, sendDecisionTo);
+  t.equal(dl.debug_getNextDeliverySeqnum(), 0);
+  const hm20 = makeMsg('vat2', 0, 'etc', 'q2-vat1a-vat1b-vat1c');
+
+  ready.push([ 'vat2', hm20, () => consumed.push(20) ]);
+  dl.addMessage(hm20);
+  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.msg } ]);
+  t.deepEqual(consumed, [20]);
+
+  t.deepEqual(decisionMessages, [
+    { toHostID: 'vat1b',
+      msg: { toVatID: 'q2-vat1a-vat1b-vat1c',
+             decisionSeqnum: 0,
+             vatMessageID: hm20.id,
+             debug_fromVatID: 'vat2',
+             debug_vatSeqnum: 0 } },
+    { toHostID: 'vat1c',
+      msg: { toVatID: 'q2-vat1a-vat1b-vat1c',
+             decisionSeqnum: 0,
+             vatMessageID: hm20.id,
+             debug_fromVatID: 'vat2',
+             debug_vatSeqnum: 0 } },
+  ]);
 
   t.end();
 
