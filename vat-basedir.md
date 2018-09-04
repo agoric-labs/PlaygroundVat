@@ -1,13 +1,17 @@
 Each Vat lives in a "base directory", which contains mutable state for the
-Vat. Create these with `bin/vat create <port>`, which allocates a VatID,
-creates a new directory named after that VatID, and populates it with state.
+Vat. Create these with `bin/vat create <port>`, which allocates a HostID,
+creates a new directory named after that HostID, and populates it with state.
 Later, you run vat by chdiring into the new base directory and running
 `bin/vat run`. You can also name the base directory directly with `bin/vat
 run <basedir>`.
 
+`vat create` makes a Solo Vat, in which the VatID and the HostID are the
+same. To convert it into a member of a Quorum Vat, see below.
+
 The contents of `BASEDIR` are files with the following names:
 
 * `id`: the short printable VatID
+* `host-id`: the short printable HostID
 * `private-id`: private keys needed to claim that ID
 * `listen-ports`: a list of multiaddrs, one per line, where this node
   listens, typically `/ip4/0.0.0.0/tcp/$PORT`
@@ -29,15 +33,18 @@ The contents of `BASEDIR` are files with the following names:
   `source/index.js`.
 
 In addition, `BASEDIR/locator` is used to locate connection hints for other
-Vats by computing a value named `$LOCATORDIR`. If `BASEDIR/locator` is a
+Hosts by computing a value named `$LOCATORDIR`. If `BASEDIR/locator` is a
 file, the contents are read and treated as pathname relative to `BASEDIR`
 (`LOCATORDIR = join(BASEDIR, read(join(BASEDIR, 'locator')))`). If this is a
 directory (or a symlink to a directory), it is used directly (`LOCATORDIR =
-join(BASEDIR, 'locator')`). The connection hints for VatID `XYZ` are read
-from `$LOCATORDIR/$VATID/ports`. The default value is `..`, so making all
-your vats in a shared parent directory will enable them to find each other.
+join(BASEDIR, 'locator')`). The connection hints for HostID `XYZ` are read
+from all immediate subdirectories of `$LOCATORDIR`, by looking for one whose
+`host-id` contents match, and then reading the `addresses` file from that
+subdirectory. The default value is `..`, so for a quick single-computer demo,
+making all your vats/hosts in a shared parent directory will enable them to
+find each other.
 
-Vats run a loop, once per second, to initiate connections to any other Vat
+Hosts run a loop, once per second, to initiate connections to any other host
 for which they have pending messages, using `$LOCATORDIR`.
 
 As the Vat runs, a transcript of all inbound messages will be written into
@@ -51,7 +58,7 @@ is executed, the messages are compared, and any deviation will throw a
 consistency error.
 
 
-## client
+## client (todo)
 
 `vat client <sturdy-ref>|<sturdy-ref-filename> <method> <args..>`
 
@@ -76,3 +83,32 @@ The client vat connects to the given target and invokes `<method>` on it. The
 
 The client waits until the result comes back, then prints this result with
 `JSON.stringify()`. The client then exits.
+
+## Quorum Vats
+
+A **Quorum Vat** is composed of several distinct **hosts**, each of which has
+its own HostID. Each host runs the same computation, in the same order, and
+thus ought to emit the same messages. Downstream vats will only accept these
+messages as valid if they are approved by a minimum threshold of members.
+
+The Quorum VatID is constructed by choosing a threshold (some integer NN),
+prefixing the letter `q`, appending a hyphen `-`, then joining the members'
+HostIDs with more hyphens. For example, if we have three HostIDs:
+
+* `QmP1yPTRZLKiB9mNDDBvfSCPbi1mBH2w8uLsurcr2iS47X`
+* `QmTxsHYt2a5sWpatR6LTaW4eHR9d4BozAyKMUH89YjFHsE`
+* `QmRqcYjecavhxrGm3pXKnAc6PUAouRwCygeoMCjfWE2E4X`
+
+and we want to build a Quorum Vat that requires at least two out of these
+three for approval, the new Quorum VatID will be:
+
+```
+q2-QmP1yPTRZLKiB9mNDDBvfSCPbi1mBH2w8uLsurcr2iS47X-QmTxsHYt2a5sWpatR6LTaW4eHR9d4BozAyKMUH89YjFHsE-QmRqcYjecavhxrGm3pXKnAc6PUAouRwCygeoMCjfWE2E4X
+```
+
+`vat create` builds a Solo Vat in which the HostID and the VatID are the
+same. To build a Quorum Vat, you must first create (but not launch) all the
+Solo Vats, and copy down their HostIDs. Now construct the desired Quorum
+VatID. Then go back to each Solo Vat and run `vat convert-to-quorum` with the
+new Quorum VatID.
+

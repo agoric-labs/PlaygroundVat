@@ -13,6 +13,7 @@ import PeerInfo from 'peer-info';
 
 import { startComms } from './comms';
 import { makeVatEndowments, readAndHashFile } from './host';
+import { parseVatID } from './vat/id';
 
 export function confineVatSource(s, source) {
   const exports = {};
@@ -47,7 +48,7 @@ export async function bundleCode(filename, appendSourcemap) {
   return source;
 }
 
-export async function buildVat(s, vatID, writeOutput, guestSource) {
+export async function buildVat(s, myVatID, myHostID, writeOutput, guestSource) {
 
   // This needs to read the contents of vat.js, as a string. SES manages this
   // by putting all the code (as ES6 modules) in a directory named bundle/ ,
@@ -66,7 +67,7 @@ export async function buildVat(s, vatID, writeOutput, guestSource) {
   const { makeVat } = confineVatSource(s, vatSource);
   const vatEndowments = { writeOutput };
 
-  return makeVat(vatEndowments, vatID, guestSource);
+  return makeVat(vatEndowments, myVatID, myHostID, guestSource);
 }
 
 async function create(argv) {
@@ -78,7 +79,11 @@ async function create(argv) {
   await f.appendFile(`${JSON.stringify(id.toJSON(), null, 2)}\n`);
   await f.close();
 
-  f = await fs.promises.open(path.join(basedir, 'id'), 'w');
+  f = await fs.promises.open(path.join(basedir, 'id'), 'w'); // VatID
+  await f.appendFile(`${id.toB58String()}\n`);
+  await f.close();
+
+  f = await fs.promises.open(path.join(basedir, 'host-id'), 'w');
   await f.appendFile(`${id.toB58String()}\n`);
   await f.close();
 
@@ -111,6 +116,49 @@ async function create(argv) {
   await f.close();
 
   console.log(`created new VatID ${vatID} in ${basedir}`);
+}
+
+export async function convertToQuorum(argv) {
+  const quorumVatID = argv.vatid;
+  let basedir = '.';
+  if (argv.basedir) {
+    basedir = argv.basedir;
+    // else we must be run from a vat basedir
+  }
+  const p = parseVatID(quorumVatID);
+  if (p.members.size === 1) {
+    throw new Error(`this is a solo vat id, not quorum: ${quorumVatID}`);
+  }
+  if (p.threshold > p.members.size) {
+    throw new Error(`unachievable quorum: threshold is ${p.threshold} but there are only ${p.members.size} members`);
+  }
+  async function readBaseLine(fn) {
+    const c = await fs.promises.readFile(path.join(basedir, fn),
+                                         { encoding: 'utf-8' });
+    return c.slice(0, c.indexOf('\n'));
+  }
+  const myVatID = await readBaseLine('id');
+  const myHostID = await readBaseLine('host-id');
+  if (myVatID !== myHostID) {
+    throw new Error(`I am already a member of a quorum vat (${myVatID})`);
+  }
+  if (!p.members.has(myHostID)) {
+    throw new Error(`I am not a member of the new quorum vat (I am ${myHostID}, quorum vat id is ${quorumVatID})`);
+  }
+  // todo: assert lack of input-transcript, as it will have messages for the
+  // wrong vat
+
+  if (p.leader === myHostID) {
+    console.log(`I am the leader of the new Quorum Vat`);
+  } else {
+    console.log(`I am a follower in the new Quorum Vat`);
+  }
+
+  let f = await fs.promises.open(path.join(basedir, 'id'), 'w'); // VatID
+  await f.appendFile(`${quorumVatID}\n`);
+  await f.close();
+
+  console.log('Conversion to Quorum Vat complete.');
 }
 
 export async function buildArgv(vat, argvJSON, readBaseFile) {
@@ -161,6 +209,8 @@ async function run(argv) {
   }
   const myVatID = await readBaseLine('id');
   console.log(`myVatID ${myVatID}`);
+  const myHostID = await readBaseLine('host-id');
+  console.log(`myVatID ${myVatID}`);
   const rootSturdyRef = await readBaseLine('root-sturdyref');
 
   const s = makeRealm();
@@ -170,7 +220,7 @@ async function run(argv) {
 
   const vatEndowments = makeVatEndowments(argv, output);
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
-  const v = await buildVat(s, myVatID, vatEndowments.writeOutput, guestSource);
+  const v = await buildVat(s, myVatID, myHostID, vatEndowments.writeOutput, guestSource);
   const guestArgvJSON = await readBaseFile('argv.json');
   const guestArgv = await buildArgv(v, guestArgvJSON, readBaseFile);
 
@@ -202,10 +252,10 @@ async function run(argv) {
 
   const locatordir = path.join(basedir, '..');
 
-  async function getAddressesForVatID(vatID) {
+  async function getAddressesForHostID(hostID) {
     const dirs = await fs.promises.readdir(locatordir);
     for (let d of dirs) {
-      const idFile = path.join(locatordir, d, 'id');
+      const idFile = path.join(locatordir, d, 'host-id');
       let f;
       try {
         f = await fs.promises.readFile(idFile, { encoding: 'utf-8' });
@@ -216,18 +266,18 @@ async function run(argv) {
         continue;
       }
       const id = f.split('\n')[0];
-      if (id !== vatID)
+      if (id !== hostID)
         continue;
       const portsFile = path.join(locatordir, d, 'addresses'); // todo: fake symlink
       const data = await fs.promises.readFile(portsFile, { encoding: 'utf-8' });
       const addresses = data.split('\n').filter(address => address); // remove blank lines
       return addresses;
     }
-    console.log(`unable to find addresses for VatID ${vatID}`);
+    console.log(`unable to find addresses for HostID ${hostID}`);
     return [];
   }
 
-  await startComms(v, myPeerInfo, myVatID, getAddressesForVatID);
+  await startComms(v, myPeerInfo, myVatID, getAddressesForHostID);
 
   // we fall off the edge here, but Node keeps running because there are
   // still open listening sockets
@@ -264,8 +314,24 @@ export async function main() {
         })
       ;
     }, (argv) => run(argv))
+    .command('convert-to-quorum <vatid> [basedir]', 'convert a Solo Vat (in current directory, or from BASEDIR) to the new Quorum VatID', (yargs) => {
+      yargs
+        .positional('vatid', {
+          describe: 'new Quorum VatID',
+        })
+        .coerce('vatid', (vatid) => {
+          if (!/^q(\d+)-/.test(vatid)) {
+            throw new Error(`new vatid must start with 'qNN-', but is ${vatid}`);
+          }
+          return vatid;
+        })
+        .option('basedir', {
+          describe: 'base directory, created by "vat create"',
+        })
+      ;
+    }, (argv) => convertToQuorum(argv))
     .command('*', false, () => {}, (argv) => {
-      console.log('no subcommand specified, try "vat create" or "vat run"');
+      console.log('no subcommand specified, try "vat create", "vat run", or "vat convert-to-quorum"');
     })
     .parse();
 }

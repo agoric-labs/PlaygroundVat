@@ -26,7 +26,7 @@ function confineGuestSource(source, endowments) {
   return module.exports;
 }
 
-export function makeVat(endowments, myVatID, initialSource) {
+export function makeVat(endowments, myVatID, myHostID, initialSource) {
 
   // We have one serializer/deserializer for each locally-hosted Vat, so
   // it shared among all peer Vats.
@@ -121,7 +121,7 @@ export function makeVat(endowments, myVatID, initialSource) {
   function managerWriteOutput(msg) {
     endowments.writeOutput(`output: ${msg}\n`);
   }
-  const myHostID = myVatID; // todo
+
   function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {
     log(issue, `${seqMap.size} msgIDs, from hostID ${componentID} [${seqNum}]`);
   }

@@ -35,12 +35,12 @@ test('comms, sending a message', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t1_sender);
-  const v1 = await buildVat(s, 'vat1', tr.writeOutput, v1src);
+  const v1 = await buildVat(s, 'vat1', 'vat1', tr.writeOutput, v1src);
   const v1argv = { target: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t1_responder);
-  const v2 = await buildVat(s, 'vat2', tr.writeOutput, v2src);
+  const v2 = await buildVat(s, 'vat2', 'vat2', tr.writeOutput, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
@@ -125,12 +125,12 @@ test('sending unresolved local Vow', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t2_sender);
-  const v1 = await buildVat(s, 'vat1', tr.writeOutput, v1src);
+  const v1 = await buildVat(s, 'vat1', 'vat1', tr.writeOutput, v1src);
   const v1argv = { target: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t2_responder);
-  const v2 = await buildVat(s, 'vat2', tr.writeOutput, v2src);
+  const v2 = await buildVat(s, 'vat2', 'vat2', tr.writeOutput, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
@@ -240,19 +240,19 @@ test('sending third-party Vow', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t3_one);
-  const v1 = await buildVat(s, 'vat1', tr.writeOutput, v1src);
+  const v1 = await buildVat(s, 'vat1', 'vat1', tr.writeOutput, v1src);
   const v1argv = { target2: v1.createPresence('vat2/0'),
                    target3: v1.createPresence('vat3/0'),
                  };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t3_two);
-  const v2 = await buildVat(s, 'vat2', tr.writeOutput, v2src);
+  const v2 = await buildVat(s, 'vat2', 'vat2', tr.writeOutput, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
   const v3src = funcToSource(t3_three);
-  const v3 = await buildVat(s, 'vat3', tr.writeOutput, v3src);
+  const v3 = await buildVat(s, 'vat3', 'vat3', tr.writeOutput, v3src);
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
   const q = makeQueues(t);
@@ -400,19 +400,19 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t4_one);
-  const v1 = await buildVat(s, 'vat1', tr.writeOutput, v1src);
+  const v1 = await buildVat(s, 'vat1', 'vat1', tr.writeOutput, v1src);
   const v1argv = { target2: v1.createPresence('vat2/0'),
                    target3: v1.createPresence('vat3/0'),
                  };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t4_two);
-  const v2 = await buildVat(s, 'vat2', tr.writeOutput, v2src);
+  const v2 = await buildVat(s, 'vat2', 'vat2', tr.writeOutput, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
   const v3src = funcToSource(t4_three);
-  const v3 = await buildVat(s, 'vat3', tr.writeOutput, v3src);
+  const v3 = await buildVat(s, 'vat3', 'vat3', tr.writeOutput, v3src);
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
   const q = makeQueues(t);
@@ -602,7 +602,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
 
   const DRIVER = 'DRIVER';
   const v1src = funcToSource(t5_driver);
-  const vatDRIVER = await buildVat(s, 'vatDRIVER', tr.writeOutput, v1src);
+  const vatDRIVER = await buildVat(s, 'vatDRIVER', 'vatDRIVER', tr.writeOutput, v1src);
   const v1argv = { mint: vatDRIVER.createPresence('vatMINT/0'),
                    alice: vatDRIVER.createPresence('vatALICE/0'),
                  };
@@ -610,13 +610,13 @@ test('breaking something sending third-party Vow back home', async (t) => {
 
   const MINT = 'MINT';
   const v2src = funcToSource(t5_mint);
-  const vatMINT = await buildVat(s, 'vatMINT', tr.writeOutput, v2src);
+  const vatMINT = await buildVat(s, 'vatMINT', 'vatMINT', tr.writeOutput, v2src);
   const v2argv = {};
   const v2root = await vatMINT.initializeCode('vatMINT/0', v2argv);
 
   const ALICE = 'ALICE';
   const v3src = funcToSource(t5_alice);
-  const vatALICE = await buildVat(s, 'vatALICE', tr.writeOutput, v3src);
+  const vatALICE = await buildVat(s, 'vatALICE', 'vatALICE', tr.writeOutput, v3src);
   const v3argv = { mint: vatALICE.createPresence('vatMINT/0'),
                  };
   const v3root = await vatALICE.initializeCode('vatALICE/0', v3argv);

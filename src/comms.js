@@ -164,7 +164,7 @@ async function handleConnection(vat, protocol, conn) {
 
 }
 
-export async function startComms(vat, myPeerInfo, myHostID, getAddressesForVatID) {
+export async function startComms(vat, myPeerInfo, myHostID, getAddressesForHostID) {
   console.log(`startComms, myHostID is ${myHostID}`);
   //console.log(`peerInfo is ${myPeerInfo}`);
   const n = new CommsNode({ peerInfo: myPeerInfo });
@@ -189,7 +189,7 @@ export async function startComms(vat, myPeerInfo, myHostID, getAddressesForVatID
     console.log(`startComms.check`);
     for (let hostID of vat.whatConnectionsDoYouWant()) {
       if (!connections.has(hostID) && !pending.has(hostID)) {
-        const addresses = await getAddressesForVatID(hostID);
+        const addresses = await getAddressesForHostID(hostID);
         pending.add(hostID);
         const p = connectTo(n, hostID, addresses, myHostID, vat);
         p.then(({c, doneP}) => { pending.delete(hostID);
