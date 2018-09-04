@@ -56,9 +56,8 @@ export function makeEngine(def,
     manager.sendTo(targetVatID, body);
   }
 
-  function rxSendOnly(message) { // currently just for debugging
-    const body = marshal.unserialize(message);
-    return doSendInternal(body);
+  function rxSendOnly(opMsg) { // currently just for tests
+    return doSendInternal(opMsg);
   }
 
   function doSendInternal(opMsg) {
