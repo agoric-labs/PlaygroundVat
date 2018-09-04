@@ -136,7 +136,9 @@ consist of a type keyword (like ``OP``), and the serialized Vat Message.
 
 The ``DECIDE`` Host Message is used internally among members of a Quorum Vat
 to coordinate their actions, and contains a "decision seqnum", a Recipient
-Vat ID, and a Vat Message ID, collectively known as the Decision Message.
+Vat ID, and a Vat Message ID, collectively known as the Decision Message. To
+help the implementation find the right message, the Decision Message also
+includes an alleged Sender Vat ID and Message Sequence Number.
 
 All three types of Host Messages also include cryptographic evidence that the
 sending Host approves of the contents. For ``OP`` messages, this indicates
