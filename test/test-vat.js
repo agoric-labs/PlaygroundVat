@@ -109,35 +109,38 @@ test('methods can send messages via commsReceived', async (t) => {
   const opMsg = {op: 'send',
                  targetSwissnum: '0',
                  methodName: 'send',
-                 args: JSON.stringify([
-                   {'@qclass': 'presence',
-                    vatID: 'vat2',
-                    swissnum: 123
-                   }])};
+                 argsS: JSON.stringify([
+                   { '@qclass': 'presence',
+                     vatID: 'vat2',
+                     swissnum: 123
+                   }]) };
   const body = { fromVatID: 'vat2',
                  toVatID: 'v1',
                  seqnum: 0,
                  opMsg };
-  const payload = JSON.stringify(body);
+  const payload = 'op ' + JSON.stringify(body);
   // note: commsReceived's return value doesn't wait for the method to be
   // invoked, it discards that Promise, unlike debugRxMessage
   await v.commsReceived('vat2', payload);
   console.log(`transcript is ${tr.lines}`);
-  t.equal(tr.lines.length, 2);
-  const pieces = tr.lines[1].split(' '); // cheap
-  t.equal(pieces[0], 'msg:');
-  t.equal(pieces[1], 'v1->vat2[0]');
-  const argsPayload = JSON.parse(pieces[2]);
-  t.equal(argsPayload.type, 'op');
-  t.equal(argsPayload.seqnum, 0);
-  t.equal(argsPayload.targetVatID, 'vat2');
-  const args = JSON.parse(argsPayload.msg);
-  t.equal(args.op, 'send');
-  t.equal(args.targetSwissnum, 123);
-  t.equal(args.methodName, 'foo');
-  t.deepEqual(args.args, ['arg1', 'arg2']);
-  t.equal(args.resultSwissbase, 'base-1'); // todo: this will become random
-
+  t.equal(tr.lines.length, 1);
+  const pieces = tr.lines[0].split(' '); // cheap
+  t.equal(pieces[0], 'output:');
+  t.equal(pieces[1], 'op');
+  const op = JSON.parse(pieces[2]);
+  const expected = { fromVatID: 'v1',
+                     toVatID: 'vat2',
+                     seqnum: 0,
+                     opMsg: {
+                       op: 'send',
+                       targetSwissnum: 123,
+                       methodName: 'foo',
+                       argsS: JSON.stringify([
+                         'arg1', 'arg2']),
+                       // todo: this will become random
+                       resultSwissbase: 'base-1',
+                     }};
+  t.deepEqual(op, expected);
   t.end();
 });
 
@@ -146,30 +149,27 @@ test('method results are sent back', async (t) => {
   const s = makeRealm();
   const v = await buildVat(s, 'v1', 'v1', tr.writeOutput, funcToSource(s2));
   await v.initializeCode('v1/0');
-  const body = {op: 'send',
-                resultSwissbase: '5',
-                targetSwissnum: '0',
-                methodName: 'returnValue',
-                args: [3]};
-  const bodyJson = JSON.stringify(body);
-  const payload = JSON.stringify({type: 'op',
-                                  seqnum: 0,
-                                  msg: bodyJson});
-  await v.debugRxMessage('vat2', 0, bodyJson);
+  const opMsg = { op: 'send',
+                  resultSwissbase: '5',
+                  targetSwissnum: '0',
+                  methodName: 'returnValue',
+                  argsS: JSON.stringify([3]) };
+  await v.debugRxMessage('vat2', 0, opMsg);
   console.log(`transcript is ${tr.lines}`);
-  t.equal(tr.lines.length, 2);
-  const pieces = tr.lines[1].split(' '); // cheap
-  t.equal(pieces[0], 'msg:');
-  t.equal(pieces[1], 'v1->vat2[0]');
-  const argsPayload = JSON.parse(pieces[2]);
-  t.equal(argsPayload.type, 'op');
-  t.equal(argsPayload.seqnum, 0);
-  t.equal(argsPayload.targetVatID, 'vat2');
-  const args = JSON.parse(argsPayload.msg);
-  t.equal(args.op, 'resolve');
-  t.equal(args.targetSwissnum, 'hash-of-5');
-  t.deepEqual(args.value, 3);
-
+  t.equal(tr.lines.length, 1);
+  const pieces = tr.lines[0].split(' '); // cheap
+  t.equal(pieces[0], 'output:');
+  t.equal(pieces[1], 'op');
+  const op = JSON.parse(pieces[2]);
+  const expected = { fromVatID: 'v1',
+                     toVatID: 'vat2',
+                     seqnum: 0,
+                     opMsg: {
+                       op: 'resolve',
+                       targetSwissnum: 'hash-of-5',
+                       valueS: JSON.stringify(3),
+                     }};
+  t.deepEqual(op, expected);
   t.end();
 });
 
@@ -180,21 +180,21 @@ test('methods can return a promise', async (t) => {
   await v.initializeCode('v1/0');
 
   let result = false;
-  const op1 = {op: 'send',
-               targetSwissnum: '0',
-               methodName: 'wait',
-               args: []};
-  const p = v.doSendOnly(JSON.stringify(op1));
+  const op1 = { op: 'send',
+                targetSwissnum: '0',
+                methodName: 'wait',
+                argsS: JSON.stringify([]) };
+  const p = v.doSendOnly(op1);
   p.then((res) => {
     result = res;
   });
 
   t.equal(result, false);
-  const op2 = {op: 'send',
-               targetSwissnum: '0',
-               methodName: 'fire',
-               args: [10]};
-  v.doSendOnly(JSON.stringify(op2));
+  const op2 = { op: 'send',
+                targetSwissnum: '0',
+                methodName: 'fire',
+                argsS: JSON.stringify([10]) };
+  v.doSendOnly(op2);
   await promisify(setImmediate)();
   t.equal(result, 10);
   t.end();

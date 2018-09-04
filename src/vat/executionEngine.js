@@ -63,7 +63,7 @@ export function makeEngine(def,
   function doSendInternal(opMsg) {
     const target = marshal.getMyTargetBySwissnum(opMsg.targetSwissnum);
     if (!target) {
-      throw new Error(`unrecognized target swissnum ${opMsg.targetSwissnum}`);
+      throw new Error(`unrecognized target, swissnum=${opMsg.targetSwissnum}`);
     }
     const args = marshal.unserialize(opMsg.argsS);
     // todo: sometimes causes turn delay, could fastpath if target is

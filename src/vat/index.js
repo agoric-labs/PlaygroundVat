@@ -219,9 +219,8 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
       return engine.rxSendOnly(bodyJson);
     },
 
-    debugRxMessage(senderVatID, seqnum, bodyJson) {
-      managerWriteInput(senderVatID, seqnum, bodyJson);
-      return engine.rxMessage(senderVatID, bodyJson);
+    debugRxMessage(senderVatID, seqnum, opMsg) {
+      return engine.rxMessage(senderVatID, opMsg);
     },
 
     executeTranscriptLine(line) {
