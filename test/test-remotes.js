@@ -1,5 +1,6 @@
 import { test } from 'tape-promise/tape';
-import { parseVatID, makeRemoteForVatID, makeDecisionList } from '../src/vat/remotes';
+import { makeRemoteForVatID, makeDecisionList } from '../src/vat/remotes';
+import { parseVatID } from '../src/vat/id';
 import { vatMessageIDHash } from '../src/vat/swissCrypto';
 
 function shallowDef(obj) {
