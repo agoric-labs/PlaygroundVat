@@ -1,5 +1,6 @@
 import { makeScoreboard } from './scoreboard';
 import { insist } from '../insist';
+import { vatMessageIDHash } from './swissCrypto';
 
 function buildAck(ackSeqnum) {
   return JSON.stringify({type: 'ack', ackSeqnum});
@@ -50,28 +51,32 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
   const scoreboard = makeScoreboard(quorumTest, def, logConflict);
 
   function getReadyMessage() {
-    const res = readyMessage;
-    if (res) {
-      // if there was already a message ready, return it, and replace the
-      // stored value with a new one (or nothing) from the scoreboard
+    if (!readyMessage) {
       readyMessage = scoreboard.getNext();
-      return res;
     }
-    // else poll the scoreboard
-    return scoreboard.getNext();
+    return readyMessage;
   }
 
-  function gotHostMessage(fromHostID, msgID, hostMessage) {
+  function consumeReadyMessage() {
+    readyMessage = undefined;
+  }
+
+  function gotHostMessage(evidence, msgID, hostMessage) {
     const fromVatID = hostMessage.fromVatID;
     if (hostMessage.seqnum === undefined) {
       throw new Error(`message is missing seqnum: ${hostMessage}`);
     }
-    if (!members.has(fromHostID)) {
-      log(`not a member`, Array.from(members.values()), fromHostID);
-      return undefined; // todo: drop the connection
+
+    // evidence check: does this message come from a real member host?
+    if (!members.has(evidence.fromHostID)) {
+      log(`not a member`, Array.from(members.values()), evidence.fromHostID);
+      return undefined; // todo: sulk a bit, maybe drop the connection
     }
+    const fromHostID = evidence.fromHostID;
+
     if (scoreboard.acceptProtoMsg(fromHostID, hostMessage.seqnum,
-                                  msgID, hostMessage)) {
+                                  msgID, { id: msgID,
+                                           msg: hostMessage })) {
       return getReadyMessage();
     }
     return undefined;
@@ -85,10 +90,11 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
     },
     gotHostMessage,
     getReadyMessage,
+    consumeReadyMessage,
   };
 }
 
-export function makeDecisionList(isLeader, getVatRemote, deliver) {
+export function makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver) {
   let nextDecisionSeqnum = 0;
   const decisionList = []; // { decisionSeqnum, fromVatID, msgID }
   // msgID is nominally a hash of (fromVatID, toVatID, messageSeqnum, body),
@@ -100,24 +106,27 @@ export function makeDecisionList(isLeader, getVatRemote, deliver) {
     while(decisionList.length) {
       const next = decisionList[0];
       const r = getVatRemote(next.fromVatID);
-      const m = r.getReadyMessage();
-      if (!m || m.seqnum !== next.seqnum) {
+      const sm = r.getReadyMessage();
+      if (!sm || sm.id !== next.msgID) {
         return;
       }
-      deliver(next.fromVatID, m);
+      r.consumeReadyMessage();
+      deliver(next.fromVatID, sm.msg);
       decisionList.shift();
     }
   }
 
-  function addMessage(m) {
+  function addMessage(sm) {
     if (isLeader) {
       // If we're the Leader (or we're in a Solo Vat, so we're our own Leader),
       // each complete message will arrive here, and we'll add it to the list.
       // In this case, we're the only one adding to the list, so it will always
       // be sorted.
       decisionList.push({ decisionSeqnum: nextDecisionSeqnum,
-                          fromVatID: m.fromVatID,
-                          vatSeqnum: m.seqnum });
+                          toVatID: myVatID,
+                          vatMessageID: sm.id,
+                          fromVatID: sm.msg.fromVatID,
+                          vatSeqnum: sm.msg.seqnum });
       nextDecisionSeqnum += 1;
       // todo: notify followers
     }
@@ -126,14 +135,24 @@ export function makeDecisionList(isLeader, getVatRemote, deliver) {
   }
 
   function addDecision(dm) {
+    // dm is { decisionSeqnum, toVatID, vatMessageID, fromVatID, vatSeqnum }
+    // vatMessageID is authoritative, fromVatID/vatSeqnum are alleged
+
     // add to the queue if not already there, sort, checkDelivery
     if (isLeader) {
       log(`I am the leader, don't tell me what to do`);
       return;
     }
+
+    if (dm.toVatID !== myVatID) {
+      log(`Leader is talking to the wrong vat: I am ${myVatID}, to=${dm.toVatID}`);
+      return;
+    }
+
     for (let d in decisionList) {
       if (d.decisionSeqnum === dm.decisionSeqnum) {
-        if (d.fromVatID !== dm.fromVatID ||
+        if (d.vatMessageID !== dm.vatMessageID ||
+            d.fromVatID !== dm.fromVatID ||
             d.vatSeqnum !== dm.vatSeqnum) {
           log(`leader equivocated, says ${JSON.stringify(dm)} but previously said ${JSON.stringify(d)}`);
           return;
@@ -141,10 +160,9 @@ export function makeDecisionList(isLeader, getVatRemote, deliver) {
         // otherwise it is a duplicate, so ignore it
       }
     }
+
     // todo: be clever, remember the right insertion index instead of sorting
-    decisionList.push({ decisionSeqnum: dm.decisionSeqnum,
-                        fromVatID: dm.fromVatID,
-                        vatSeqnum: dm.vatSeqnum });
+    decisionList.push(dm);
     function cmp(a, b) {
       if (a < b) return -1;
       if (a > b) return 1;
@@ -161,12 +179,14 @@ export function makeDecisionList(isLeader, getVatRemote, deliver) {
 
 }
 
-export function makeRemoteManager(myVatID, leaderHostID, isLeader,
+export function makeRemoteManager(myVatID, myHostID,
                                   managerWriteInput, managerWriteOutput,
                                   def, log, logConflict) {
   const remotes = new Map();
   let engine;
-  //let leaderHostID = parseVatID(myVatID).leader;
+  const parsed = parseVatID(myVatID);
+  const leaderHostID = parsed.leader;
+  const isLeader = (leaderHostID === myHostID);
 
   function getHostRemote(hostID) {
     if (!remotes.has(hostID)) {
@@ -185,7 +205,7 @@ export function makeRemoteManager(myVatID, leaderHostID, isLeader,
     return remotes.get(vatID);
   }
 
-  const dl = makeDecisionList(isLeader, getVatRemote, deliver);
+  const dl = makeDecisionList(log, myVatID, isLeader, getVatRemote, deliver);
 
   function deliver(fromVatID, m) {
     managerWriteInput(XX);
@@ -201,14 +221,17 @@ export function makeRemoteManager(myVatID, leaderHostID, isLeader,
     // * decide JSON(leaderDecision)
     if (wireMessage.startsWith(OP)) {
       const hostMessage = JSON.parse(wireMessage.slice(OP.length));
-      const msgID = 'msgID:' + wireMessage.slice(OP.length); // todo: could be a hash
+      const msgID = vatMessageIDHash(wireMessage.slice(OP.length));
+      // todo: assert that toVatID === myVatID
+      const toVatID = hostMessage.toVatID;
       const fromVatID = hostMessage.fromVatID;
-      const toVatID = hostMessage.toVatID; // todo: assert that toVatID === myVatID
       const r = getVatRemote(fromVatID);
-      const newMessage = r.gotHostMessage(fromHostID, msgID, hostMessage);
+      const evidence = { fromHostID }; // todo future: cert chain
+
+      const newMessage = r.gotHostMessage(evidence, msgID, hostMessage);
       if (newMessage) {
         // there is a new message ready for this sender
-        dl.addMessage(fromVatID, msgID); // does checkDelivery()
+        dl.addMessage(newMessage); // does checkDelivery()
       }
       // else either there was an old message ready, or there are no messages
       // ready, so receipt of this host message cannot trigger any deliveries

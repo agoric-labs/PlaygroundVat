@@ -1,5 +1,6 @@
 import { test } from 'tape-promise/tape';
 import { parseVatID, makeRemoteForVatID, makeDecisionList } from '../src/vat/remotes';
+import { vatMessageIDHash } from '../src/vat/swissCrypto';
 
 function shallowDef(obj) {
   return Object.freeze(obj);
@@ -42,12 +43,14 @@ test('vatRemote seqnum', (t) => {
 });
 
 function makeMsg(vat, seqnum, target='etc') {
-  return { fromVatID: vat,
-           toVatID: 'vat1',
-           seqnum,
-           msg: { op: 'send',
-                  target },
-         };
+  const msg = { fromVatID: vat,
+                toVatID: 'vat1',
+                seqnum,
+                msg: { op: 'send',
+                       target },
+              };
+  const id = vatMessageIDHash(JSON.stringify(msg));
+  return { msg, id };
 }
 
 test('vatRemote inbound solo', (t) => {
@@ -56,9 +59,8 @@ test('vatRemote inbound solo', (t) => {
   // delivery.
   const r = makeRemoteForVatID('vat2', shallowDef, console.log, logConflict);
 
-  function got(hostMessage, host) {
-    const msgID = JSON.stringify(hostMessage);
-    return r.gotHostMessage(host, msgID, hostMessage);
+  function got(hm, host) {
+    return r.gotHostMessage({ fromHostID: host }, hm.id, hm.msg);
   }
 
   const hm0 = makeMsg('vat2', 0);
@@ -69,7 +71,9 @@ test('vatRemote inbound solo', (t) => {
   const res0 = got(hm0, 'vat2');
   t.ok(res0);
   t.deepEqual(res0, hm0);
-  t.equal(r.getReadyMessage(), undefined);
+  t.deepEqual(r.getReadyMessage(), hm0);
+  r.consumeReadyMessage();
+  t.deepEqual(r.getReadyMessage(), undefined);
 
   // 2 and 3 are queued until 1 is delivered
   const res2 = got(hm2, 'vat2');
@@ -81,8 +85,13 @@ test('vatRemote inbound solo', (t) => {
 
   const res1 = got(hm1, 'vat2');
   t.deepEqual(res1, hm1);
-  t.equal(r.getReadyMessage(), hm2);
-  t.equal(r.getReadyMessage(), hm3);
+  t.deepEqual(r.getReadyMessage(), hm1);
+  r.consumeReadyMessage();
+  t.deepEqual(r.getReadyMessage(), hm2);
+  r.consumeReadyMessage();
+  t.deepEqual(r.getReadyMessage(), hm3);
+  r.consumeReadyMessage();
+
   t.equal(r.getReadyMessage(), undefined);
 
   t.end();
@@ -92,9 +101,9 @@ test('vatRemote inbound quorum', (t) => {
   // I am vat1, upstream is q2-vat2a-vat2b-vat2c
   const fromVatID = 'q2-vat2a-vat2b-vat2c';
   const r = makeRemoteForVatID(fromVatID, shallowDef, console.log, logConflict);
-  function got(hostMessage, host, msgID=null) {
-    msgID = msgID || JSON.stringify(hostMessage);
-    return r.gotHostMessage(host, msgID, hostMessage);
+  function got(hm, host, msgID=null) {
+    msgID = msgID || hm.id;
+    return r.gotHostMessage({ fromHostID: host }, msgID, hm.msg);
   }
   let res;
 
@@ -120,6 +129,8 @@ test('vatRemote inbound quorum', (t) => {
   res = got(hm0, 'vat2b'); // threshold is 2, so this is sufficient
   t.ok(res);
   t.deepEqual(res, hm0);
+  t.deepEqual(res, r.getReadyMessage());
+  r.consumeReadyMessage();
   t.equal(r.getReadyMessage(), undefined);
 
   // delivering additional components doesn't trigger duplicate deliveries
@@ -138,8 +149,12 @@ test('vatRemote inbound quorum', (t) => {
 
   t.equal(got(hm1, 'vat2c'), undefined);
   t.deepEqual(got(hm1, 'vat2b'), hm1);
-  t.equal(r.getReadyMessage(), hm2);
-  t.equal(r.getReadyMessage(), hm3);
+  t.deepEqual(r.getReadyMessage(), hm1);
+  r.consumeReadyMessage();
+  t.deepEqual(r.getReadyMessage(), hm2);
+  r.consumeReadyMessage();
+  t.deepEqual(r.getReadyMessage(), hm3);
+  r.consumeReadyMessage();
   t.equal(r.getReadyMessage(), undefined);
 
   // upstream disagreement is ok as long as the threshold is reached
@@ -148,6 +163,8 @@ test('vatRemote inbound quorum', (t) => {
   t.equal(got(hm4x, 'vat2a'), undefined);
   t.equal(got(hm4y, 'vat2b'), undefined);
   t.deepEqual(got(hm4x, 'vat2c'), hm4x);
+  t.deepEqual(r.getReadyMessage(), hm4x);
+  r.consumeReadyMessage();
   t.equal(r.getReadyMessage(), undefined);
 
   // we currently let upstream components equivocate, and accept the first
@@ -159,12 +176,14 @@ test('vatRemote inbound quorum', (t) => {
   t.equal(got(hm5y, 'vat2b'), undefined);
   t.equal(got(hm5z, 'vat2c'), undefined);
   t.deepEqual(got(hm5x, 'vat2c'), hm5x);
+  t.deepEqual(r.getReadyMessage(), hm5x);
+  r.consumeReadyMessage();
   t.equal(r.getReadyMessage(), undefined);
 
   t.end();
 });
 
-test.only('decisionList leader', (t) => {
+test.skip('decisionList leader', (t) => {
   const remotes = new Map();
   function getVatRemote(vatID) {
     if (!remotes.has(vatID)) {
@@ -182,7 +201,7 @@ test.only('decisionList leader', (t) => {
   const hm30 = makeMsg('vat3', 0);
   const hm31 = makeMsg('vat3', 1);
 
-  dl.addMessage(
+  dl.addMessage()
 
 
   t.end();
