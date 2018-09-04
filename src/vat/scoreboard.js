@@ -104,7 +104,7 @@ export function makeScoreboard(quorumTest, def, logConflict) {
  * joining, old followers leaving, change of leader, change of
  * threshold, or any other change to the quorum rules.
  */
-export function makeConsensusLeader(decidedQs) {
+function makeConsensusLeader(decidedQs) {
 
   // map from compositeID to scoreboard
   const scoreboards = new Map();
