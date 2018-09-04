@@ -2,26 +2,26 @@ let responses = new Set();
 
 function check() {
   if (responses.size >= 3) {
-    log('EVERYTHING WORKS');
+    log('++ EVERYTHING WORKS');
   };
 }
 
 const o = {
 
   responseFromTwo(msg) {
-    log('responseFromTwo', msg);
+    log('++ responseFromTwo', msg);
     responses.add('responseFromTwo');
     check();
   },
 
   wakeupFromTwo(msg) {
-    log('wakeupFromTwo', msg);
+    log('++ wakeupFromTwo', msg);
     responses.add('wakeupFromTwo');
     check();
   },
 
   forwardedFromThree(msg) {
-    log('forwardedFromThree', msg);
+    log('++ forwardedFromThree', msg);
     responses.add('forwardedFromThree');
     check();
   },
