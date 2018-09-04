@@ -60,17 +60,28 @@ export function makeQueues(t) {
     t.ok(q.length > 0);
     if (!q.length)
       throw new Error('ugh');
-    console.log('expect', a, b, q);
+    //console.log('---');
+    //console.log('expect', a, b, q);
     const got = q.shift();
     t.notEqual(got, undefined);
-    const payload = JSON.parse(got);
+    //console.log('--got', got);
+    t.ok(got.startsWith('op '), got);
+    const payload = JSON.parse(got.slice(3));
     if (msg) {
-      if (!payload.hasOwnProperty('msg')) {
-        t.fail(`expected .msg but didn't find one in ${got}`);
+      if (!payload.hasOwnProperty('opMsg')) {
+        t.fail(`expected .opMsg but didn't find one in ${got}`);
         return undefined;
       }
-      const gotMsg = JSON.parse(payload.msg);
-      delete payload.msg;
+      const gotMsg = payload.opMsg;
+      delete payload.opMsg;
+      if (gotMsg.argsS) {
+        gotMsg.args = JSON.parse(gotMsg.argsS);
+        delete gotMsg.argsS;
+      }
+      if (gotMsg.valueS) {
+        gotMsg.value = JSON.parse(gotMsg.valueS);
+        delete gotMsg.valueS;
+      }
       t.deepEqual(gotMsg, msg);
     }
     t.deepEqual(payload, frame);
@@ -78,6 +89,8 @@ export function makeQueues(t) {
   }
 
   function expectAndDeliverAck(a, b, targetVat, ackSeqnum) {
+    // todo: acks are disabled until we figure out what they mean in a quorum vat
+    return;
     const got = expect(a, b, { ackSeqnum, type: 'ack' }, undefined);
     targetVat.commsReceived(`vat${a}`, got);
   }

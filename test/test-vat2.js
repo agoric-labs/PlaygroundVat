@@ -50,7 +50,7 @@ test('comms, sending a message', async (t) => {
   v2.connectionMade('vat1', q.addQueue(2, 1));
 
   got = q.expect(1, 2,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat2'},
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0},
                  { op: 'send',
                    resultSwissbase: 'base-1',
                    targetSwissnum: '0',
@@ -70,7 +70,7 @@ test('comms, sending a message', async (t) => {
   t.equal(v2root.getCalled(), true);
 
   got = q.expect(2, 1,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat1' },
+                 { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                  { op: 'resolve',
                    targetSwissnum: 'hash-of-base-1',
                    value: 'marco-polo',
@@ -140,7 +140,7 @@ test('sending unresolved local Vow', async (t) => {
   v2.connectionMade('vat1', q.addQueue(2, 1));
 
   got = q.expect(1, 2,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat2' },
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0 },
                  { op: 'send',
                    resultSwissbase: 'base-1',
                    targetSwissnum: '0',
@@ -165,7 +165,7 @@ test('sending unresolved local Vow', async (t) => {
   t.equal(v2root.getCalled(), true);
 
   got = q.expect(2, 1,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat1' },
+                 { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                  { op: 'resolve',
                    targetSwissnum: 'hash-of-base-1',
                    value: {'@qclass': 'undefined' },
@@ -189,7 +189,7 @@ test('sending unresolved local Vow', async (t) => {
   await Promise.resolve(0);
 
   got = q.expect(1, 2,
-                 { type: 'op', seqnum: 1, targetVatID: 'vat2' },
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1 },
                  { op: 'resolve',
                    targetSwissnum: 2,
                    value: 'pretty',
@@ -265,7 +265,7 @@ test('sending third-party Vow', async (t) => {
   let got;
 
   got = q.expect(1, 2,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat2' },
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0 },
                  { op: 'send',
                    resultSwissbase: 'base-1',
                    targetSwissnum: '0',
@@ -289,7 +289,7 @@ test('sending third-party Vow', async (t) => {
   // so when we send 'two' to three.pleaseWait, we send a vat1 vow, not the
   // original vat2 vow
   got = q.expect(1, 3,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat3' },
+                 { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 0 },
                  { op: 'send',
                    resultSwissbase: 'base-2',
                    targetSwissnum: '0',
@@ -309,7 +309,7 @@ test('sending third-party Vow', async (t) => {
   q.expectEmpty(3, 1);
   await Promise.resolve(0);
   got = q.expect(3, 1,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat1' },
+                 { fromVatID: 'vat3', toVatID: 'vat1', seqnum: 0 },
                  { op: 'resolve',
                    targetSwissnum: 'hash-of-base-2',
                    value: {'@qclass': 'undefined' },
@@ -332,7 +332,7 @@ test('sending third-party Vow', async (t) => {
 
   // first, vat2 should tell vat1 about the resolution
   got = q.expect(2, 1,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat1' },
+                 { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                  { op: 'resolve',
                    targetSwissnum: 'hash-of-base-1',
                    value: 'burns',
@@ -345,7 +345,7 @@ test('sending third-party Vow', async (t) => {
   q.expectEmpty(1, 3);
   await Promise.resolve(0);
   got = q.expect(1, 3,
-                 { type: 'op', seqnum: 1, targetVatID: 'vat3' },
+                 { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 1 },
                  { op: 'resolve',
                    targetSwissnum: 3,
                    value: 'burns',
@@ -425,7 +425,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   let got;
 
   got = q.expect(1, 2,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat2' },
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0 },
                  { op: 'send',
                    resultSwissbase: 'base-1',
                    targetSwissnum: '0',
@@ -449,7 +449,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   // so when we send 'two' to three.pleaseWait, we send a vat1 vow, not the
   // original vat2 vow
   got = q.expect(1, 3,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat3' },
+                 { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 0 },
                  { op: 'send',
                    resultSwissbase: 'base-2',
                    targetSwissnum: '0',
@@ -469,7 +469,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   q.expectEmpty(3, 1);
   await Promise.resolve(0);
   got = q.expect(3, 1,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat1' },
+                 { fromVatID: 'vat3', toVatID: 'vat1', seqnum: 0 },
                  { op: 'resolve',
                    targetSwissnum: 'hash-of-base-2',
                    value: {'@qclass': 'undefined' },
@@ -492,7 +492,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
 
   // first, vat2 should tell vat1 about the resolution
   got = q.expect(2, 1,
-                 { type: 'op', seqnum: 0, targetVatID: 'vat1' },
+                 { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                  { op: 'resolve',
                    targetSwissnum: 'hash-of-base-1',
                    value: {'@qclass': 'presence',
@@ -506,7 +506,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   q.expectEmpty(1, 3);
   await Promise.resolve(0);
   got = q.expect(1, 3,
-                 { type: 'op', seqnum: 1, targetVatID: 'vat3' },
+                 { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 1 },
                  { op: 'resolve',
                    targetSwissnum: 3,
                    value: {'@qclass': 'presence',
@@ -633,7 +633,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   q.dump();
 
   let got1 = q.expect(DRIVER, MINT,
-                      { type: 'op', seqnum: 0, targetVatID: 'vatMINT' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatMINT', seqnum: 0 },
                       { op: 'send',
                         resultSwissbase: 'base-1',
                         targetSwissnum: '0',
@@ -642,7 +642,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
                       });
 
   let got2 = q.expect(DRIVER, MINT,
-                      { type: 'op', seqnum: 1, targetVatID: 'vatMINT' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatMINT', seqnum: 1 },
                       { op: 'send',
                         resultSwissbase: 'base-2',
                         targetSwissnum: 'hash-of-base-1',
@@ -651,7 +651,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
                       });
 
   let got3 = q.expect(DRIVER, ALICE,
-                      { type: 'op', seqnum: 0, targetVatID: 'vatALICE' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatALICE', seqnum: 0 },
                       { op: 'send',
                         resultSwissbase: 'base-3',
                         targetSwissnum: '0',
@@ -663,7 +663,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
                       });
 
   let got4 = q.expect(DRIVER, ALICE,
-                      { type: 'op', seqnum: 1, targetVatID: 'vatALICE' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatALICE', seqnum: 1 },
                       { op: 'send',
                         resultSwissbase: 'base-5',
                         targetSwissnum: '0',
@@ -686,7 +686,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   // to init() came from. The driver is expected to forward this getIssuer to
   // the mint once it resolves.
   let got5 = q.expect(ALICE, DRIVER,
-                      { type: 'op', seqnum: 0, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatALICE', toVatID: 'vatDRIVER', seqnum: 0 },
                       { op: 'send',
                         resultSwissbase: 'base-1',
                         targetSwissnum: 4,
@@ -694,7 +694,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
                         args: [],
                       });
   let got6 = q.expect(ALICE, DRIVER,
-                      { type: 'op', seqnum: 1, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatALICE', toVatID: 'vatDRIVER', seqnum: 1 },
                       { op: 'resolve',
                         targetSwissnum: 'hash-of-base-3',
                         value: 'did init',
@@ -719,7 +719,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   // this causes alice to send makeEmptyPurse and deposit. She sends these
   // both to vatDRIVER because that's all she knows about so far
   let got7 = q.expect(ALICE, DRIVER,
-                      { type: 'op', seqnum: 2, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatALICE', toVatID: 'vatDRIVER', seqnum: 2 },
                       { op: 'send',
                         resultSwissbase: 'base-2',
                         targetSwissnum: 'hash-of-base-1',
@@ -730,7 +730,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   // check that forwarded messages which arrive after resolution are
   // correctly forwarded onwards
   let got8 = q.expect(ALICE, DRIVER,
-                      { type: 'op', seqnum: 3, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatALICE', toVatID: 'vatDRIVER', seqnum: 3 },
                       { op: 'send',
                         resultSwissbase: 'base-3',
                         targetSwissnum: 'hash-of-base-2',
@@ -740,7 +740,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
                                      swissnum: 4 } ],
                       });
   let got9 = q.expect(ALICE, DRIVER,
-                      { type: 'op', seqnum: 4, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatALICE', toVatID: 'vatDRIVER', seqnum: 4 },
                       { op: 'resolve',
                         targetSwissnum: 'hash-of-base-5',
                         value: 'did payBobWell',
@@ -761,7 +761,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   await Promise.resolve(0);
 
   let got10 = q.expect(MINT, DRIVER,
-                      { type: 'op', seqnum: 0, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatMINT', toVatID: 'vatDRIVER', seqnum: 0 },
                        { op: 'resolve',
                          targetSwissnum: 'hash-of-base-1',
                          value: { '@qclass': 'presence',
@@ -790,7 +790,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   await Promise.resolve(0);
 
   let got11 = q.expect(MINT, DRIVER,
-                      { type: 'op', seqnum: 1, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatMINT', toVatID: 'vatDRIVER', seqnum: 1 },
                        { op: 'resolve',
                          targetSwissnum: 'hash-of-base-2',
                          value: { '@qclass': 'presence',
@@ -812,7 +812,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   await Promise.resolve(0);
 
   let got12 = q.expect(DRIVER, ALICE,
-                      { type: 'op', seqnum: 2, targetVatID: 'vatALICE' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatALICE', seqnum: 2 },
                        { op: 'resolve',
                          targetSwissnum: 4,
                          value: { '@qclass': 'presence',
@@ -824,7 +824,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   q.expectEmpty(MINT, DRIVER);
 
   let got13 = q.expect(DRIVER, MINT,
-                      { type: 'op', seqnum: 2, targetVatID: 'vatMINT' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatMINT', seqnum: 2 },
                        { op: 'send',
                         resultSwissbase: 'base-6',
                         targetSwissnum: 2,
@@ -847,7 +847,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   await Promise.resolve(0);
 
   let got14 = q.expect(MINT, DRIVER,
-                      { type: 'op', seqnum: 2, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatMINT', toVatID: 'vatDRIVER', seqnum: 2 },
                        { op: 'resolve',
                          targetSwissnum: 'hash-of-base-6',
                          value: { '@qclass': 'presence',
@@ -861,7 +861,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   // now that 'issuer' has resolved, vatDRIVER needs to tell Alice (who will
   // ignore it)
   let got15 = q.expect(DRIVER, ALICE,
-                      { type: 'op', seqnum: 3, targetVatID: 'vatALICE' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatALICE', seqnum: 3 },
                        { op: 'resolve',
                          targetSwissnum: 'hash-of-base-1',
                          value: { '@qclass': 'presence',
@@ -870,7 +870,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
                        });
   // vatDRIVER also delivers the forwarded issuer.makeEmptyPurse
   let got16 = q.expect(DRIVER, MINT,
-                      { type: 'op', seqnum: 3, targetVatID: 'vatMINT' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatMINT', seqnum: 3 },
                        { op: 'send',
                         resultSwissbase: 'base-7',
                         targetSwissnum: 3,
@@ -893,7 +893,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   await Promise.resolve(0);
 
   let got17 = q.expect(MINT, DRIVER,
-                      { type: 'op', seqnum: 3, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatMINT', toVatID: 'vatDRIVER', seqnum: 3 },
                        { op: 'resolve',
                          targetSwissnum: 'hash-of-base-7',
                          value: { '@qclass': 'presence',
@@ -908,7 +908,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   await Promise.resolve(0);
 
   let got18 = q.expect(DRIVER, MINT,
-                      { type: 'op', seqnum: 4, targetVatID: 'vatMINT' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatMINT', seqnum: 4 },
                        { op: 'send',
                         resultSwissbase: 'base-8',
                         targetSwissnum: 4,
@@ -921,7 +921,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
 
   // got19 is the same resolution as got12, but to MINT instead of ALICE
   let got19 = q.expect(DRIVER, MINT,
-                      { type: 'op', seqnum: 5, targetVatID: 'vatMINT' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatMINT', seqnum: 5 },
                        { op: 'resolve',
                          targetSwissnum: 4,
                          value: { '@qclass': 'presence',
@@ -932,7 +932,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   // got20 is the same resolution as got17, but DRIVER->ALICE instead of
   // MINT->DRIVER
   let got20 = q.expect(DRIVER, ALICE,
-                      { type: 'op', seqnum: 4, targetVatID: 'vatALICE' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatALICE', seqnum: 4 },
                        { op: 'resolve',
                          targetSwissnum: 'hash-of-base-2',
                          value: { '@qclass': 'presence',
@@ -948,7 +948,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   await Promise.resolve(0);
 
   let got21 = q.expect(MINT, DRIVER,
-                      { type: 'op', seqnum: 4, targetVatID: 'vatDRIVER' },
+                      { fromVatID: 'vatMINT', toVatID: 'vatDRIVER', seqnum: 4 },
                        { op: 'resolve',
                          targetSwissnum: 'hash-of-base-8',
                          value: 'did deposit',
@@ -982,7 +982,7 @@ test('breaking something sending third-party Vow back home', async (t) => {
   await Promise.resolve(0);
 
   let got22 = q.expect(DRIVER, ALICE,
-                      { type: 'op', seqnum: 5, targetVatID: 'vatALICE' },
+                      { fromVatID: 'vatDRIVER', toVatID: 'vatALICE', seqnum: 5 },
                        { op: 'resolve',
                          targetSwissnum: 'hash-of-base-3',
                          value: 'did deposit',
