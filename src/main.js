@@ -161,7 +161,7 @@ export async function convertToQuorum(argv) {
   console.log('Conversion to Quorum Vat complete.');
 }
 
-export async function buildArgv(vat, argvJSON, readBaseFile) {
+export async function buildArgv(vat, argvJSON, readBaseFile, vatEndowments) {
   const argv = vat.makeEmptyObject(); // realm-side object
   const descs = JSON.parse(argvJSON);
   for (let name of Object.getOwnPropertyNames(descs)) {
@@ -174,6 +174,8 @@ export async function buildArgv(vat, argvJSON, readBaseFile) {
       argv[name] = vat.createPresence(v.sturdyref);
     } else if ('filename' in v) {
       argv[name] = await readBaseFile(v.filename);
+    } else if ('exit' in v && v.exit === 'allowed') {
+      argv[name] = vatEndowments.exit;
     } else {
       throw new Error(`unknown argv type ${v}`);
     }
@@ -222,7 +224,7 @@ async function run(argv) {
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
   const v = await buildVat(s, myVatID, myHostID, vatEndowments.writeOutput, guestSource);
   const guestArgvJSON = await readBaseFile('argv.json');
-  const guestArgv = await buildArgv(v, guestArgvJSON, readBaseFile);
+  const guestArgv = await buildArgv(v, guestArgvJSON, readBaseFile, vatEndowments);
 
   await v.initializeCode(rootSturdyRef, guestArgv);
   console.log(`rootSturdyRef: ${rootSturdyRef}`);
