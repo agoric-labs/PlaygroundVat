@@ -154,6 +154,14 @@ export async function convertToQuorum(argv) {
     console.log(`I am a follower in the new Quorum Vat`);
   }
 
+  let rootSturdyRef = readBaseLine('root-sturdyref');
+  let swiss = rootSturdyRef.split('/')[1];
+  rootSturdyRef = `${quorumVatID}/${swiss}`;
+
+  let f = await fs.promises.open(path.join(basedir, 'root-sturdyref'), 'w');
+  await f.appendFile(`${rootSturdyRef}\n`);
+  await f.close();
+
   let f = await fs.promises.open(path.join(basedir, 'id'), 'w'); // VatID
   await f.appendFile(`${quorumVatID}\n`);
   await f.close();
