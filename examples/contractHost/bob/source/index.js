@@ -66,6 +66,7 @@ export default function(argv) {
     },
 
     tradeWell: function(bobLies=false) {
+      log('++ bob.tradeWell starting');
       const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
@@ -73,9 +74,13 @@ export default function(argv) {
       if (bobLies) {
         escrowSrcWeTellAlice += 'NOT';
       }
-      return Vow.all([Vow.resolve(aliceP).e.invite(aliceTokenP,
-                                                   escrowSrcWeTellAlice, 0),
-                      Vow.resolve(bob).e.invite(bobTokenP, escrowSrc, 1)]);
+      const doneP = Vow.all([aliceP.e.invite(aliceTokenP,
+                                             escrowSrcWeTellAlice, 0),
+                             Vow.resolve(bob).e.invite(bobTokenP,
+                                                       escrowSrc, 1)]);
+      doneP.then(res => log('++ bob.tradeWell done'),
+                 rej => log('++ bob.tradeWell reject', rej));
+      return doneP;
     },
 
     /**
@@ -84,7 +89,9 @@ export default function(argv) {
      * requesting that this object invite anything.
      */
     invite: function(tokenP, allegedSrc, allegedSide) {
+      log('++ bob.invite start');
       check(allegedSrc, allegedSide);
+      log('++ bob.invite passed check');
       let cancel;
       const b = def({
         stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
@@ -92,11 +99,20 @@ export default function(argv) {
         moneyNeeded: 10,
         cancellationP: f.makeVow(function(r) { cancel = r; })
       });
-      const ackP = b.stockSrcP.e.deposit(7, myStockPurse);
+      const ackP = b.stockSrcP.e.deposit(7, myStockPurseP);
 
-      const doneP = ackP.then(
-        _ => contractHostP.e.play(tokenP, allegedSrc, allegedSide, b));
-      return doneP.then(_ => b.moneyDstP.e.getBalance());
+      const doneP = ackP.then(_ => {
+        log('++ bob.invite ackP');
+        return contractHostP.e.play(tokenP, allegedSrc, allegedSide, b);
+      });
+      return doneP.then(
+        _ => {
+          log('++ bob.invite doneP');
+          return b.moneyDstP.e.getBalance();
+        },
+        rej => {
+          log('++ bob.invite doneP reject', rej);
+        });
     }
   });
   return bob;

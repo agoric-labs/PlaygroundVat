@@ -62,3 +62,5 @@ typings/
 
 # Vat basedir output files
 output-transcript
+/examples/contractHost/out/
+/examples/quorum/out/
