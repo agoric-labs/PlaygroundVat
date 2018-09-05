@@ -24,3 +24,31 @@ messages: the response from `two`, the wakeup message from `two`, and the
 forwarded message from `three`.
 
 This exercises solo->quorum, quorum->quorum, and quorum->solo.
+
+## Running
+
+Make sure you can run `bin/vat` from the top of the source tree (you'll need
+to do `npm install` first, and possibly change the `#!` "shbang" line to
+point at your copy of `node`).
+
+Then run `./start.sh`, which will launch all the vats.
+
+Then a command like `watch 'grep ++ out/*'` will show the most important
+stdout messages from all vats. Wait for one to say `EVERYTHING WORKS`.
+
+Use `killall node` to shut down all hosts (as well as killing off any other
+Node.js programs on your computer).
+
+Delete the `out/` directory before running again, since the `start.sh` script
+will try to recreate it each time.
+
+## Testing
+
+If you edit `start.sh` to comment out the launch of host `twoC`, the demo
+will work anyways, because vat `two` has a quorum threshold of 2. The
+contributions of hosts `twoA` and `twoB` are sufficient.
+
+If you comment out the launch of host `threeC` instead, the demo will fail
+(in particular the `++ forwardedFromThree` message will never appear on vat
+`one`), because vat `three` has a quorum threshold of 3: all three hosts are
+required.
