@@ -85,7 +85,7 @@ export function makeEngine(def,
     // sent messages are assigned a seqnum by the manager
     //txMessage(recipientVatID, message)
 
-    log(`op ${opMsg.op}`);
+    //log(`op ${opMsg.op}`);
     let done;
     if (opMsg.op === 'send') {
       const res = doSendInternal(opMsg);

@@ -242,14 +242,31 @@ export function makeRemoteManager(myVatID, myHostID,
 
   function deliver(fromVatID, m) {
     // todo: retain the serialized form, for the transcript
-    log('DELIVER', fromVatID, m);
+
+    // create a form that's more useful for logging, by JSON-parsing the
+    // argument string. The real delivery uses marshal.unserialize, which
+    // converts various @qclass things into special types. For logging we
+    // want to leave those as @qclass things.
+    {
+      const copy = JSON.parse(JSON.stringify(m)); // deep copy
+      if (copy.opMsg && copy.opMsg.argsS) {
+        copy.opMsg.args = JSON.parse(copy.opMsg.argsS);
+        delete copy.opMsg.argsS;
+      }
+      if (copy.opMsg && copy.opMsg.valueS) {
+        copy.opMsg.value = JSON.parse(copy.opMsg.valueS);
+        delete copy.opMsg.valueS;
+      }
+      log('DELIVER', fromVatID, JSON.stringify(copy, null, 2));
+    }
+
     //managerWriteInput(XX);
     engine.rxMessage(fromVatID, m.opMsg);
     // todo: now send an ack
   }
 
   function commsReceived(fromHostID, wireMessage, marshal) {
-    log(`commsReceived ${fromHostID}, ${wireMessage}`);
+    //log(`commsReceived ${fromHostID}, ${wireMessage}`);
     const hr = getHostRemote(fromHostID);
     // 'wireMessage' is one of:
     // * op JSON(vatMessage)
@@ -314,7 +331,19 @@ export function makeRemoteManager(myVatID, myHostID,
     // we don't need webkey.marshal, this is just plain JSON
     const vatMessage = JSON.stringify(vatMessageJson);
     const wireMessage = `${OP}${vatMessage}`; // future todo: append signature
-    log(`sendTo ${vatID} [${seqnum}] ${wireMessage}`);
+    {
+      const copy = JSON.parse(vatMessage);
+      if (copy.opMsg && copy.opMsg.argsS) {
+        copy.opMsg.args = JSON.parse(copy.opMsg.argsS);
+        delete copy.opMsg.argsS;
+      }
+      if (copy.opMsg && copy.opMsg.valueS) {
+        copy.opMsg.value = JSON.parse(copy.opMsg.valueS);
+        delete copy.opMsg.valueS;
+      }
+      log('SEND', JSON.stringify(copy, null, 2));
+    }
+    //log(`sendTo ${vatID} [${seqnum}] ${wireMessage}`);
     managerWriteOutput(wireMessage);
 
     for (let hostID of vatRemote.hostIDs) {

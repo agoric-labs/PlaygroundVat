@@ -75,7 +75,7 @@ async function connectTo(n, hostID, addresses, myHostID, vat) {
   //pusher.push(`set-hostID ${myHostID}`);
   const c = {
     send(msg) {
-      console.log(`send/push ${msg}`);
+      //console.log(`send/push ${msg}`);
       pusher.push(`${msg}`);
     }
   };
@@ -84,7 +84,7 @@ async function connectTo(n, hostID, addresses, myHostID, vat) {
   pullStream(
     pusher,
     pullStream.map(line => {
-      console.log(`sending line ${line}`);
+      //console.log(`sending line ${line}`);
       return line+'\n';
     }),
     conn
@@ -97,7 +97,7 @@ async function connectTo(n, hostID, addresses, myHostID, vat) {
     conn,
     pullSplit('\n'),
     pullStream.map(line => {
-      console.log(`got line on outbound '${line}'`);
+      //console.log(`got line on outbound '${line}'`);
       if (!line)
         return;
       vat.commsReceived(hostID, line);
@@ -134,7 +134,7 @@ async function handleConnection(vat, protocol, conn) {
   const pusher = Pushable();
   pullStream(pusher,
              pullStream.map(line => {
-               console.log(`sending line ${line}`);
+               //console.log(`sending line ${line}`);
                return line+'\n';
              }),
              conn,
@@ -144,7 +144,7 @@ async function handleConnection(vat, protocol, conn) {
                }*/);
   const c = {
     send(msg) {
-      console.log(`send/push ${msg}`);
+      //console.log(`send/push ${msg}`);
       pusher.push(`${msg}`);
     }
   };
@@ -154,7 +154,7 @@ async function handleConnection(vat, protocol, conn) {
   pullStream(conn,
              pullSplit('\n'),
              pullStream.map(line => {
-               console.log(`got line on inbound '${line}'`);
+               //console.log(`got line on inbound '${line}'`);
                if (!line)
                  return;
                vat.commsReceived(hostID, line);
