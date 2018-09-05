@@ -1,4 +1,4 @@
-/*global def logConflict insist Vow getQuorumTest*/
+import { insist } from '../insist';
 
 /**
  * A scoreboard is an object that accepts proto messages, where each
@@ -23,7 +23,7 @@
  * or remember the set it is passed. By monotonic, if it says true for
  * set X, it must say true for any superset of set X.
  */
-function makeScoreboard(quorumTest) {
+export function makeScoreboard(quorumTest, def, logConflict) {
 
   // map of seqNum to sequence-maps, where a sequence-map is a map
   // from msgID to a record of a `msg` and the set of `componentIDs`
@@ -64,17 +64,23 @@ function makeScoreboard(quorumTest) {
           componentIDs: new Set()
         };
         seqMap.set(msgID, record);
-        if (seqMap.size >= 1) {
+        if (seqMap.size > 1) {
           logConflict('Conflicting alleged messages',
-                      componentID, seqNum, msgID, msg);
+                      componentID, seqNum, msgID, msg, seqMap);
         }
       }
-      const {msg, componentIDs} = record;
+      const { componentIDs } = record;
       componentIDs.add(componentID);
       return seqNum === currentSeqNum;
     },
 
     getNext() {
+      /*console.log('queue:');
+      for (let q of queue.values()) {
+        for (let [k,v] of q.entries()) {
+          console.log(' k,v=', k, '=>',  v);
+        }}*/
+
       const msg = fetchReadyMsg(currentSeqNum);
       if (!msg) {
         return undefined;
@@ -98,7 +104,7 @@ function makeScoreboard(quorumTest) {
  * joining, old followers leaving, change of leader, change of
  * threshold, or any other change to the quorum rules.
  */
-export function makeConsensusLeader(decidedQs) {
+function makeConsensusLeader(decidedQs) {
 
   // map from compositeID to scoreboard
   const scoreboards = new Map();

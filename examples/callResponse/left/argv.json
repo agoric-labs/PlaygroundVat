@@ -1,4 +1,5 @@
 {
   "target": { "sturdyref": "QmVJvWAh6QbmXn6D5EFMHi2c1dwB7HiFBFfrNWXSFSRP7b/0" },
-  "value": { "string": "marco" }
+  "value": { "string": "marco" },
+  "exit": { "exit": "allowed" }
 }

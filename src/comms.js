@@ -55,8 +55,8 @@ function asp(numVals, errFirst=false) {
 const pending = new Set();
 const connections = new Map();
 
-async function connectTo(n, vatID, addresses, myVatID, vat) {
-  console.log(`connect(${addresses}) from ${myVatID}`);
+async function connectTo(n, hostID, addresses, myHostID, vat) {
+  console.log(`connect(${addresses}) from ${myHostID}`);
 
   let a = asp(1, true);
   const addr = addresses[0]; // TODO: use them all, somehow
@@ -72,7 +72,7 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
                               //conn.end();
                               //doner();
                              });
-  //pusher.push(`set-vatID ${myVatID}`);
+  //pusher.push(`set-hostID ${myHostID}`);
   const c = {
     send(msg) {
       console.log(`send/push ${msg}`);
@@ -100,7 +100,7 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
       console.log(`got line on outbound '${line}'`);
       if (!line)
         return;
-      vat.commsReceived(vatID, line);
+      vat.commsReceived(hostID, line);
     }),
     pullStream.onEnd(_ => doneResolver()),
   );
@@ -110,22 +110,22 @@ async function connectTo(n, vatID, addresses, myVatID, vat) {
 
 async function handleConnection(vat, protocol, conn) {
   console.log(`got ${protocol} connection`);
-  let vatIDres, vatIDrej;
-  const vatIDp = new Promise((res, rej) => { vatIDres = res; vatIDrej = rej; });
+  let hostIDres, hostIDrej;
+  const hostIDp = new Promise((res, rej) => { hostIDres = res; hostIDrej = rej; });
 
   conn.getPeerInfo((err, pi) => {
     if (err) {
       // plain TCP sockets don't have peerinfo
       console.log(` from ERR ${err}`);
-      vatIDrej(err);
+      hostIDrej(err);
     } else {
       // but secio connections do
       console.log(` from ${pi.id.toB58String()}`);
-      vatIDres(pi.id.toB58String());
+      hostIDres(pi.id.toB58String());
     }
   });
 
-  const vatID = await vatIDp;
+  const hostID = await hostIDp;
 
   conn.getObservedAddrs((err, ma) => {
     console.log(` from ${ma}`);
@@ -149,11 +149,7 @@ async function handleConnection(vat, protocol, conn) {
     }
   };
 
-  // for now, the first line must start with 'set-vatID ' and then a vatID.
-  // We defer connectionMade until we hear what vat the peer is pretending
-  // to be
-  //let vatID;
-  vat.connectionMade(vatID, c);
+  vat.connectionMade(hostID, c);
 
   pullStream(conn,
              pullSplit('\n'),
@@ -161,15 +157,15 @@ async function handleConnection(vat, protocol, conn) {
                console.log(`got line on inbound '${line}'`);
                if (!line)
                  return;
-               vat.commsReceived(vatID, line);
+               vat.commsReceived(hostID, line);
              }),
              pullStream.drain()
             );
 
 }
 
-export async function startComms(vat, myPeerInfo, myVatID, getAddressesForVatID) {
-  console.log(`startComms, myVatID is ${myVatID}`);
+export async function startComms(vat, myPeerInfo, myHostID, getAddressesForHostID) {
+  console.log(`startComms, myHostID is ${myHostID}`);
   //console.log(`peerInfo is ${myPeerInfo}`);
   const n = new CommsNode({ peerInfo: myPeerInfo });
   n.on('peer:connect', (peerInfo) => {
@@ -191,22 +187,22 @@ export async function startComms(vat, myPeerInfo, myVatID, getAddressesForVatID)
 
   async function check() {
     console.log(`startComms.check`);
-    for (let vatID of vat.whatConnectionsDoYouWant()) {
-      if (!connections.has(vatID) && !pending.has(vatID)) {
-        const addresses = await getAddressesForVatID(vatID);
-        pending.add(vatID);
-        const p = connectTo(n, vatID, addresses, myVatID, vat);
-        p.then(({c, doneP}) => { pending.delete(vatID);
-                                 connections.set(vatID, c);
-                                 vat.connectionMade(vatID, c);
+    for (let hostID of vat.whatConnectionsDoYouWant()) {
+      if (!connections.has(hostID) && !pending.has(hostID)) {
+        const addresses = await getAddressesForHostID(hostID);
+        pending.add(hostID);
+        const p = connectTo(n, hostID, addresses, myHostID, vat);
+        p.then(({c, doneP}) => { pending.delete(hostID);
+                                 connections.set(hostID, c);
+                                 vat.connectionMade(hostID, c);
                                  doneP.then(_ => {
-                                   console.log(`connectionLost ${vatID}`);
-                                   connections.delete(vatID);
-                                   vat.connectionLost(vatID);
+                                   console.log(`connectionLost ${hostID}`);
+                                   connections.delete(hostID);
+                                   vat.connectionLost(hostID);
                                  });
                                },
-               rej => { console.log(`connectTo failed (${vatID}): ${rej}`);
-                        pending.delete(vatID);
+               rej => { console.log(`connectTo failed (${hostID}): ${rej}`);
+                        pending.delete(hostID);
                       });
       }
     }

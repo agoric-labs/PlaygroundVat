@@ -22,15 +22,14 @@ export function makeEngine(def,
   // todo: queue this until finishTurn
   function opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
                   resolutionOf) {
-    const bodyJson = marshal.serialize(def({op: 'send',
-                                            resultSwissbase,
-                                            targetSwissnum,
-                                            methodName,
-                                            args,
-                                           }),
-                                       resolutionOf,
-                                       targetVatID);
-    manager.sendTo(targetVatID, bodyJson);
+    const argsS = marshal.serialize(def(args), resolutionOf, targetVatID);
+    const body = def({op: 'send',
+                      targetSwissnum,
+                      methodName,
+                      argsS,
+                      resultSwissbase,
+                     });
+    manager.sendTo(targetVatID, body);
   }
 
   const serializer = {
@@ -49,45 +48,49 @@ export function makeEngine(def,
   function opResolve(targetVatID, targetSwissnum, value) {
     // todo: rename targetSwissnum to mySwissnum? The thing being resolved
     // lives on the sender, not the recipient.
-    const bodyJson = marshal.serialize(def({op: 'resolve',
-                                            targetSwissnum,
-                                            value,
-                                           }),
-                                       resolutionOf,
-                                       targetVatID);
-    manager.sendTo(targetVatID, bodyJson);
+    const valueS = marshal.serialize(def(value), resolutionOf, targetVatID);
+    const body = def({op: 'resolve',
+                      targetSwissnum,
+                      valueS,
+                     });
+    manager.sendTo(targetVatID, body);
   }
 
-  function rxSendOnly(message) { // currently just for debugging
-    const body = marshal.unserialize(message);
-    return doSendInternal(body);
+  function rxSendOnly(opMsg) { // currently just for tests
+    return doSendInternal(opMsg);
   }
 
-  function doSendInternal(body) {
-    const target = marshal.getMyTargetBySwissnum(body.targetSwissnum);
+  function doSendInternal(opMsg) {
+    const target = marshal.getMyTargetBySwissnum(opMsg.targetSwissnum);
     if (!target) {
-      throw new Error(`unrecognized target swissnum ${body.targetSwissnum}`);
+      throw new Error(`unrecognized target, swissnum=${opMsg.targetSwissnum}`);
     }
+    if (!opMsg.argsS) {
+      throw new Error('opMsg is missing .argsS');
+    }
+    const args = marshal.unserialize(opMsg.argsS);
     // todo: sometimes causes turn delay, could fastpath if target is
     // resolved
-    return Vow.resolve(target).e[body.methodName](...body.args);
+    return Vow.resolve(target).e[opMsg.methodName](...args);
   }
 
-  function rxMessage(senderVatID, message) {
-    // message is a string, JSON serialized to { op, target, args, answerR }
+  function rxMessage(senderVatID, opMsg) {
+    // opMsg is { op: 'send', targetSwissnum, methodName, argsS,
+    // resultSwissbase, answerR }, or { op: 'resolve', targetSwissnum, valueS
+    // } . Pass argsS/valueS to marshal.unserialize
+
     // We are strictly given messages in-order from each sender
-    const body = marshal.unserialize(message);
 
     // todo: It does not include seqnum (which must be visible to the manager).
     // sent messages are assigned a seqnum by the manager
     //txMessage(recipientVatID, message)
 
-    log(`op ${body.op}`);
+    log(`op ${opMsg.op}`);
     let done;
-    if (body.op === 'send') {
-      const res = doSendInternal(body);
-      if (body.resultSwissbase) {
-        const resolverSwissnum = doSwissHashing(body.resultSwissbase);
+    if (opMsg.op === 'send') {
+      const res = doSendInternal(opMsg);
+      if (opMsg.resultSwissbase) {
+        const resolverSwissnum = doSwissHashing(opMsg.resultSwissbase);
         // registerTarget arranges to notify senderVatID when this resolves
         marshal.registerTarget(res, resolverSwissnum, senderVatID, resolutionOf);
         // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
@@ -96,10 +99,24 @@ export function makeEngine(def,
         log(`commsReceived got sendOnly, dropping result`);
       }
       done = res; // for testing
-    } else if (body.op === `resolve`) {
-      const h = marshal.getOutboundResolver(senderVatID, body.targetSwissnum, handlerOf);
+    } else if (opMsg.op === `resolve`) {
+      //log('-- got op resolve');
+      //log(' senderVatID', senderVatID);
+      //log(' valueS', opMsg.valueS);
+      const h = marshal.getOutboundResolver(senderVatID, opMsg.targetSwissnum, handlerOf);
       //log(`h: ${h}`);
-      h.resolve(body.value);
+      //log('found target');
+      let value;
+      try {
+        value = marshal.unserialize(opMsg.valueS);
+      } catch (ex) {
+        log('exception in unserialize of:', opMsg.valueS);
+        log(ex);
+        throw ex;
+      }
+      //log('found value', value);
+      h.resolve(value);
+      //log('did h.resolve');
     }
     return done; // for testing, to wait until things are done
   }

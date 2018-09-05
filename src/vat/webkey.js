@@ -258,6 +258,7 @@ export function makeWebkeyMarshal(log,
             return null;
           }
           if (!Object.isFrozen(val)) {
+            log('asked to serialize', val, typeof val, Object.isFrozen(val));
             throw new Error(`non-frozen objects like ${val} are disabled for now`);
           }
           break;

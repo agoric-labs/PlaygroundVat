@@ -26,7 +26,7 @@ function confineGuestSource(source, endowments) {
   return module.exports;
 }
 
-export function makeVat(endowments, myVatID, initialSource) {
+export function makeVat(endowments, myVatID, myHostID, initialSource) {
 
   // We have one serializer/deserializer for each locally-hosted Vat, so
   // it shared among all peer Vats.
@@ -115,13 +115,19 @@ export function makeVat(endowments, myVatID, initialSource) {
   // not a SendOnly), and rows allocated by the far side (when receiving a
   // RemoteVow).
 
-  function managerWriteInput(senderVatID, seqnum, msg) {
-    endowments.writeOutput(`msg: ${senderVatID}->${myVatID}[${seqnum}] ${msg}\n`);
+  function managerWriteInput(msg) {
+    endowments.writeOutput(`input: ${msg}\n`);
   }
-  function managerWriteOutput(targetVatID, seqnum, msg) {
-    endowments.writeOutput(`msg: ${myVatID}->${targetVatID}[${seqnum}] ${msg}\n`);
+  function managerWriteOutput(msg) {
+    endowments.writeOutput(`output: ${msg}\n`);
   }
-  const manager = makeRemoteManager(managerWriteInput, managerWriteOutput);
+
+  function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {
+    log(issue, `${seqMap.size} msgIDs, from hostID ${componentID} [${seqNum}]`);
+  }
+  const manager = makeRemoteManager(myVatID, myHostID,
+                                    managerWriteInput, managerWriteOutput,
+                                    def, log, logConflict);
 
   const engine = makeEngine(def,
                             Vow, isVow, Flow,
@@ -145,22 +151,22 @@ export function makeVat(endowments, myVatID, initialSource) {
     return manager.whatConnectionsDoYouWant();
   }
 
-  function connectionMade(vatID, connection) {
-    log(`connectionMade for ${vatID}`);
+  function connectionMade(hostID, connection) {
+    log(`connectionMade for ${hostID}`);
     const c = {
       send(msg) {
         connection.send(msg);
       }
     };
-    manager.gotConnection(`${vatID}`, c);
+    manager.gotConnection(`${hostID}`, c);
   }
 
-  function connectionLost(vatID) {
-    manager.lostConnection(`${vatID}`);
+  function connectionLost(hostID) {
+    manager.lostConnection(`${hostID}`);
   }
 
-  function commsReceived(vatID, line) {
-    manager.commsReceived(`${vatID}`, `${line}`, marshal);
+  function commsReceived(hostID, line) {
+    manager.commsReceived(`${hostID}`, `${line}`, marshal);
   }
 
   return {
@@ -213,9 +219,8 @@ export function makeVat(endowments, myVatID, initialSource) {
       return engine.rxSendOnly(bodyJson);
     },
 
-    debugRxMessage(senderVatID, seqnum, bodyJson) {
-      managerWriteInput(senderVatID, seqnum, bodyJson);
-      return engine.rxMessage(senderVatID, bodyJson);
+    debugRxMessage(senderVatID, seqnum, opMsg) {
+      return engine.rxMessage(senderVatID, opMsg);
     },
 
     executeTranscriptLine(line) {
