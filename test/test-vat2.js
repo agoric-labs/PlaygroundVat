@@ -59,6 +59,14 @@ test('comms, sending a message', async (t) => {
                  });
   v2.commsReceived('vat1', got);
 
+  got = q.expect(1, 2,
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1},
+                 { op: 'when',
+                   targetSwissnum: 'hash-of-base-1',
+                 });
+  v2.commsReceived('vat1', got);
+  q.expectEmpty(1, 2);
+
   // that immediately provokes an ack
 
   q.expectAndDeliverAck(2, 1, v1, 0);
@@ -145,9 +153,15 @@ test('sending unresolved local Vow', async (t) => {
                    resultSwissbase: 'base-1',
                    targetSwissnum: '0',
                    methodName: 'pleaseWait',
-                   args: [{'@qclass': 'unresolvedVow',
+                   args: [{'@qclass': 'vow',
                            vatID: 'vat1',
                            swissnum: 2}],
+                 });
+  v2.commsReceived('vat1', got);
+  got = q.expect(1, 2,
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1 },
+                 { op: 'when',
+                   targetSwissnum: 'hash-of-base-1',
                  });
   q.expectEmpty(1, 2);
   v2.commsReceived('vat1', got);
@@ -156,6 +170,14 @@ test('sending unresolved local Vow', async (t) => {
   // deliver the ack, doesn't cause any interesting externally-visible
   // changes, and doesn't provoke any outbound messages
   q.expectAndDeliverAck(2, 1, v1, 0);
+
+  // receiving a Vow causes vat2 to subscribe for a resolution
+  got = q.expect(2, 1,
+                 { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
+                 { op: 'when',
+                   targetSwissnum: 2,
+                 });
+  v1.commsReceived('vat2', got);
   q.expectEmpty(2, 1);
   q.expectEmpty(1, 2);
 
@@ -165,7 +187,7 @@ test('sending unresolved local Vow', async (t) => {
   t.equal(v2root.getCalled(), true);
 
   got = q.expect(2, 1,
-                 { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
+                 { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 1 },
                  { op: 'resolve',
                    targetSwissnum: 'hash-of-base-1',
                    value: {'@qclass': 'undefined' },
@@ -189,7 +211,7 @@ test('sending unresolved local Vow', async (t) => {
   await Promise.resolve(0);
 
   got = q.expect(1, 2,
-                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1 },
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 2 },
                  { op: 'resolve',
                    targetSwissnum: 2,
                    value: 'pretty',
