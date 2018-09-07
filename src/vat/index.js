@@ -211,8 +211,8 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
     connectionLost,
     commsReceived,
 
-    serialize(val, targetVatID) {
-      return engine.serialize(val, targetVatID);
+    serialize(val) {
+      return engine.serialize(val);
     },
 
     doSendOnly(bodyJson) {

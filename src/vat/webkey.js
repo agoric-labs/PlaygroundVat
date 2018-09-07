@@ -82,11 +82,8 @@ export function makeWebkeyMarshal(log,
   // val might be a primitive, a pass by (shallow) copy object, a
   // remote reference, or other.  We treat all other as a local object
   // to be exported as a local webkey.
-  function serialize(val, resolutionOf, targetVatID) {
-    if (!targetVatID) {
-      throw new Error(`forgot targetVatID`);
-    }
-    return JSON.stringify(val, makeReplacer(resolutionOf, targetVatID));
+  function serialize(val, resolutionOf) {
+    return JSON.stringify(val, makeReplacer(resolutionOf));
   }
 
   function unserialize(str) {
@@ -116,7 +113,7 @@ export function makeWebkeyMarshal(log,
     return swissbase;
   }
 
-  function serializePassByPresence(val, resolutionOf, targetVatID, swissnum=undefined) {
+  function serializePassByPresence(val, resolutionOf, swissnum=undefined) {
     // we are responsible for new serialization of pass-by-presence objects
 
     let type;
@@ -151,7 +148,7 @@ export function makeWebkeyMarshal(log,
     return rec;
   }
 
-  function makeReplacer(resolutionOf, targetVatID) {
+  function makeReplacer(resolutionOf) {
     const ibidMap = new Map();
     let ibidCount = 0;
 
@@ -280,7 +277,7 @@ export function makeWebkeyMarshal(log,
       // serialize pass-by-reference objects, including cache/table
       // management
 
-      const rec = serializePassByPresence(val, resolutionOf, targetVatID);
+      const rec = serializePassByPresence(val, resolutionOf);
       return rec.serialized;
     };
   }
@@ -404,8 +401,8 @@ export function makeWebkeyMarshal(log,
     return { swissbase, swissnum };
   }
 
-  function registerTarget(val, swissnum, targetVatID, resolutionOf) {
-    const rec = serializePassByPresence(val, resolutionOf, targetVatID, swissnum);
+  function registerTarget(val, swissnum, resolutionOf) {
+    const rec = serializePassByPresence(val, resolutionOf, swissnum);
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {

@@ -42,7 +42,7 @@ test('marshal', async (t) => {
     return val;
   }
   function ser(what) {
-    return m.serialize(what, resolutionOf, 'targetVatID');
+    return m.serialize(what, resolutionOf);
   }
   t.equal(ser(1), '1');
   t.equal(ser('abc'), '"abc"');
@@ -132,7 +132,7 @@ test('deliver farref to vat', async (t) => {
   // that should be a Presence instance, which looks like an empty object,
   // but roundtrips correctly
   t.deepEqual(res, {});
-  t.deepEqual(v.serialize(res, 'vat2'),
+  t.deepEqual(v.serialize(res),
               '{"@qclass":"presence","vatID":"vat2","swissnum":123}');
 
   t.end();

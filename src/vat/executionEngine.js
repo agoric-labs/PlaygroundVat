@@ -20,7 +20,7 @@ export function makeEngine(def,
   // todo: queue this until finishTurn
   function opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args,
                   resolutionOf) {
-    const argsS = marshal.serialize(def(args), resolutionOf, targetVatID);
+    const argsS = marshal.serialize(def(args), resolutionOf);
     const body = def({op: 'send',
                       targetSwissnum,
                       methodName,
@@ -53,7 +53,7 @@ export function makeEngine(def,
   function opResolve(targetVatID, targetSwissnum, value) {
     // todo: rename targetSwissnum to mySwissnum? The thing being resolved
     // lives on the sender, not the recipient.
-    const valueS = marshal.serialize(def(value), resolutionOf, targetVatID);
+    const valueS = marshal.serialize(def(value), resolutionOf);
     const body = def({op: 'resolve',
                       targetSwissnum,
                       valueS,
@@ -96,8 +96,10 @@ export function makeEngine(def,
       const res = doSendInternal(opMsg);
       if (opMsg.resultSwissbase) {
         const resolverSwissnum = doSwissHashing(opMsg.resultSwissbase);
-        // registerTarget arranges to notify senderVatID when this resolves
-        marshal.registerTarget(res, resolverSwissnum, senderVatID, resolutionOf);
+        // if they care about the result, they'll send an opWhen hot on the
+        // heels of this opSend, which will register their interest in the
+        // Vow
+        marshal.registerTarget(res, resolverSwissnum, resolutionOf);
         // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
       } else {
         // else it was really a sendOnly
@@ -141,15 +143,15 @@ export function makeEngine(def,
       return marshal.createPresence(sturdyref);
     },
     registerTarget(target, swissnum) {
-        marshal.registerTarget(target, swissnum, null, resolutionOf);
+        marshal.registerTarget(target, swissnum, resolutionOf);
     },
     // temporary
     marshal,
     serializer,
     ext,
     // tests
-    serialize(val, targetVatID) {
-      return marshal.serialize(val, resolutionOf, targetVatID);
+    serialize(val) {
+      return marshal.serialize(val, resolutionOf);
     },
 
   };
