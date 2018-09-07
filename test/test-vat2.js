@@ -258,7 +258,7 @@ function t3_three() {
   };
 }
 
-test('sending third-party Vow', async (t) => {
+test.only('sending third-party Vow', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t3_one);
@@ -295,6 +295,12 @@ test('sending third-party Vow', async (t) => {
                    args: [],
                  });
   v2.commsReceived('vat1', got);
+  got = q.expect(1, 2,
+                 { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1 },
+                 { op: 'when',
+                   targetSwissnum: 'hash-of-base-1',
+                 });
+  v2.commsReceived('vat1', got);
 
   // that immediately provokes an ack
 
@@ -306,6 +312,7 @@ test('sending third-party Vow', async (t) => {
   // because getVow() returned an unresolved Vow, no opResolve is sent yet:
   // nothing is sent until it is resolved by v2root.fire()
   q.expectEmpty(2, 1);
+  return t.end();
 
   // we don't currently forward unresolved vows to their most-likely target,
   // so when we send 'two' to three.pleaseWait, we send a vat1 vow, not the
