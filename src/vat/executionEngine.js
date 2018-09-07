@@ -110,7 +110,7 @@ export function makeEngine(def,
       const v = marshal.getMyTargetBySwissnum(opMsg.targetSwissnum);
       // todo: assert that it's a Vow, but really we should tolerate peer
       // being weird
-      Vow.resolve(v).then(res => opResolve(opMsg.senderVatID,
+      Vow.resolve(v).then(res => opResolve(senderVatID,
                                            opMsg.targetSwissnum,
                                            res));
       // todo: rejection
