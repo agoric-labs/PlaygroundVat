@@ -19,7 +19,7 @@ class CommsNode extends Node {
       modules: {
         transport: [ TCP,
                      WS ],
-        streamMuxer: [ MPLEX ],
+        //streamMuxer: [ MPLEX ],
         connEncryption: [ SECIO ],
       }
       // config
