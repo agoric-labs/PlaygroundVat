@@ -262,9 +262,10 @@ class FarRemoteHandler extends UnresolvedHandler {
       const resultVow = makeUnresolvedRemoteVow(this.serializer, this.vatID,
                                                 resData.swissnum, flow);
       debugLog("handlerOf(resultVow) = ", handlerOf(resultVow));
+      this.serializer.opSend(resData.swissbase, this.vatID, this.swissnum,
+                             methodName, args, resolutionOf);
       this.serializer.registerRemoteVow(this.vatID, resData.swissnum, resultVow);
 
-      this.serializer.opSend(resData.swissbase, this.vatID, this.swissnum, methodName, args, resolutionOf);
       todo.handler.resolve(resultVow);
 
       return true;

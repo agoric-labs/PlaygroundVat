@@ -98,7 +98,7 @@ export function makeWebkeyMarshal(log,
     return JSON.stringify({vatID: data.vatID, swissnum: data.swissnum});
   }
 
-  // Record: { value, vatID, swissnum, serialized, notify }
+  // Record: { value, vatID, swissnum, serialized }
   // holds both objects (pass-by-presence) and unresolved promises
   const val2Record = new WeakMap();
   const webkey2Record = new Map();
@@ -119,68 +119,15 @@ export function makeWebkeyMarshal(log,
   function serializePassByPresence(val, resolutionOf, targetVatID, swissnum=undefined) {
     // we are responsible for new serialization of pass-by-presence objects
 
-    // We are responsible for serializing (or finding previous serializations
-    // of) all pass-by-presence objects, and maintaining the bidirectional
-    // tables we share with the deserializer. There are seven categories. The
-    // first two are not Vows (but can be obtained from Vows by using a
-    // .then() callback):
-    //
-    // | resolved? | home   | .then()  | webkey.type |
-    // |-----------+--------+----------+-------------|
-    // | yes       | local  | object   | presence    |
-    // | yes       | remote | Presence | presence    |
-    //
-    // Local objects might already be in the table (if we sent them earlier),
-    // but if not we must assign them a swissnum and deliver them as a
-    // "presence" webkey, which will appear on the remote side as a Presence
-    // object. All local Presences got here from somewhere else (either as a
-    // Presence or a FarVow), so they were created by our deserializer, so
-    // they will already be in the table, and we should use the webkey from
-    // there.
-
-    // deal with a promise that's already resolved to a pass-by-copy value
-    // { type: unresolved vow, vatid, swissnum }
-    // or
-    // { type: resolved vow, resolution: X }
-    // X could be:
-    // * presence (resolved to pass-by-reference)
-    // * other (resolved to pass-by-copy)
-
     let type;
-    let notify = false;
-
     if (isVow(val)) {
-      const r = resolutionOf(val);
-      if (r) {
-        // resolved Vows are sent as QCLASS: resolvedVow, with a .value
-        // property. The .value might be pass-by-copy, or maybe a presence
-        // (which will be passed as QCLASS: presence). These do not have an
-        // identity, so no swissnum (although the value it resolves to
-        // might).
-
-        return { notify: false,
-                 serialized: def({
-                   [QCLASS]: 'resolvedVow',
-                   value: serialize(r, resolutionOf, targetVatID)
-                 }),
-               };
-      }
-
-      // unresolved Vows are send as QCLASS: unresolvedVow, with a vatID and
-      // swissnum. 'val' wasn't in the val2Record table, so this must be the
-      // first time we've seen this Vow (coming or going), so it must be a
-      // LocalVow or NearVow, and we need to allocate a swissnum and put it
-      // in the table.
-      type = 'unresolvedVow';
-
-      // in addition, we need to let them know when it resolves
-      notify = true;
+      // This must be a new Local Vow (if it were remote, it would have been
+      // added to our table upon receipt, and we wouldn't get here) (and if
+      // we'd already serialized it once, it would also be in the table). We
+      // must allocate a new swissnum.
+      type = 'vow';
     } else {
-      // non-Vows. This will only be local pass-by-presence objects that we
-      // haven't already sent, because the other pass-by-presence is a Presence
-      // and these will have already been added to val2Record. (we must add
-      // them upon receipt, because a Presence otherwise looks like
-      // pass-by-copy)
+      // This must be a new local pass-by-presence object
       type = 'presence';
     }
 
@@ -191,7 +138,6 @@ export function makeWebkeyMarshal(log,
     const rec = def({ value: val,
                       vatID: myVatID,
                       swissnum: swissnum,
-                      notify: notify,
                       serialized: {
                         [QCLASS]: type,
                         vatID: myVatID,
@@ -203,46 +149,6 @@ export function makeWebkeyMarshal(log,
     const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
     webkey2Record.set(key, rec);
     return rec;
-
-    // It must be a Vow.
-
-    // Vows can be in one of five states:
-
-    // | resolved? | home   | Vow.resolve | webkey.type    | resolutionOf() |
-    // |-----------+--------+-------------+----------------+----------------|
-    // | yes       | local  | NearVow     | resolved vow   | object         |
-    // | yes       | remote | FarVow      | resolved vow   | Presence       |
-    // | no        | local  | LocalVow    | unresolved vow |                |
-    // | no        | remote | RemoteVow   | unresolved vow |                |
-    // | yes       | broken | BrokenVow   | broken vow     |                |
-
-    // We have private access to the Vow resolutionOf() function, which will
-    // tell us (immediately) whether a given Vow has already been resolved,
-    // and to what. We use this to find NearVows/FarVows, and use their
-    // underlying object/Presense for serialization.
-
-    // Vows with a remote "home" (FarVow and RemoteVow) were created by our
-    // deserializer, like Presences. However we don't store FarVows in the
-    // table: we only store the associated Presence. If we're asked to
-    // serialize a FarVow, we use resolutionOf() to get the Presence, look up
-    // the Presence in the table (which must already be present), extract the
-    // vatid and swissnum, and build a "resolved vow" webkey around those
-    // values. On the way in, if we receive a "resolved vow" webkey for a
-    // different vat, we create and store a Presence in the table, then
-    // deliver a FarVow to the target.
-
-    // TODO: BrokenVow. Maybe add rejectionOf() helper?
-
-    // TODO: not sure this table is accurate anymore
-    // | sending this   | arrives on other vat as | or on home vat as |
-    // |----------------+-------------------------+-------------------|
-    // | regular object | Presence                | original object   |
-    // | NearVow        | FarVow                  | original NearVow  |
-    // | BrokenVow      | BrokenVow               | BrokenVow         |
-    // | Presence       | Presence                | original object   |
-    // | FarVow         | FarVow                  | NearVow           |
-    // | LocalVow       | RemoteVow               | original LocalVow |
-    // | RemoteVow      | RemoteVow               | original LocalVow |
   }
 
   function makeReplacer(resolutionOf, targetVatID) {
@@ -338,13 +244,6 @@ export function makeWebkeyMarshal(log,
       // (and is thus in the table), use the previous serialization
       if (val2Record.has(val)) {
         const rec = val2Record.get(val);
-        if (rec.notify) {
-          // we only serialize things once, but we must notify every
-          // recipient we send it to
-          serializer.notifyUponResolution(val, targetVatID, rec.swissnum);
-          // todo: unit test to make sure sending a previously-serialized
-          // UnresolvedVow to a new target prepares a second notification
-        }
         return rec.serialized;
       }
 
@@ -382,11 +281,6 @@ export function makeWebkeyMarshal(log,
       // management
 
       const rec = serializePassByPresence(val, resolutionOf, targetVatID);
-      if (rec.notify) {
-        // Remember to notify whomever we're sending this unresolved Vow to.
-        // notifyUponResolution will make sure to only notify them once.
-        serializer.notifyUponResolution(val, targetVatID, rec.swissnum);
-      }
       return rec.serialized;
     };
   }
@@ -433,13 +327,7 @@ export function makeWebkeyMarshal(log,
     return p;
   }
 
-  function unserializeResolvedVow(data) {
-    const r = unserialize(data.value);
-    // this creates a FarVow (specifically a Vow with a FarRemoteHandler)
-    return Vow.resolve(r);
-  }
-
-  function unserializeUnresolvedVow(data) {
+  function unserializeVow(data) {
     const key = makeWebkey(data);
     if (webkey2Record.has(key)) {
       return webkey2Record.get(key).value;
@@ -451,6 +339,7 @@ export function makeWebkeyMarshal(log,
                       serialized: data });
     val2Record.set(v, rec);
     webkey2Record.set(key, rec);
+    serializer.opWhen(data.vatID, data.swissnum);
     return v;
   }
 
@@ -483,17 +372,13 @@ export function makeWebkeyMarshal(log,
             return ibids[index];
           }
 
-          case 'unresolvedVow': {
-            data = unserializeUnresolvedVow(data);
+          case 'vow': {
+            data = unserializeVow(data);
             // overwrite data and break to ibid registration.
             break;
           }
           case 'presence': {
             data = unserializePresence(data);
-            break;
-          }
-          case 'resolvedVow': {
-            data = unserializeResolvedVow(data);
             break;
           }
           default: {
@@ -521,9 +406,6 @@ export function makeWebkeyMarshal(log,
 
   function registerTarget(val, swissnum, targetVatID, resolutionOf) {
     const rec = serializePassByPresence(val, resolutionOf, targetVatID, swissnum);
-    if (rec.notify) {
-      serializer.notifyUponResolution(val, targetVatID, swissnum);
-    }
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
@@ -554,7 +436,7 @@ export function makeWebkeyMarshal(log,
                       vatID: targetVatID,
                       swissnum: swissnum,
                       serialized: {
-                        [QCLASS]: 'unresolvedVow',
+                        [QCLASS]: 'vow',
                         vatID: targetVatID,
                         swissnum: swissnum
                       }
@@ -563,6 +445,7 @@ export function makeWebkeyMarshal(log,
     const key = JSON.stringify({vatID: targetVatID, swissnum: swissnum});
     //log(` with key ${key}`);
     webkey2Record.set(key, rec);
+    serializer.opWhen(targetVatID, swissnum);
   }
 
   return def({serialize, unserialize,

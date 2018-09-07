@@ -1,6 +1,5 @@
 // the execution engine
 import { doSwissHashing } from './swissCrypto';
-import { makeResolutionNotifier } from './notifyUponResolution';
 import { makeWebkeyMarshal } from './webkey';
 
 export function makeEngine(def,
@@ -9,7 +8,6 @@ export function makeEngine(def,
                            handlerOf, resolutionOf,
                            myVatID,
                            manager) {
-  const notifyUponResolution = makeResolutionNotifier(log, myVatID, opResolve);
 
   function allocateSwissStuff() {
     return marshal.allocateSwissStuff();
@@ -32,9 +30,16 @@ export function makeEngine(def,
     manager.sendTo(targetVatID, body);
   }
 
+  function opWhen(targetVatID, targetSwissnum) {
+    const body = def({op: 'when',
+                      targetSwissnum,
+                     });
+    manager.sendTo(targetVatID, body);
+  }
+
   const serializer = {
-    opSend,
-    notifyUponResolution, allocateSwissStuff, registerRemoteVow,
+    opSend, opWhen,
+    allocateSwissStuff, registerRemoteVow,
   };
   const marshal = makeWebkeyMarshal(log,
                                     Vow, isVow, Flow,
@@ -99,7 +104,15 @@ export function makeEngine(def,
         log(`commsReceived got sendOnly, dropping result`);
       }
       done = res; // for testing
-    } else if (opMsg.op === `resolve`) {
+    } else if (opMsg.op === 'when') {
+      const v = marshal.getMyTargetBySwissnum(opMsg.targetSwissnum);
+      // todo: assert that it's a Vow, but really we should tolerate peer
+      // being weird
+      Vow.resolve(v).then(res => opResolve(opMsg.senderVatID,
+                                           opMsg.targetSwissnum,
+                                           res));
+      // todo: rejection
+    } else if (opMsg.op === 'resolve') {
       //log('-- got op resolve');
       //log(' senderVatID', senderVatID);
       //log(' valueS', opMsg.valueS);
