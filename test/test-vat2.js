@@ -35,12 +35,12 @@ test('comms, sending a message', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t1_sender);
-  const v1 = await buildVat(s, 'vat1', 'vat1', tr.writeOutput, v1src);
+  const v1 = await buildVat(s, 'vat1', 'vat1', { writeOutput: tr.writeOutput }, v1src);
   const v1argv = { target: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t1_responder);
-  const v2 = await buildVat(s, 'vat2', 'vat2', tr.writeOutput, v2src);
+  const v2 = await buildVat(s, 'vat2', 'vat2', { writeOutput: tr.writeOutput }, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
@@ -133,12 +133,12 @@ test('sending unresolved local Vow', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t2_sender);
-  const v1 = await buildVat(s, 'vat1', 'vat1', tr.writeOutput, v1src);
+  const v1 = await buildVat(s, 'vat1', 'vat1', { writeOutput: tr.writeOutput }, v1src);
   const v1argv = { target: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t2_responder);
-  const v2 = await buildVat(s, 'vat2', 'vat2', tr.writeOutput, v2src);
+  const v2 = await buildVat(s, 'vat2', 'vat2', { writeOutput: tr.writeOutput }, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
@@ -262,19 +262,19 @@ test('sending third-party Vow', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t3_one);
-  const v1 = await buildVat(s, 'vat1', 'vat1', tr.writeOutput, v1src);
+  const v1 = await buildVat(s, 'vat1', 'vat1', { writeOutput: tr.writeOutput }, v1src);
   const v1argv = { target2: v1.createPresence('vat2/0'),
                    target3: v1.createPresence('vat3/0'),
                  };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t3_two);
-  const v2 = await buildVat(s, 'vat2', 'vat2', tr.writeOutput, v2src);
+  const v2 = await buildVat(s, 'vat2', 'vat2', { writeOutput: tr.writeOutput }, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
   const v3src = funcToSource(t3_three);
-  const v3 = await buildVat(s, 'vat3', 'vat3', tr.writeOutput, v3src);
+  const v3 = await buildVat(s, 'vat3', 'vat3', { writeOutput: tr.writeOutput }, v3src);
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
   const q = makeQueues(t);
@@ -436,19 +436,19 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
   const v1src = funcToSource(t4_one);
-  const v1 = await buildVat(s, 'vat1', 'vat1', tr.writeOutput, v1src);
+  const v1 = await buildVat(s, 'vat1', 'vat1', { writeOutput: tr.writeOutput }, v1src);
   const v1argv = { target2: v1.createPresence('vat2/0'),
                    target3: v1.createPresence('vat3/0'),
                  };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t4_two);
-  const v2 = await buildVat(s, 'vat2', 'vat2', tr.writeOutput, v2src);
+  const v2 = await buildVat(s, 'vat2', 'vat2', { writeOutput: tr.writeOutput }, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
   const v3src = funcToSource(t4_three);
-  const v3 = await buildVat(s, 'vat3', 'vat3', tr.writeOutput, v3src);
+  const v3 = await buildVat(s, 'vat3', 'vat3', { writeOutput: tr.writeOutput }, v3src);
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
   const q = makeQueues(t);
@@ -616,21 +616,21 @@ test('third-party Vow gets resolved', async (t) => {
 
   const ALICE = 'ALICE';
   const alice_src = funcToSource(t5_alice);
-  const vatALICE = await buildVat(s, 'vatALICE', 'vatALICE', tr.writeOutput, alice_src);
+  const vatALICE = await buildVat(s, 'vatALICE', 'vatALICE', { writeOutput: tr.writeOutput }, alice_src);
   const alice_argv = { bob: vatALICE.createPresence('vatBOB/0'),
                      };
   const alice_root = await vatALICE.initializeCode('vatALICE/0', alice_argv);
 
   const BOB = 'BOB';
   const bob_src = funcToSource(t5_bob);
-  const vatBOB = await buildVat(s, 'vatBOB', 'vatBOB', tr.writeOutput, bob_src);
+  const vatBOB = await buildVat(s, 'vatBOB', 'vatBOB', { writeOutput: tr.writeOutput }, bob_src);
   const bob_argv = { carol: vatBOB.createPresence('vatCAROL/0'),
                    };
   const bob_root = await vatBOB.initializeCode('vatBOB/0', bob_argv);
 
   const CAROL = 'CAROL';
   const carol_src = funcToSource(t5_carol);
-  const vatCAROL = await buildVat(s, 'vatCAROL', 'vatCAROL', tr.writeOutput, carol_src);
+  const vatCAROL = await buildVat(s, 'vatCAROL', 'vatCAROL', { writeOutput: tr.writeOutput }, carol_src);
   const carol_argv = {};
   const carol_root = await vatCAROL.initializeCode('vatCAROL/0', carol_argv);
   const q = makeQueues(t);//, { [ALICE]: 'alice', [BOB]: 'bob', [CAROL]: 'carol'});

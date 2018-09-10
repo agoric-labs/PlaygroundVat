@@ -48,7 +48,7 @@ export async function bundleCode(filename, appendSourcemap) {
   return source;
 }
 
-export async function buildVat(s, myVatID, myHostID, writeOutput, guestSource) {
+export async function buildVat(s, myVatID, myHostID, vatEndowments, guestSource) {
 
   // This needs to read the contents of vat.js, as a string. SES manages this
   // by putting all the code (as ES6 modules) in a directory named bundle/ ,
@@ -65,7 +65,6 @@ export async function buildVat(s, myVatID, myHostID, writeOutput, guestSource) {
 
   //const vatSource = fs.readFileSync(require.resolve('./vat.js'));
   const { makeVat } = confineVatSource(s, vatSource);
-  const vatEndowments = { writeOutput };
 
   return makeVat(vatEndowments, myVatID, myHostID, guestSource);
 }
@@ -228,9 +227,13 @@ async function run(argv) {
   // todo: how do we set encoding=utf-8 on an open()?
   const output = await fs.promises.open(path.join(basedir, 'output-transcript'), 'w');
 
-  const vatEndowments = makeVatEndowments(argv, output);
+  const vatEndowments = makeVatEndowments(s, output);
+  if (!vatEndowments instanceof s.global.Object) {
+    throw new Error('vatEndowments must be in-Realm');
+  }
+  console.log('vatEndowments are', vatEndowments);
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
-  const v = await buildVat(s, myVatID, myHostID, vatEndowments.writeOutput, guestSource);
+  const v = await buildVat(s, myVatID, myHostID, vatEndowments, guestSource);
   const guestArgvJSON = await readBaseFile('argv.json');
   const guestArgv = await buildArgv(v, guestArgvJSON, readBaseFile, vatEndowments);
 

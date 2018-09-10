@@ -5,13 +5,9 @@ import fs from 'fs';
 import crypto from 'crypto';
 import process from 'process';
 
-export function makeVatEndowments(argv, output) {
-  return {
-    writeOutput(s) {
-      output.write(s);
-      output.write('\n');
-    },
-
+export function makeVatEndowments(s, output) {
+  const power = { // made available to build()
+    output,
     exit(rc, message) {
       if (message) {
         console.log(`process exiting (rc=${rc}): ${message}`);
@@ -26,8 +22,21 @@ export function makeVatEndowments(argv, output) {
         process.exit(1);
       }
     },
-
   };
+
+  function build(power) {
+    return {
+      writeOutput(s) {
+        power.output.write(s);
+        power.output.write('\n');
+      },
+      exit(rc, message) {
+        power.exit(rc, message);
+      },
+    };
+  }
+
+  return s.evaluate(`(${build})`)(power);
 }
 
 export function readAndHashFile(fn) {
