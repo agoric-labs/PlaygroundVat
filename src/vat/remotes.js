@@ -316,7 +316,7 @@ export function makeRemoteManager(myVatID, myHostID,
 
   function whatConnectionsDoYouWant() {
     return Array.from(hostRemotes.keys()).filter(hostID => {
-      return hostRemotes.get(hostID).haveOutbound();
+      return hostRemotes.get(hostID).wantConnection();
     });
   }
 
@@ -403,13 +403,13 @@ function makeRemoteForHostID(hostID, engine, def, managerWriteInput) {
       connection = undefined;
     },
 
+    wantConnection() {
+      return (queuedMessages.length && !connection);
+    },
+
     // inbound
 
     // outbound
-
-    haveOutbound() {
-      return !!queuedMessages.length;
-    },
 
     sendHostMessage(msg) {
       queuedMessages.push(msg);

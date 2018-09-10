@@ -1,5 +1,6 @@
 import { test } from 'tape-promise/tape';
-import { makeRemoteForVatID, makeDecisionList } from '../src/vat/remotes';
+import { makeRemoteForVatID, makeDecisionList,
+         makeRemoteManager } from '../src/vat/remotes';
 import { parseVatID } from '../src/vat/id';
 import { vatMessageIDHash } from '../src/vat/swissCrypto';
 
@@ -363,4 +364,44 @@ test('decisionList leader', (t) => {
 
   t.end();
 
+});
+
+test('connections', (t) => {
+  function managerWriteInput(fromVatID, wireMessage) {
+  }
+  function managerWriteOutput(msg) {
+  }
+  function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {
+  }
+  function def(o) {
+    return Object.freeze(o);
+  }
+
+  const rm = makeRemoteManager('vat1', 'vat1',
+                               managerWriteInput, managerWriteOutput,
+                               def, console.log, logConflict);
+  const fakeEngine = {};
+  rm.setEngine(fakeEngine);
+  t.deepEqual(rm.whatConnectionsDoYouWant(), []);
+  rm.sendTo('vat2', {op: 'whatever'});
+  const messages = [];
+  const c = {
+    send(body) {
+      messages.push(body);
+    },
+  };
+  t.deepEqual(rm.whatConnectionsDoYouWant(), ['vat2']);
+  rm.gotConnection('vat2', c);
+  t.deepEqual(rm.whatConnectionsDoYouWant(), []);
+  t.equal(messages.length, 1);
+  t.ok(messages[0].startsWith('op '));
+  const m = JSON.parse(messages[0].slice('op '.length));
+  t.deepEqual(m, { fromVatID: 'vat1',
+                   toVatID: 'vat2',
+                   seqnum: 0,
+                   opMsg: { op: 'whatever' },
+                 });
+  rm.lostConnection('vat2');
+  t.deepEqual(rm.whatConnectionsDoYouWant(), ['vat2']);
+  t.end();
 });
