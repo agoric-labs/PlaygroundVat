@@ -210,7 +210,7 @@ export function makeRemoteManager(myVatID, myHostID,
       if (!engine) {
         throw new Error('engine is not yet set');
       }
-      hostRemotes.set(hostID, makeRemoteForHostID(hostID, engine, def,
+      hostRemotes.set(hostID, makeRemoteForHostID(hostID, def,
                                                   managerWriteInput));
     }
     return hostRemotes.get(hostID);
@@ -376,7 +376,7 @@ export function makeRemoteManager(myVatID, myHostID,
 
 
 // this is just for outbound messages, but todo future maybe acks too
-function makeRemoteForHostID(hostID, engine, def, managerWriteInput) {
+function makeRemoteForHostID(hostID, def, managerWriteInput) {
   let queuedMessages = [];
   let nextInboundSeqnum = 0;
   let queuedInboundMessages = new Map(); // seqnum -> msg
