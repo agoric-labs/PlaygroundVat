@@ -47,14 +47,15 @@ test('vatRemote seqnum', (t) => {
 });
 
 function makeMsg(vat, seqnum, target='etc', toVatID='vat1') {
-  const msg = { fromVatID: vat,
-                toVatID,
-                seqnum,
-                msg: { op: 'send',
-                       target },
-              };
-  const id = vatMessageIDHash(JSON.stringify(msg));
-  return { msg, id };
+  const hostMessage = { fromVatID: vat,
+                        toVatID,
+                        seqnum,
+                        msg: { op: 'send',
+                               target },
+                      };
+  const wireMessage = `op ${JSON.stringify(hostMessage)}`;
+  const id = vatMessageIDHash(JSON.stringify(hostMessage));
+  return { hostMessage, wireMessage, id };
 }
 
 test('vatRemote inbound solo', (t) => {
@@ -64,7 +65,9 @@ test('vatRemote inbound solo', (t) => {
   const r = makeRemoteForVatID('vat2', shallowDef, console.log, logConflict);
 
   function got(hm, host) {
-    return r.gotHostMessage({ fromHostID: host }, hm.id, hm.msg);
+    return r.gotHostMessage({ fromHostID: host }, hm.id,
+                            { hostMessage: hm.hostMessage,
+                              wireMessage: hm.wireMessage });
   }
 
   const hm0 = makeMsg('vat2', 0);
@@ -115,7 +118,9 @@ test('vatRemote inbound quorum', (t) => {
   const r = makeRemoteForVatID(fromVatID, shallowDef, console.log, logConflict);
   function got(hm, host, msgID=null) {
     msgID = msgID || hm.id;
-    return r.gotHostMessage({ fromHostID: host }, msgID, hm.msg);
+    return r.gotHostMessage({ fromHostID: host }, msgID,
+                            { hostMessage: hm.hostMessage,
+                              wireMessage: hm.wireMessage });
   }
   let res;
 
@@ -219,7 +224,7 @@ test('decisionList solo', (t) => {
   ready.push([ 'vat2', hm20, () => consumed.push(20) ]);
   dl.addMessage(hm20);
   //console.log(dl.debug_getDecisionList());
-  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.msg } ]);
+  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.hostMessage } ]);
   t.deepEqual(consumed, [20]);
 
   deliveries.splice(0);
@@ -227,7 +232,7 @@ test('decisionList solo', (t) => {
 
   ready.push(['vat3', hm30, () => consumed.push(30) ]);
   dl.addMessage(hm30);
-  t.deepEqual(deliveries, [ { fromVatID: 'vat3', msg: hm30.msg } ]);
+  t.deepEqual(deliveries, [ { fromVatID: 'vat3', msg: hm30.hostMessage } ]);
   t.deepEqual(consumed, [30]);
 
   t.deepEqual(decisionMessages, []);
@@ -267,7 +272,7 @@ test('decisionList follower', (t) => {
   t.deepEqual(consumed, []);
 
   dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 0, vatMessageID: hm20.id});
-  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.msg } ]);
+  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.hostMessage } ]);
   t.deepEqual(consumed, [20]);
 
   deliveries.splice(0);
@@ -281,7 +286,7 @@ test('decisionList follower', (t) => {
 
   ready.push([ 'vat3', hm30, () => consumed.push(30) ]);
   dl.addMessage(hm30);
-  t.deepEqual(deliveries, [ { fromVatID: 'vat3', msg: hm30.msg } ]);
+  t.deepEqual(deliveries, [ { fromVatID: 'vat3', msg: hm30.hostMessage } ]);
   t.deepEqual(consumed, [30]);
 
   deliveries.splice(0);
@@ -306,8 +311,8 @@ test('decisionList follower', (t) => {
   t.deepEqual(consumed, []);
 
   dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 2, vatMessageID: hm21.id});
-  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm21.msg },
-                            { fromVatID: 'vat3', msg: hm31.msg } ]);
+  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm21.hostMessage },
+                            { fromVatID: 'vat3', msg: hm31.hostMessage } ]);
   t.deepEqual(consumed, [21, 31]);
 
   t.deepEqual(decisionMessages, []);
@@ -338,7 +343,7 @@ test('decisionList leader', (t) => {
 
   ready.push([ 'vat2', hm20, () => consumed.push(20) ]);
   dl.addMessage(hm20);
-  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.msg } ]);
+  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.hostMessage } ]);
   t.deepEqual(consumed, [20]);
 
   t.deepEqual(decisionMessages, [
