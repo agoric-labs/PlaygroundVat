@@ -139,8 +139,9 @@ test('methods can send messages via commsReceived', async (t) => {
   // invoked, it discards that Promise, unlike debugRxMessage
   await v.commsReceived('vat2', payload);
   console.log(`transcript is ${tr.lines}`);
-  t.equal(tr.lines.length, 2);
-  let pieces = tr.lines[0].split(' '); // cheap
+  t.equal(tr.lines.length, 3);
+  t.ok(tr.lines[0].startsWith('input: vat2 op'));
+  let pieces = tr.lines[1].split(' '); // cheap
   t.equal(pieces[0], 'output:');
   t.equal(pieces[1], 'op');
   let op = JSON.parse(pieces[2]);
@@ -158,7 +159,7 @@ test('methods can send messages via commsReceived', async (t) => {
                    }};
   t.deepEqual(op, expected);
 
-  pieces = tr.lines[1].split(' '); // cheap
+  pieces = tr.lines[2].split(' '); // cheap
   t.equal(pieces[0], 'output:');
   t.equal(pieces[1], 'op');
   op = JSON.parse(pieces[2]);
