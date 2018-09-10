@@ -40,7 +40,8 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
     readyMessage = undefined;
   }
 
-  function gotHostMessage(evidence, msgID, hostMessage) {
+  function gotHostMessage(evidence, msgID, hostMessageAndWire) {
+    const { hostMessage, wireMessage } = hostMessageAndWire;
     const fromVatID = hostMessage.fromVatID;
     if (hostMessage.seqnum === undefined) {
       throw new Error(`message is missing seqnum: ${hostMessage}`);
@@ -55,7 +56,8 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
 
     if (scoreboard.acceptProtoMsg(fromHostID, hostMessage.seqnum,
                                   msgID, { id: msgID,
-                                           msg: hostMessage })) {
+                                           hostMessage,
+                                           wireMessage })) {
       return getReadyMessage();
     }
     return undefined;
@@ -105,7 +107,7 @@ export function makeDecisionList(log, myVatID, isLeader, followers,
           decisionList.shift();
           consume();
           nextDeliverySeqnum = next.decisionSeqnum+1;
-          deliver(vatID, sm.msg);
+          deliver(vatID, sm.hostMessage, sm.wireMessage);
           found = true;
           break;
         }
@@ -126,8 +128,8 @@ export function makeDecisionList(log, myVatID, isLeader, followers,
                    decisionSeqnum: nextLeaderSeqnum,
                    vatMessageID: sm.id,
                    // these are for debugging
-                   debug_fromVatID: sm.msg.fromVatID,
-                   debug_vatSeqnum: sm.msg.seqnum };
+                   debug_fromVatID: sm.hostMessage.fromVatID,
+                   debug_vatSeqnum: sm.hostMessage.seqnum };
       decisionList.push(dm);
       nextLeaderSeqnum += 1;
       // notify followers
@@ -240,7 +242,7 @@ export function makeRemoteManager(myVatID, myHostID,
   const dl = makeDecisionList(log, myVatID, isLeader, followers,
                               getReadyMessages, deliver, sendDecisionTo);
 
-  function deliver(fromVatID, m) {
+  function deliver(fromVatID, hostMessage, wireMessage) {
     // todo: retain the serialized form, for the transcript
 
     // create a form that's more useful for logging, by JSON-parsing the
@@ -248,7 +250,7 @@ export function makeRemoteManager(myVatID, myHostID,
     // converts various @qclass things into special types. For logging we
     // want to leave those as @qclass things.
     {
-      const copy = JSON.parse(JSON.stringify(m)); // deep copy
+      const copy = JSON.parse(JSON.stringify(hostMessage)); // deep copy
       if (copy.opMsg && copy.opMsg.argsS) {
         copy.opMsg.args = JSON.parse(copy.opMsg.argsS);
         delete copy.opMsg.argsS;
@@ -260,8 +262,8 @@ export function makeRemoteManager(myVatID, myHostID,
       log('DELIVER', fromVatID, JSON.stringify(copy, null, 2));
     }
 
-    //managerWriteInput(XX);
-    engine.rxMessage(fromVatID, m.opMsg);
+    managerWriteInput(fromVatID, wireMessage);
+    engine.rxMessage(fromVatID, hostMessage.opMsg);
     // todo: now send an ack
   }
 
@@ -273,6 +275,7 @@ export function makeRemoteManager(myVatID, myHostID,
     // * decide JSON(leaderDecision)
     if (wireMessage.startsWith(OP)) {
       const hostMessage = JSON.parse(wireMessage.slice(OP.length));
+      const hostMessageAndWire = { hostMessage, wireMessage };
       const msgID = vatMessageIDHash(wireMessage.slice(OP.length));
       // todo: assert that toVatID === myVatID
       const toVatID = hostMessage.toVatID;
@@ -280,7 +283,7 @@ export function makeRemoteManager(myVatID, myHostID,
       const r = getVatRemote(fromVatID);
       const evidence = { fromHostID }; // todo future: cert chain
 
-      const newMessage = r.gotHostMessage(evidence, msgID, hostMessage);
+      const newMessage = r.gotHostMessage(evidence, msgID, hostMessageAndWire);
       if (newMessage) {
         // there is a new message ready for this sender
         dl.addMessage(newMessage); // does checkDelivery()

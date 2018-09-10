@@ -82,20 +82,36 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
                    }])};
   await v.doSendOnly(opMsg);
   console.log(`transcript is ${tr.lines}`);
-  t.equal(tr.lines.length, 1);
-  const pieces = tr.lines[0].split(' '); // cheap
+  t.equal(tr.lines.length, 2);
+  let pieces = tr.lines[0].split(' '); // cheap, assumes no spaces in args
   t.equal(pieces[0], 'output:');
   t.equal(pieces[1], 'op');
-  const argsPayload = JSON.parse(pieces[2]);
-  t.equal(argsPayload.fromVatID, 'v1');
-  t.equal(argsPayload.toVatID, 'vat2');
-  t.equal(argsPayload.seqnum, 0);
-  t.equal(argsPayload.opMsg.op, 'send');
-  t.equal(argsPayload.opMsg.targetSwissnum, 123);
-  t.equal(argsPayload.opMsg.methodName, 'foo');
-  t.equal(argsPayload.opMsg.resultSwissbase, 'base-1'); // todo: this will become random
-  const args = JSON.parse(argsPayload.opMsg.argsS);
-  t.deepEqual(args, ['arg1', 'arg2']);
+  let op = JSON.parse(pieces[2]);
+  let expected = { fromVatID: 'v1',
+                     toVatID: 'vat2',
+                     seqnum: 0,
+                     opMsg: { op: 'send',
+                              targetSwissnum: 123,
+                              methodName: 'foo',
+                              argsS: JSON.stringify(['arg1', 'arg2']),
+                              // todo: this will become random
+                              resultSwissbase: 'base-1',
+                            },
+                   };
+  t.deepEqual(op, expected);
+
+  pieces = tr.lines[1].split(' '); // cheap, assumes no spaces in args
+  t.equal(pieces[0], 'output:');
+  t.equal(pieces[1], 'op');
+  op = JSON.parse(pieces[2]);
+  expected = { fromVatID: 'v1',
+               toVatID: 'vat2',
+               seqnum: 1,
+               opMsg: { op: 'when',
+                        targetSwissnum: 'hash-of-base-1',
+                      },
+             };
+  t.deepEqual(op, expected);
 
   t.end();
 });
@@ -123,24 +139,39 @@ test('methods can send messages via commsReceived', async (t) => {
   // invoked, it discards that Promise, unlike debugRxMessage
   await v.commsReceived('vat2', payload);
   console.log(`transcript is ${tr.lines}`);
-  t.equal(tr.lines.length, 1);
-  const pieces = tr.lines[0].split(' '); // cheap
+  t.equal(tr.lines.length, 3);
+  t.ok(tr.lines[0].startsWith('input: vat2 op'));
+  let pieces = tr.lines[1].split(' '); // cheap
   t.equal(pieces[0], 'output:');
   t.equal(pieces[1], 'op');
-  const op = JSON.parse(pieces[2]);
-  const expected = { fromVatID: 'v1',
-                     toVatID: 'vat2',
-                     seqnum: 0,
-                     opMsg: {
-                       op: 'send',
-                       targetSwissnum: 123,
-                       methodName: 'foo',
-                       argsS: JSON.stringify([
-                         'arg1', 'arg2']),
-                       // todo: this will become random
-                       resultSwissbase: 'base-1',
-                     }};
+  let op = JSON.parse(pieces[2]);
+  let expected = { fromVatID: 'v1',
+                   toVatID: 'vat2',
+                   seqnum: 0,
+                   opMsg: {
+                     op: 'send',
+                     targetSwissnum: 123,
+                     methodName: 'foo',
+                     argsS: JSON.stringify([
+                       'arg1', 'arg2']),
+                     // todo: this will become random
+                     resultSwissbase: 'base-1',
+                   }};
   t.deepEqual(op, expected);
+
+  pieces = tr.lines[2].split(' '); // cheap
+  t.equal(pieces[0], 'output:');
+  t.equal(pieces[1], 'op');
+  op = JSON.parse(pieces[2]);
+  expected = { fromVatID: 'v1',
+               toVatID: 'vat2',
+               seqnum: 1,
+               opMsg: {
+                 op: 'when',
+                 targetSwissnum: 'hash-of-base-1',
+               }};
+  t.deepEqual(op, expected);
+
   t.end();
 });
 
@@ -155,6 +186,9 @@ test('method results are sent back', async (t) => {
                   methodName: 'returnValue',
                   argsS: JSON.stringify([3]) };
   await v.debugRxMessage('vat2', 0, opMsg);
+  const whenMsg = { op: 'when',
+                    targetSwissnum: 'hash-of-5' };
+  await v.debugRxMessage('vat2', 1, whenMsg);
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 1);
   const pieces = tr.lines[0].split(' '); // cheap

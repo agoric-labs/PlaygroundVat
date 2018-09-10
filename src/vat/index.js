@@ -115,8 +115,8 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
   // not a SendOnly), and rows allocated by the far side (when receiving a
   // RemoteVow).
 
-  function managerWriteInput(msg) {
-    endowments.writeOutput(`input: ${msg}\n`);
+  function managerWriteInput(fromVatID, wireMessage) {
+    endowments.writeOutput(`input: ${fromVatID} ${wireMessage}\n`);
   }
   function managerWriteOutput(msg) {
     endowments.writeOutput(`output: ${msg}\n`);
@@ -211,8 +211,8 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
     connectionLost,
     commsReceived,
 
-    serialize(val, targetVatID) {
-      return engine.serialize(val, targetVatID);
+    serialize(val) {
+      return engine.serialize(val);
     },
 
     doSendOnly(bodyJson) {
@@ -235,16 +235,13 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
         //        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
         //      }
         log(`load matches, good`);
-      } else if (line.startsWith('msg: ')) {
+      } else if (line.startsWith('input: ')) {
+        const msgre = /^input: (\w+) (.*)$/; // input: fromVatID op {msg}
         const m = msgre.exec(line);
         const fromVat = m[1];
-        const toVat = m[2];
-        const bodyJson = m[3];
-        log(`transcript msg ${fromVat} ${toVat} (i am ${myVatID})`);
-        if (toVat === myVatID) {
-          //endowments.writeOutput(line);
-          commsReceived(fromVat, bodyJson);
-        }
+        const wireMessage = m[2];
+        log(`transcript input ${fromVat} ${wireMessage}`);
+        commsReceived(fromVat, wireMessage, marshal);
       } else {
         log(`unknown line: ${line}`);
       }
