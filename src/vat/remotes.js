@@ -314,12 +314,6 @@ export function makeRemoteManager(myVatID, myHostID, comms,
     getHostRemote(hostID).connectionLost();
   }
 
-  function whatConnectionsDoYouWant() {
-    return Array.from(hostRemotes.keys()).filter(hostID => {
-      return hostRemotes.get(hostID).wantConnection();
-    });
-  }
-
   function sendTo(vatID, body) {
     if (typeof body !== 'object' || !body.hasOwnProperty('op')) {
       throw new Error('sendTo must be given an object');
@@ -364,7 +358,6 @@ export function makeRemoteManager(myVatID, myHostID, comms,
 
     connectionMade,
     connectionLost,
-    whatConnectionsDoYouWant,
 
     // inbound
     commsReceived,
@@ -402,10 +395,6 @@ function makeRemoteForHostID(hostID, comms, def, managerWriteInput) {
 
     connectionLost() {
       connection = undefined;
-    },
-
-    wantConnection() {
-      return (queuedMessages.length && !connection);
     },
 
     // inbound

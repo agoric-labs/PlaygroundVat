@@ -386,7 +386,6 @@ test('connections', (t) => {
                                def, console.log, logConflict);
   const fakeEngine = {};
   rm.setEngine(fakeEngine);
-  t.deepEqual(rm.whatConnectionsDoYouWant(), []);
   rm.sendTo('vat2', {op: 'whatever'});
   t.deepEqual(wanted, [ 'vat2' ]);
   const messages = [];
@@ -395,9 +394,7 @@ test('connections', (t) => {
       messages.push(body);
     },
   };
-  t.deepEqual(rm.whatConnectionsDoYouWant(), ['vat2']);
   rm.connectionMade('vat2', c);
-  t.deepEqual(rm.whatConnectionsDoYouWant(), []);
   t.equal(messages.length, 1);
   t.ok(messages[0].startsWith('op '));
   const m = JSON.parse(messages[0].slice('op '.length));
@@ -407,6 +404,10 @@ test('connections', (t) => {
                    opMsg: { op: 'whatever' },
                  });
   rm.connectionLost('vat2');
-  t.deepEqual(rm.whatConnectionsDoYouWant(), ['vat2']);
+
+  // each new connection should re-send all messages, until we get acks
+  rm.connectionMade('vat2', c);
+  t.equal(messages.length, 2);
+
   t.end();
 });

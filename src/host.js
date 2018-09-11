@@ -58,13 +58,6 @@ export function makeVatEndowments(s, output, comms) {
             connectionLost(hostID) { // hostID is Primal
               eventually(_ => m.connectionLost(`${hostID}`));
             },
-            // temporary
-            whatConnectionsDoYouWant() {
-              const which = m.whatConnectionsDoYouWant(); // allegedly SES
-              return Array.from(which); // definitely SES
-              // we aren't doing eventually() here: too much hassle, and this
-              // method is going away soon anyways
-            },
           });
           eventually(_ => power.comms.registerManager(wrappedManager));
         },
