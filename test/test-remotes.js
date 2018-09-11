@@ -376,14 +376,19 @@ test('connections', (t) => {
   function def(o) {
     return Object.freeze(o);
   }
+  const wanted = [];
+  const comms = {
+    wantConnection(hostID) { wanted.push(hostID); },
+  };
 
-  const rm = makeRemoteManager('vat1', 'vat1',
+  const rm = makeRemoteManager('vat1', 'vat1', comms,
                                managerWriteInput, managerWriteOutput,
                                def, console.log, logConflict);
   const fakeEngine = {};
   rm.setEngine(fakeEngine);
   t.deepEqual(rm.whatConnectionsDoYouWant(), []);
   rm.sendTo('vat2', {op: 'whatever'});
+  t.deepEqual(wanted, [ 'vat2' ]);
   const messages = [];
   const c = {
     send(body) {

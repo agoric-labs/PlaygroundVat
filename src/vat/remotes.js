@@ -194,7 +194,7 @@ export function makeDecisionList(log, myVatID, isLeader, followers,
 
 }
 
-export function makeRemoteManager(myVatID, myHostID,
+export function makeRemoteManager(myVatID, myHostID, comms,
                                   managerWriteInput, managerWriteOutput,
                                   def, log, logConflict) {
   const vatRemotes = new Map();
@@ -210,7 +210,7 @@ export function makeRemoteManager(myVatID, myHostID,
       if (!engine) {
         throw new Error('engine is not yet set');
       }
-      hostRemotes.set(hostID, makeRemoteForHostID(hostID, def,
+      hostRemotes.set(hostID, makeRemoteForHostID(hostID, comms, def,
                                                   managerWriteInput));
     }
     return hostRemotes.get(hostID);
@@ -351,7 +351,8 @@ export function makeRemoteManager(myVatID, myHostID,
 
     for (let hostID of vatRemote.hostIDs) {
       // now add to a per-targetHostID queue, and if we have a current
-      // connection, send it
+      // connection, send it. The HostRemote will tell comms if it wants a
+      // new connection.
       getHostRemote(hostID).sendHostMessage(wireMessage);
     }
   }
@@ -376,7 +377,7 @@ export function makeRemoteManager(myVatID, myHostID,
 
 
 // this is just for outbound messages, but todo future maybe acks too
-function makeRemoteForHostID(hostID, def, managerWriteInput) {
+function makeRemoteForHostID(hostID, comms, def, managerWriteInput) {
   let queuedMessages = [];
   let nextInboundSeqnum = 0;
   let queuedInboundMessages = new Map(); // seqnum -> msg
@@ -415,6 +416,8 @@ function makeRemoteForHostID(hostID, def, managerWriteInput) {
       queuedMessages.push(msg);
       if (connection) {
         connection.send(msg);
+      } else {
+        comms.wantConnection(hostID);
       }
     },
 

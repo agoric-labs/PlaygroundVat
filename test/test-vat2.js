@@ -34,7 +34,8 @@ function t1_responder() {
 test('comms, sending a message', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
-                  comms: { registerManager() {} } };
+                  comms: { registerManager() {},
+                           wantConnection() {} } };
   const s = makeRealm();
   const v1src = funcToSource(t1_sender);
   const v1 = await buildVat(s, 'vat1', 'vat1', endow, v1src);
@@ -134,7 +135,8 @@ function t2_responder() {
 test('sending unresolved local Vow', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
-                  comms: { registerManager() {} } };
+                  comms: { registerManager() {},
+                           wantConnection() {}  } };
   const s = makeRealm();
   const v1src = funcToSource(t2_sender);
   const v1 = await buildVat(s, 'vat1', 'vat1', endow, v1src);
@@ -265,7 +267,8 @@ function t3_three() {
 test('sending third-party Vow', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
-                  comms: { registerManager() {} } };
+                  comms: { registerManager() {},
+                           wantConnection() {}  } };
   const s = makeRealm();
   const v1src = funcToSource(t3_one);
   const v1 = await buildVat(s, 'vat1', 'vat1', endow, v1src);
@@ -441,7 +444,8 @@ function t4_three() {
 test('sending third-party Vow that resolves to Presence', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
-                  comms: { registerManager() {} } };
+                  comms: { registerManager() {},
+                           wantConnection() {}  } };
   const s = makeRealm();
   const v1src = funcToSource(t4_one);
   const v1 = await buildVat(s, 'vat1', 'vat1', endow, v1src);
@@ -621,7 +625,8 @@ function t5_carol() {
 test('third-party Vow gets resolved', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
-                  comms: { registerManager() {} } };
+                  comms: { registerManager() {},
+                           wantConnection() {}  } };
   const s = makeRealm();
 
   const ALICE = 'ALICE';
