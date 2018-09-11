@@ -69,7 +69,9 @@ test('confineVatSource', (t) => {
 test('methods can send messages via doSendOnly', async (t) => { // todo remove
   const tr = makeTranscript();
   const s = makeRealm();
-  const v = await buildVat(s, 'v1', 'v1', { writeOutput: tr.writeOutput }, funcToSource(s2));
+  const endow = { writeOutput: tr.writeOutput,
+                  comms: { registerManager() {} } };
+  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   const opMsg = {op: 'send',
@@ -119,7 +121,9 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
 test('methods can send messages via commsReceived', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
-  const v = await buildVat(s, 'v1', 'v1', { writeOutput: tr.writeOutput }, funcToSource(s2));
+  const endow = { writeOutput: tr.writeOutput,
+                  comms: { registerManager() {} } };
+  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   const opMsg = {op: 'send',
@@ -178,7 +182,9 @@ test('methods can send messages via commsReceived', async (t) => {
 test('method results are sent back', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
-  const v = await buildVat(s, 'v1', 'v1', { writeOutput: tr.writeOutput }, funcToSource(s2));
+  const endow = { writeOutput: tr.writeOutput,
+                  comms: { registerManager() {} } };
+  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
   const opMsg = { op: 'send',
                   resultSwissbase: '5',
@@ -210,7 +216,9 @@ test('method results are sent back', async (t) => {
 test('methods can return a promise', async (t) => {
   const tr = makeTranscript();
   const s = makeRealm();
-  const v = await buildVat(s, 'v1', 'v1', { writeOutput: tr.writeOutput }, funcToSource(s2));
+  const endow = { writeOutput: tr.writeOutput,
+                  comms: { registerManager() {} } };
+  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   let result = false;

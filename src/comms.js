@@ -52,10 +52,7 @@ function asp(numVals, errFirst=false) {
   return { p, cb };
 }
 
-const pending = new Set();
-const connections = new Map();
-
-async function connectTo(n, hostID, addresses, vat) {
+async function connectTo(n, hostID, addresses, manager) {
   console.log(`connectTo(${addresses}`);
 
   let a = asp(1, true);
@@ -99,7 +96,7 @@ async function connectTo(n, hostID, addresses, vat) {
       //console.log(`got line on outbound '${line}'`);
       if (!line)
         return;
-      vat.commsReceived(hostID, line);
+      manager.commsReceived(hostID, line);
     }),
     pullStream.onEnd(_ => doneResolver()),
   );
@@ -107,7 +104,7 @@ async function connectTo(n, hostID, addresses, vat) {
   return { c, doneP };
 }
 
-async function handleConnection(vat, protocol, conn) {
+async function handleConnection(manager, protocol, conn) {
   console.log(`got ${protocol} connection`);
   let hostIDres, hostIDrej;
   const hostIDp = new Promise((res, rej) => { hostIDres = res; hostIDrej = rej; });
@@ -148,7 +145,7 @@ async function handleConnection(vat, protocol, conn) {
     }
   };
 
-  vat.connectionMade(hostID, c);
+  manager.connectionMade(hostID, c);
 
   pullStream(conn,
              pullSplit('\n'),
@@ -156,48 +153,34 @@ async function handleConnection(vat, protocol, conn) {
                //console.log(`got line on inbound '${line}'`);
                if (!line)
                  return;
-               vat.commsReceived(hostID, line);
+               manager.commsReceived(hostID, line);
              }),
              pullStream.drain()
             );
-
 }
 
-export async function startComms(vat, myPeerInfo, getAddressesForHostID) {
-  console.log(`startComms`);
+export async function createComms(myPeerInfo, getAddressesForHostID) {
+  console.log(`createComms`);
   //console.log(`peerInfo is ${myPeerInfo}`);
+  const pending = new Set();
+  const connections = new Map();
+  let manager;
   const n = new CommsNode({ peerInfo: myPeerInfo });
-  n.on('peer:connect', (peerInfo) => {
-    // never printed
-    console.log(`received dial to me from: ${peerInfo.id.toB58String()}`);
-  });
-  n.handle('/vattp-hack/0.1', (protocol, conn) => handleConnection(vat, protocol, conn));
-  let a = asp(0);
-  //await n.start();
-  n.start(a.cb);
-  await a.p;
-
-  // todo: do this in 'vat create', stash all the addresses in BASEDIR/addresses
-  console.log('Listener ready, listening on:');
-  n.peerInfo.multiaddrs.forEach((ma) => {
-    //console.log(ma.toString() + '/ipfs/' + id.toB58String());
-    console.log(ma.toString());
-  });
 
   async function check() {
     console.log(`startComms.check`);
-    for (let hostID of vat.whatConnectionsDoYouWant()) {
+    for (let hostID of manager.whatConnectionsDoYouWant()) {
       if (!connections.has(hostID) && !pending.has(hostID)) {
         const addresses = await getAddressesForHostID(hostID);
         pending.add(hostID);
-        const p = connectTo(n, hostID, addresses, vat);
+        const p = connectTo(n, hostID, addresses, manager);
         p.then(({c, doneP}) => { pending.delete(hostID);
                                  connections.set(hostID, c);
-                                 vat.connectionMade(hostID, c);
+                                 manager.connectionMade(hostID, c);
                                  doneP.then(_ => {
                                    console.log(`connectionLost ${hostID}`);
                                    connections.delete(hostID);
-                                   vat.connectionLost(hostID);
+                                   manager.connectionLost(hostID);
                                  });
                                },
                rej => { console.log(`connectTo failed (${hostID}): ${rej}`);
@@ -206,6 +189,42 @@ export async function startComms(vat, myPeerInfo, getAddressesForHostID) {
       }
     }
   }
-  setInterval(check, 5*1000);
-}
 
+  return {
+    registerManager(m) {
+      manager = m;
+    },
+    async start() {
+      if (!manager) {
+        console.log('ERR: start called before registerManager');
+        throw new Error('start called before registerManager');
+      }
+      n.on('peer:connect', (peerInfo) => {
+        // never printed
+        console.log(`received dial to me from: ${peerInfo.id.toB58String()}`);
+      });
+      n.handle('/vattp-hack/0.1', (protocol, conn) =>
+               handleConnection(manager, protocol, conn));
+      let a = asp(0);
+      //await n.start();
+      n.start(a.cb);
+      await a.p;
+
+      // todo: do this in 'vat create', stash all the addresses in
+      // BASEDIR/addresses
+      console.log('Listener ready, listening on:');
+      n.peerInfo.multiaddrs.forEach((ma) => {
+        //console.log(ma.toString() + '/ipfs/' + id.toB58String());
+        console.log(ma.toString());
+      });
+      setInterval(check, 5*1000);
+    },
+    wantConnection(hostID) {
+      if (!manager) {
+        console.log('ERR: wantConnection called before registerManager');
+        throw new Error('wantConnection called before registerManager');
+      }
+      // todo: implement
+    },
+  };
+}
