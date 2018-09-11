@@ -117,7 +117,9 @@ function s1() {
 
 test('deliver farref to vat', async (t) => {
   const s = makeRealm();
-  const v = await buildVat(s, 'v1', 'v1', {writeOutput() {}}, funcToSource(s1));
+  const endow = { writeOutput() {},
+                  comms: { registerManager() {} } };
+  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s1));
   await v.initializeCode('v1/0');
   const opMsg = {op: 'send',
                  targetSwissnum: '0',

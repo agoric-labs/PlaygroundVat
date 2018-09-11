@@ -11,7 +11,7 @@ import SES from 'ses';
 import PeerId from 'peer-id';
 import PeerInfo from 'peer-info';
 
-import { startComms } from './comms';
+import { createComms } from './comms';
 import { makeVatEndowments, readAndHashFile } from './host';
 import { parseVatID } from './vat/id';
 
@@ -190,6 +190,46 @@ export async function buildArgv(vat, argvJSON, readBaseFile, vatEndowments) {
   return argv;
 }
 
+async function buildComms(readBaseFile, readBaseLines, locatordir) {
+  const myPeerID_s = await readBaseFile('private-id');
+  const myPeerID = await promisify(PeerId.createFromJSON)(JSON.parse(myPeerID_s));
+  const myPeerInfo = new PeerInfo(myPeerID);
+  const ports = await readBaseLines('listen-ports');
+  for (let port of ports) {
+    if (port) {
+      myPeerInfo.multiaddrs.add(port);
+    }
+  }
+
+  async function getAddressesForHostID(hostID) {
+    const dirs = await fs.promises.readdir(locatordir);
+    for (let d of dirs) {
+      const idFile = path.join(locatordir, d, 'host-id');
+      let f;
+      try {
+        f = await fs.promises.readFile(idFile, { encoding: 'utf-8' });
+      } catch (ex) {
+        if (ex.code !== 'ENOENT' && ex.code !== 'ENOTDIR') {
+          throw ex;
+        }
+        continue;
+      }
+      const id = f.split('\n')[0];
+      if (id !== hostID)
+        continue;
+      const portsFile = path.join(locatordir, d, 'addresses'); // todo: fake symlink
+      const data = await fs.promises.readFile(portsFile, { encoding: 'utf-8' });
+      const addresses = data.split('\n').filter(address => address); // remove blank lines
+      return addresses;
+    }
+    console.log(`unable to find addresses for HostID ${hostID}`);
+    return [];
+  }
+
+  return await createComms(myPeerInfo, getAddressesForHostID);
+}
+
+
 async function run(argv) {
   let basedir = '.';
   if (argv.basedir) {
@@ -227,7 +267,10 @@ async function run(argv) {
   // todo: how do we set encoding=utf-8 on an open()?
   const output = await fs.promises.open(path.join(basedir, 'output-transcript'), 'w');
 
-  const vatEndowments = makeVatEndowments(s, output);
+  const locatordir = path.join(basedir, '..');
+  const comms = await buildComms(readBaseFile, readBaseLines, locatordir);
+
+  const vatEndowments = makeVatEndowments(s, output, comms);
   if (!vatEndowments instanceof s.global.Object) {
     throw new Error('vatEndowments must be in-Realm');
   }
@@ -252,45 +295,7 @@ async function run(argv) {
     // after a turn boundary because that means we crashed while writing
     v.executeTranscriptLine(op);
   }
-
-  const myPeerID_s = await readBaseFile('private-id');
-  const myPeerID = await promisify(PeerId.createFromJSON)(JSON.parse(myPeerID_s));
-  const myPeerInfo = new PeerInfo(myPeerID);
-  const ports = await readBaseLines('listen-ports');
-  for (let port of ports) {
-    if (port) {
-      myPeerInfo.multiaddrs.add(port);
-    }
-  }
-
-  const locatordir = path.join(basedir, '..');
-
-  async function getAddressesForHostID(hostID) {
-    const dirs = await fs.promises.readdir(locatordir);
-    for (let d of dirs) {
-      const idFile = path.join(locatordir, d, 'host-id');
-      let f;
-      try {
-        f = await fs.promises.readFile(idFile, { encoding: 'utf-8' });
-      } catch (ex) {
-        if (ex.code !== 'ENOENT' && ex.code !== 'ENOTDIR') {
-          throw ex;
-        }
-        continue;
-      }
-      const id = f.split('\n')[0];
-      if (id !== hostID)
-        continue;
-      const portsFile = path.join(locatordir, d, 'addresses'); // todo: fake symlink
-      const data = await fs.promises.readFile(portsFile, { encoding: 'utf-8' });
-      const addresses = data.split('\n').filter(address => address); // remove blank lines
-      return addresses;
-    }
-    console.log(`unable to find addresses for HostID ${hostID}`);
-    return [];
-  }
-
-  await startComms(v, myPeerInfo, myVatID, getAddressesForHostID);
+  v.startComms();
 
   // we fall off the edge here, but Node keeps running because there are
   // still open listening sockets

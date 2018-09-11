@@ -125,7 +125,7 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
   function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {
     log(issue, `${seqMap.size} msgIDs, from hostID ${componentID} [${seqNum}]`);
   }
-  const manager = makeRemoteManager(myVatID, myHostID,
+  const manager = makeRemoteManager(myVatID, myHostID, endowments.comms,
                                     managerWriteInput, managerWriteOutput,
                                     def, log, logConflict);
 
@@ -137,6 +137,7 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
                             manager);
   manager.setEngine(engine);
   const marshal = engine.marshal;
+  endowments.comms.registerManager(manager);
 
   // This is the host's interface to the Vat. It must act as a sort of
   // airlock: host objects passed into these functions should not be exposed
@@ -145,28 +146,6 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
 
   function buildSturdyRef(vatID, swissnum) {
     return `${vatID}/${swissnum}`;
-  }
-
-  function whatConnectionsDoYouWant() {
-    return manager.whatConnectionsDoYouWant();
-  }
-
-  function connectionMade(hostID, connection) {
-    log(`connectionMade for ${hostID}`);
-    const c = {
-      send(msg) {
-        connection.send(msg);
-      }
-    };
-    manager.gotConnection(`${hostID}`, c);
-  }
-
-  function connectionLost(hostID) {
-    manager.lostConnection(`${hostID}`);
-  }
-
-  function commsReceived(hostID, line) {
-    manager.commsReceived(`${hostID}`, `${line}`, marshal);
   }
 
   return {
@@ -206,10 +185,13 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
       return root; // for testing
     },
 
-    whatConnectionsDoYouWant,
-    connectionMade,
-    connectionLost,
-    commsReceived,
+    connectionMade(hostID, c) { // for unit tests
+      manager.connectionMade(hostID, c);
+    },
+
+    commsReceived(hostID, line) { // for unit tests
+      manager.commsReceived(`${hostID}`, `${line}`);
+    },
 
     serialize(val) {
       return engine.serialize(val);
@@ -241,10 +223,14 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
         const fromVat = m[1];
         const wireMessage = m[2];
         log(`transcript input ${fromVat} ${wireMessage}`);
-        commsReceived(fromVat, wireMessage, marshal);
+        manager.commsReceived(fromVat, wireMessage);
       } else {
         log(`unknown line: ${line}`);
       }
+    },
+
+    startComms() {
+      endowments.comms.start();
     },
 
     /*

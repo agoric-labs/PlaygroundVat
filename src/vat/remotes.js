@@ -194,7 +194,7 @@ export function makeDecisionList(log, myVatID, isLeader, followers,
 
 }
 
-export function makeRemoteManager(myVatID, myHostID,
+export function makeRemoteManager(myVatID, myHostID, comms,
                                   managerWriteInput, managerWriteOutput,
                                   def, log, logConflict) {
   const vatRemotes = new Map();
@@ -210,7 +210,7 @@ export function makeRemoteManager(myVatID, myHostID,
       if (!engine) {
         throw new Error('engine is not yet set');
       }
-      hostRemotes.set(hostID, makeRemoteForHostID(hostID, def,
+      hostRemotes.set(hostID, makeRemoteForHostID(hostID, comms, def,
                                                   managerWriteInput));
     }
     return hostRemotes.get(hostID);
@@ -267,7 +267,7 @@ export function makeRemoteManager(myVatID, myHostID,
     // todo: now send an ack
   }
 
-  function commsReceived(fromHostID, wireMessage, marshal) {
+  function commsReceived(fromHostID, wireMessage) {
     //log(`commsReceived ${fromHostID}, ${wireMessage}`);
     const hr = getHostRemote(fromHostID);
     // 'wireMessage' is one of:
@@ -306,18 +306,12 @@ export function makeRemoteManager(myVatID, myHostID,
 
   }
 
-  function gotConnection(hostID, connection) {
-    getHostRemote(hostID).gotConnection(connection);
+  function connectionMade(hostID, connection) {
+    getHostRemote(hostID).connectionMade(connection);
   }
 
-  function lostConnection(hostID) {
-    getHostRemote(hostID).lostConnection();
-  }
-
-  function whatConnectionsDoYouWant() {
-    return Array.from(hostRemotes.keys()).filter(hostID => {
-      return hostRemotes.get(hostID).wantConnection();
-    });
+  function connectionLost(hostID) {
+    getHostRemote(hostID).connectionLost();
   }
 
   function sendTo(vatID, body) {
@@ -351,7 +345,8 @@ export function makeRemoteManager(myVatID, myHostID,
 
     for (let hostID of vatRemote.hostIDs) {
       // now add to a per-targetHostID queue, and if we have a current
-      // connection, send it
+      // connection, send it. The HostRemote will tell comms if it wants a
+      // new connection.
       getHostRemote(hostID).sendHostMessage(wireMessage);
     }
   }
@@ -361,9 +356,8 @@ export function makeRemoteManager(myVatID, myHostID,
       engine = e;
     },
 
-    gotConnection,
-    lostConnection,
-    whatConnectionsDoYouWant,
+    connectionMade,
+    connectionLost,
 
     // inbound
     commsReceived,
@@ -376,7 +370,7 @@ export function makeRemoteManager(myVatID, myHostID,
 
 
 // this is just for outbound messages, but todo future maybe acks too
-function makeRemoteForHostID(hostID, def, managerWriteInput) {
+function makeRemoteForHostID(hostID, comms, def, managerWriteInput) {
   let queuedMessages = [];
   let nextInboundSeqnum = 0;
   let queuedInboundMessages = new Map(); // seqnum -> msg
@@ -384,7 +378,7 @@ function makeRemoteForHostID(hostID, def, managerWriteInput) {
 
   const remote = def({
 
-    gotConnection(c) {
+    connectionMade(c) {
       connection = c;
       if (nextInboundSeqnum > 0) {
         // I'm using JSON.stringify instead of marshal.serialize because that
@@ -399,12 +393,8 @@ function makeRemoteForHostID(hostID, def, managerWriteInput) {
       }
     },
 
-    lostConnection() {
+    connectionLost() {
       connection = undefined;
-    },
-
-    wantConnection() {
-      return (queuedMessages.length && !connection);
     },
 
     // inbound
@@ -415,6 +405,8 @@ function makeRemoteForHostID(hostID, def, managerWriteInput) {
       queuedMessages.push(msg);
       if (connection) {
         connection.send(msg);
+      } else {
+        comms.wantConnection(hostID);
       }
     },
 

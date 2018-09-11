@@ -376,23 +376,25 @@ test('connections', (t) => {
   function def(o) {
     return Object.freeze(o);
   }
+  const wanted = [];
+  const comms = {
+    wantConnection(hostID) { wanted.push(hostID); },
+  };
 
-  const rm = makeRemoteManager('vat1', 'vat1',
+  const rm = makeRemoteManager('vat1', 'vat1', comms,
                                managerWriteInput, managerWriteOutput,
                                def, console.log, logConflict);
   const fakeEngine = {};
   rm.setEngine(fakeEngine);
-  t.deepEqual(rm.whatConnectionsDoYouWant(), []);
   rm.sendTo('vat2', {op: 'whatever'});
+  t.deepEqual(wanted, [ 'vat2' ]);
   const messages = [];
   const c = {
     send(body) {
       messages.push(body);
     },
   };
-  t.deepEqual(rm.whatConnectionsDoYouWant(), ['vat2']);
-  rm.gotConnection('vat2', c);
-  t.deepEqual(rm.whatConnectionsDoYouWant(), []);
+  rm.connectionMade('vat2', c);
   t.equal(messages.length, 1);
   t.ok(messages[0].startsWith('op '));
   const m = JSON.parse(messages[0].slice('op '.length));
@@ -401,7 +403,11 @@ test('connections', (t) => {
                    seqnum: 0,
                    opMsg: { op: 'whatever' },
                  });
-  rm.lostConnection('vat2');
-  t.deepEqual(rm.whatConnectionsDoYouWant(), ['vat2']);
+  rm.connectionLost('vat2');
+
+  // each new connection should re-send all messages, until we get acks
+  rm.connectionMade('vat2', c);
+  t.equal(messages.length, 2);
+
   t.end();
 });
