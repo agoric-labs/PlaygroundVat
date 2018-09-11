@@ -162,24 +162,26 @@ async function handleConnection(manager, protocol, conn) {
 export async function createComms(myPeerInfo, getAddressesForHostID) {
   console.log(`createComms`);
   //console.log(`peerInfo is ${myPeerInfo}`);
+  let started = false;
+  const wanted = new Set();
   const pending = new Set();
-  const connections = new Map();
+  const established = new Map();
   let manager;
   const n = new CommsNode({ peerInfo: myPeerInfo });
 
   async function check() {
-    console.log(`startComms.check`);
-    for (let hostID of manager.whatConnectionsDoYouWant()) {
-      if (!connections.has(hostID) && !pending.has(hostID)) {
+    console.log(`startComms.check`, started);
+    for (let hostID of wanted) {
+      if (!established.has(hostID) && !pending.has(hostID)) {
         const addresses = await getAddressesForHostID(hostID);
         pending.add(hostID);
         const p = connectTo(n, hostID, addresses, manager);
         p.then(({c, doneP}) => { pending.delete(hostID);
-                                 connections.set(hostID, c);
+                                 established.set(hostID, c);
                                  manager.connectionMade(hostID, c);
                                  doneP.then(_ => {
                                    console.log(`connectionLost ${hostID}`);
-                                   connections.delete(hostID);
+                                   established.delete(hostID);
                                    manager.connectionLost(hostID);
                                  });
                                },
@@ -195,6 +197,7 @@ export async function createComms(myPeerInfo, getAddressesForHostID) {
       manager = m;
     },
     async start() {
+      started = true;
       if (!manager) {
         console.log('ERR: start called before registerManager');
         throw new Error('start called before registerManager');
@@ -218,13 +221,20 @@ export async function createComms(myPeerInfo, getAddressesForHostID) {
         console.log(ma.toString());
       });
       setInterval(check, 5*1000);
+      check();
     },
     wantConnection(hostID) {
       if (!manager) {
         console.log('ERR: wantConnection called before registerManager');
         throw new Error('wantConnection called before registerManager');
       }
-      // todo: implement
+      if (wanted.has(hostID)) {
+        return;
+      }
+      wanted.add(hostID);
+      if (started) {
+        check();
+      }
     },
   };
 }
