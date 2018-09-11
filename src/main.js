@@ -290,7 +290,7 @@ async function run(argv) {
     return [];
   }
 
-  await startComms(v, myPeerInfo, myVatID, getAddressesForHostID);
+  await startComms(v, myPeerInfo, getAddressesForHostID);
 
   // we fall off the edge here, but Node keeps running because there are
   // still open listening sockets

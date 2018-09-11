@@ -55,8 +55,8 @@ function asp(numVals, errFirst=false) {
 const pending = new Set();
 const connections = new Map();
 
-async function connectTo(n, hostID, addresses, myHostID, vat) {
-  console.log(`connect(${addresses}) from ${myHostID}`);
+async function connectTo(n, hostID, addresses, vat) {
+  console.log(`connectTo(${addresses}`);
 
   let a = asp(1, true);
   const addr = addresses[0]; // TODO: use them all, somehow
@@ -72,7 +72,6 @@ async function connectTo(n, hostID, addresses, myHostID, vat) {
                               //conn.end();
                               //doner();
                              });
-  //pusher.push(`set-hostID ${myHostID}`);
   const c = {
     send(msg) {
       //console.log(`send/push ${msg}`);
@@ -164,8 +163,8 @@ async function handleConnection(vat, protocol, conn) {
 
 }
 
-export async function startComms(vat, myPeerInfo, myHostID, getAddressesForHostID) {
-  console.log(`startComms, myHostID is ${myHostID}`);
+export async function startComms(vat, myPeerInfo, getAddressesForHostID) {
+  console.log(`startComms`);
   //console.log(`peerInfo is ${myPeerInfo}`);
   const n = new CommsNode({ peerInfo: myPeerInfo });
   n.on('peer:connect', (peerInfo) => {
@@ -191,7 +190,7 @@ export async function startComms(vat, myPeerInfo, myHostID, getAddressesForHostI
       if (!connections.has(hostID) && !pending.has(hostID)) {
         const addresses = await getAddressesForHostID(hostID);
         pending.add(hostID);
-        const p = connectTo(n, hostID, addresses, myHostID, vat);
+        const p = connectTo(n, hostID, addresses, vat);
         p.then(({c, doneP}) => { pending.delete(hostID);
                                  connections.set(hostID, c);
                                  vat.connectionMade(hostID, c);
