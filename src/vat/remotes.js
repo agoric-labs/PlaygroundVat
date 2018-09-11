@@ -306,12 +306,12 @@ export function makeRemoteManager(myVatID, myHostID,
 
   }
 
-  function gotConnection(hostID, connection) {
-    getHostRemote(hostID).gotConnection(connection);
+  function connectionMade(hostID, connection) {
+    getHostRemote(hostID).connectionMade(connection);
   }
 
-  function lostConnection(hostID) {
-    getHostRemote(hostID).lostConnection();
+  function connectionLost(hostID) {
+    getHostRemote(hostID).connectionLost();
   }
 
   function whatConnectionsDoYouWant() {
@@ -361,8 +361,8 @@ export function makeRemoteManager(myVatID, myHostID,
       engine = e;
     },
 
-    gotConnection,
-    lostConnection,
+    connectionMade,
+    connectionLost,
     whatConnectionsDoYouWant,
 
     // inbound
@@ -384,7 +384,7 @@ function makeRemoteForHostID(hostID, def, managerWriteInput) {
 
   const remote = def({
 
-    gotConnection(c) {
+    connectionMade(c) {
       connection = c;
       if (nextInboundSeqnum > 0) {
         // I'm using JSON.stringify instead of marshal.serialize because that
@@ -399,7 +399,7 @@ function makeRemoteForHostID(hostID, def, managerWriteInput) {
       }
     },
 
-    lostConnection() {
+    connectionLost() {
       connection = undefined;
     },
 

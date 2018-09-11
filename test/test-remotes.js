@@ -391,7 +391,7 @@ test('connections', (t) => {
     },
   };
   t.deepEqual(rm.whatConnectionsDoYouWant(), ['vat2']);
-  rm.gotConnection('vat2', c);
+  rm.connectionMade('vat2', c);
   t.deepEqual(rm.whatConnectionsDoYouWant(), []);
   t.equal(messages.length, 1);
   t.ok(messages[0].startsWith('op '));
@@ -401,7 +401,7 @@ test('connections', (t) => {
                    seqnum: 0,
                    opMsg: { op: 'whatever' },
                  });
-  rm.lostConnection('vat2');
+  rm.connectionLost('vat2');
   t.deepEqual(rm.whatConnectionsDoYouWant(), ['vat2']);
   t.end();
 });

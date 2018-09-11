@@ -158,11 +158,11 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
         connection.send(msg);
       }
     };
-    manager.gotConnection(`${hostID}`, c);
+    manager.connectionMade(`${hostID}`, c);
   }
 
   function connectionLost(hostID) {
-    manager.lostConnection(`${hostID}`);
+    manager.connectionLost(`${hostID}`);
   }
 
   function commsReceived(hostID, line) {
