@@ -166,7 +166,7 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
   }
 
   function commsReceived(hostID, line) {
-    manager.commsReceived(`${hostID}`, `${line}`, marshal);
+    manager.commsReceived(`${hostID}`, `${line}`);
   }
 
   return {
@@ -241,7 +241,7 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
         const fromVat = m[1];
         const wireMessage = m[2];
         log(`transcript input ${fromVat} ${wireMessage}`);
-        commsReceived(fromVat, wireMessage, marshal);
+        commsReceived(fromVat, wireMessage);
       } else {
         log(`unknown line: ${line}`);
       }

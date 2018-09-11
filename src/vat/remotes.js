@@ -267,7 +267,7 @@ export function makeRemoteManager(myVatID, myHostID,
     // todo: now send an ack
   }
 
-  function commsReceived(fromHostID, wireMessage, marshal) {
+  function commsReceived(fromHostID, wireMessage) {
     //log(`commsReceived ${fromHostID}, ${wireMessage}`);
     const hr = getHostRemote(fromHostID);
     // 'wireMessage' is one of:
