@@ -161,7 +161,7 @@ test('sending unresolved local Vow', async (t) => {
                    methodName: 'pleaseWait',
                    args: [{'@qclass': 'vow',
                            vatID: 'vat1',
-                           swissnum: 2}],
+                           swissnum: '2'}],
                  });
   v2.commsReceived('vat1', got);
   got = q.expect(1, 2,
@@ -181,7 +181,7 @@ test('sending unresolved local Vow', async (t) => {
   got = q.expect(2, 1,
                  { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                  { op: 'when',
-                   targetSwissnum: 2,
+                   targetSwissnum: '2',
                  });
   v1.commsReceived('vat2', got);
   q.expectEmpty(2, 1);
@@ -219,7 +219,7 @@ test('sending unresolved local Vow', async (t) => {
   got = q.expect(1, 2,
                  { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 2 },
                  { op: 'resolve',
-                   targetSwissnum: 2,
+                   targetSwissnum: '2',
                    value: 'pretty',
                  });
   v2.commsReceived('vat1', got);
@@ -316,7 +316,7 @@ test('sending third-party Vow', async (t) => {
                           methodName: 'pleaseWait',
                           args: [{ '@qclass': 'vow',
                                    vatID: 'vat1', // owned by vat1
-                                   swissnum: 3,
+                                   swissnum: '3',
                                  }],
                         });
   const got4 = q.expect(1, 3,
@@ -343,7 +343,7 @@ test('sending third-party Vow', async (t) => {
   const got5 = q.expect(3, 1,
                         { fromVatID: 'vat3', toVatID: 'vat1', seqnum: 0 },
                         { op: 'when',
-                          targetSwissnum: 3,
+                          targetSwissnum: '3',
                         });
   q.expectEmpty(3, 1);
   v1.commsReceived('vat3', got5);
@@ -394,7 +394,7 @@ test('sending third-party Vow', async (t) => {
   const got8 = q.expect(1, 3,
                         { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 2 },
                         { op: 'resolve',
-                          targetSwissnum: 3,
+                          targetSwissnum: '3',
                           value: 'burns',
                         });
   v3.commsReceived('vat1', got8);
@@ -492,7 +492,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
                           methodName: 'pleaseWait',
                           args: [{ '@qclass': 'vow',
                                    vatID: 'vat1', // owned by vat1
-                                   swissnum: 3,
+                                   swissnum: '3',
                                  }],
                         });
   const got4 = q.expect(1, 3,
@@ -516,7 +516,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const got5 = q.expect(3, 1,
                         { fromVatID: 'vat3', toVatID: 'vat1', seqnum: 0 },
                         { op: 'when',
-                          targetSwissnum: 3,
+                          targetSwissnum: '3',
                         });
   q.expectEmpty(3, 1);
 
@@ -558,7 +558,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
                         { op: 'resolve',
                           targetSwissnum: 'hash-of-base-1',
                           value: {'@qclass': 'presence',
-                                  vatID: 'vat2', swissnum: 1 },
+                                  vatID: 'vat2', swissnum: '1' },
                         });
 
   v1.commsReceived('vat2', got7); // resolves getVow()
@@ -570,9 +570,9 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const got8 = q.expect(1, 3,
                         { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 2 },
                         { op: 'resolve',
-                          targetSwissnum: 3,
+                          targetSwissnum: '3',
                           value: {'@qclass': 'presence',
-                                  vatID: 'vat2', swissnum: 1 },
+                                  vatID: 'vat2', swissnum: '1' },
                         });
   v3.commsReceived('vat1', got8);
 
@@ -665,7 +665,7 @@ test('third-party Vow gets resolved', async (t) => {
                         methodName: 'send1',
                         args: [ { '@qclass': 'vow',
                                   vatID: 'vatALICE',
-                                  swissnum: 2 } ],
+                                  swissnum: '2' } ],
                       });
   let got1a = q.expect(ALICE, BOB,
                       { fromVatID: 'vatALICE', toVatID: 'vatBOB', seqnum: 1 },
@@ -684,7 +684,7 @@ test('third-party Vow gets resolved', async (t) => {
   let got2 = q.expect(BOB, ALICE,
                       { fromVatID: 'vatBOB', toVatID: 'vatALICE', seqnum: 0 },
                       { op: 'when',
-                        targetSwissnum: 2,
+                        targetSwissnum: '2',
                       });
   q.expectEmpty(BOB, ALICE);
   let got3 = q.expect(BOB, CAROL,
@@ -695,7 +695,7 @@ test('third-party Vow gets resolved', async (t) => {
                         methodName: 'send2',
                         args: [ { '@qclass': 'vow',
                                   vatID: 'vatALICE',
-                                  swissnum: 2 } ],
+                                  swissnum: '2' } ],
                       });
   let got3a = q.expect(BOB, CAROL,
                        { fromVatID: 'vatBOB', toVatID: 'vatCAROL', seqnum: 1 },
@@ -710,7 +710,7 @@ test('third-party Vow gets resolved', async (t) => {
   let got4 = q.expect(CAROL, ALICE,
                       { fromVatID: 'vatCAROL', toVatID: 'vatALICE', seqnum: 0 },
                       { op: 'when',
-                        targetSwissnum: 2,
+                        targetSwissnum: '2',
                       });
   return t.end();
 });

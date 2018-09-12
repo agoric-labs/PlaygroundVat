@@ -81,7 +81,7 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
                  argsS: JSON.stringify([
                    {'@qclass': 'presence',
                     vatID: 'vat2',
-                    swissnum: 123
+                    swissnum: '123'
                    }])};
   await v.doSendOnly(opMsg);
   console.log(`transcript is ${tr.lines}`);
@@ -94,7 +94,7 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
                      toVatID: 'vat2',
                      seqnum: 0,
                      opMsg: { op: 'send',
-                              targetSwissnum: 123,
+                              targetSwissnum: '123',
                               methodName: 'foo',
                               argsS: JSON.stringify(['arg1', 'arg2']),
                               // todo: this will become random
@@ -134,7 +134,7 @@ test('methods can send messages via commsReceived', async (t) => {
                  argsS: JSON.stringify([
                    { '@qclass': 'presence',
                      vatID: 'vat2',
-                     swissnum: 123
+                     swissnum: '123'
                    }]) };
   const body = { fromVatID: 'vat2',
                  toVatID: 'v1',
@@ -156,7 +156,7 @@ test('methods can send messages via commsReceived', async (t) => {
                    seqnum: 0,
                    opMsg: {
                      op: 'send',
-                     targetSwissnum: 123,
+                     targetSwissnum: '123',
                      methodName: 'foo',
                      argsS: JSON.stringify([
                        'arg1', 'arg2']),

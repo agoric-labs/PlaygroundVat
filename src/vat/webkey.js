@@ -103,7 +103,7 @@ export function makeWebkeyMarshal(log,
   let fakeSwissCounter = 0;
   function allocateSwissnum() {
     fakeSwissCounter += 1;
-    const swissnum = fakeSwissCounter; // todo: random, of course
+    const swissnum = `${fakeSwissCounter}`; // todo: random, of course
     return swissnum;
   }
 
