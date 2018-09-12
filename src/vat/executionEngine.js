@@ -2,11 +2,11 @@
 import { doSwissHashing } from './swissCrypto';
 import { makeWebkeyMarshal } from './webkey';
 
-export function makeEngine(def,
+export function makeEngine(def, hash58,
                            Vow, isVow, Flow,
                            makePresence, makeUnresolvedRemoteVow,
                            handlerOf, resolutionOf,
-                           myVatID,
+                           myVatID, myVatSecret,
                            manager) {
 
   function allocateSwissStuff() {
@@ -41,10 +41,10 @@ export function makeEngine(def,
     opSend, opWhen,
     allocateSwissStuff, registerRemoteVow,
   };
-  const marshal = makeWebkeyMarshal(log,
+  const marshal = makeWebkeyMarshal(log, hash58,
                                     Vow, isVow, Flow,
                                     makePresence, makeUnresolvedRemoteVow,
-                                    myVatID, serializer);
+                                    myVatID, myVatSecret, serializer);
   // marshal.serialize, unserialize, serializeToWebkey, unserializeWebkey
 
   // temporary, for tests

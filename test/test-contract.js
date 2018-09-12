@@ -21,7 +21,7 @@ async function buildContractVat(source='../examples/contract') {
   const contractTestSource = await bundleCode(require.resolve(source));
   const endow = { writeOutput,
                   comms: { registerManager() {} } };
-  const v = await buildVat(s, 'v1', 'v1', endow, contractTestSource);
+  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, contractTestSource);
   await v.initializeCode('v1/0');
   return v;
 }

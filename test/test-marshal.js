@@ -1,5 +1,6 @@
 import test from 'tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
+import { makeVatEndowments } from '../src/host';
 import SES from 'ses';
 import { promisify } from 'util';
 import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
@@ -9,6 +10,8 @@ test('marshal', async (t) => {
   const s = SES.makeSESRootRealm();
   const code = await bundleCode(require.resolve('../src/vat/webkey'));
   const e = confineVatSource(s, code);
+  const endowments = makeVatEndowments(s, null, null);
+  const hash58 = endowments.hash58;
 
   function helpers() {
     function serializer(x) {
@@ -33,11 +36,11 @@ test('marshal', async (t) => {
     }
     return s.evaluate(`def(${template[0]})`);
   }
-
-  const m = e.makeWebkeyMarshal(console.log,
+  const myVatSecret = 'v1 secret';
+  const m = e.makeWebkeyMarshal(console.log, hash58,
                                 Vow, isVow, Flow,
                                 makePresence, makeUnresolvedRemoteVow,
-                                'v1', h.serializer);
+                                'v1', myVatSecret, h.serializer);
   function resolutionOf(val) {
     return val;
   }
@@ -119,7 +122,7 @@ test('deliver farref to vat', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput() {},
                   comms: { registerManager() {} } };
-  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s1));
+  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s1));
   await v.initializeCode('v1/0');
   const opMsg = {op: 'send',
                  targetSwissnum: '0',

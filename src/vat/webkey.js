@@ -1,4 +1,4 @@
-import { doSwissHashing } from './swissCrypto';
+import { makeSwissnum, makeSwissbase, doSwissHashing } from './swissCrypto';
 import { insist } from '../insist';
 
 // objects can only be passed in one of two/three forms:
@@ -74,10 +74,10 @@ function mustPassByPresence(val) { // throws exception if cannot
 // decoding.
 const QCLASS = '@qclass';
 
-export function makeWebkeyMarshal(log,
+export function makeWebkeyMarshal(log, hash58,
                                   Vow, isVow, Flow,
                                   makePresence, makeUnresolvedRemoteVow,
-                                  myVatID, serializer) {
+                                  myVatID, myVatSecret, serializer) {
 
   // val might be a primitive, a pass by (shallow) copy object, a
   // remote reference, or other.  We treat all other as a local object
@@ -111,6 +111,17 @@ export function makeWebkeyMarshal(log,
     fakeSwissCounter += 1;
     const swissbase = `base-${fakeSwissCounter}`; // todo: random, of course
     return swissbase;
+  }
+
+  let swissCounter = 0;
+  function NEWallocateSwissnum() {
+    swissCounter += 1;
+    return makeSwissnum(vatSecret, swissCounter, hash58);
+  }
+
+  function NEWallocateSwissbase() {
+    swissCounter += 1;
+    return makeSwissbase(vatSecret, swissCounter, hash58);
   }
 
   function serializePassByPresence(val, resolutionOf, swissnum=undefined) {

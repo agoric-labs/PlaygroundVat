@@ -26,7 +26,7 @@ function confineGuestSource(source, endowments) {
   return module.exports;
 }
 
-export function makeVat(endowments, myVatID, myHostID, initialSource) {
+export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSource) {
 
   // We have one serializer/deserializer for each locally-hosted Vat, so
   // it shared among all peer Vats.
@@ -129,11 +129,11 @@ export function makeVat(endowments, myVatID, myHostID, initialSource) {
                                     managerWriteInput, managerWriteOutput,
                                     def, log, logConflict);
 
-  const engine = makeEngine(def,
+  const engine = makeEngine(def, endowments.hash58,
                             Vow, isVow, Flow,
                             makePresence, makeUnresolvedRemoteVow,
                             handlerOf, resolutionOf,
-                            myVatID,
+                            myVatID, myVatSecret,
                             manager);
   manager.setEngine(engine);
   const marshal = engine.marshal;

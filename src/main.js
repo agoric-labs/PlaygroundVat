@@ -48,7 +48,7 @@ export async function bundleCode(filename, appendSourcemap) {
   return source;
 }
 
-export async function buildVat(s, myVatID, myHostID, vatEndowments, guestSource) {
+export async function buildVat(s, myVatID, myVatSecret, myHostID, vatEndowments, guestSource) {
 
   // This needs to read the contents of vat.js, as a string. SES manages this
   // by putting all the code (as ES6 modules) in a directory named bundle/ ,
@@ -66,7 +66,7 @@ export async function buildVat(s, myVatID, myHostID, vatEndowments, guestSource)
   //const vatSource = fs.readFileSync(require.resolve('./vat.js'));
   const { makeVat } = confineVatSource(s, vatSource);
 
-  return makeVat(vatEndowments, myVatID, myHostID, guestSource);
+  return makeVat(vatEndowments, myVatID, myVatSecret, myHostID, guestSource);
 }
 
 async function create(argv) {
@@ -276,7 +276,8 @@ async function run(argv) {
   }
   console.log('vatEndowments are', vatEndowments);
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
-  const v = await buildVat(s, myVatID, myHostID, vatEndowments, guestSource);
+  const myVatSecret = 'vat secret';
+  const v = await buildVat(s, myVatID, myVatSecret, myHostID, vatEndowments, guestSource);
   const guestArgvJSON = await readBaseFile('argv.json');
   const guestArgv = await buildArgv(v, guestArgvJSON, readBaseFile, vatEndowments);
 
