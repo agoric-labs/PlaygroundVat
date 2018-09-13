@@ -72,7 +72,8 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
   const s = makeRealm();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
+                           wantConnection() {} },
+                  hash58 };
   const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
@@ -188,7 +189,8 @@ test('method results are sent back', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
+                           wantConnection() {} },
+                  hash58 };
   const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
   const opMsg = { op: 'send',
@@ -223,7 +225,8 @@ test('methods can return a promise', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
+                           wantConnection() {} },
+                  hash58 };
   const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 

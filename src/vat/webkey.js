@@ -408,7 +408,7 @@ export function makeWebkeyMarshal(log, hash58,
 
   function allocateSwissStuff() {
     const swissbase = allocateSwissbase();
-    const swissnum = doSwissHashing(swissbase);
+    const swissnum = doSwissHashing(swissbase, hash58);
     return { swissbase, swissnum };
   }
 

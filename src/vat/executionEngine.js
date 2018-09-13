@@ -95,7 +95,7 @@ export function makeEngine(def, hash58,
     if (opMsg.op === 'send') {
       const res = doSendInternal(opMsg);
       if (opMsg.resultSwissbase) {
-        const resolverSwissnum = doSwissHashing(opMsg.resultSwissbase);
+        const resolverSwissnum = doSwissHashing(opMsg.resultSwissbase, hash58);
         // if they care about the result, they'll send an opWhen hot on the
         // heels of this opSend, which will register their interest in the
         // Vow
