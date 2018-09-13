@@ -14,6 +14,7 @@ import PeerInfo from 'peer-info';
 import { createComms } from './comms';
 import { hash58, makeVatEndowments, readAndHashFile } from './host';
 import { parseVatID } from './vat/id';
+import { makeSwissnum } from './vat/swissCrypto';
 
 export function confineVatSource(s, source) {
   const exports = {};
@@ -75,8 +76,11 @@ async function create(argv) {
   const basedir = argv.basedir;
   await fs.promises.mkdir(basedir);
   let f = await fs.promises.open(path.join(basedir, 'private-id'), 'w');
-  await f.appendFile(`${JSON.stringify(id.toJSON(), null, 2)}\n`);
+  const privateId = `${JSON.stringify(id.toJSON(), null, 2)}\n`;
+  await f.appendFile(privateId);
   await f.close();
+  const myVatSecret = hash58(privateId);
+  const rootSwissnum = makeSwissnum(myVatSecret, 0, hash58);
 
   f = await fs.promises.open(path.join(basedir, 'id'), 'w'); // VatID
   await f.appendFile(`${id.toB58String()}\n`);
@@ -107,7 +111,7 @@ async function create(argv) {
   await f.close();
 
   f = await fs.promises.open(path.join(basedir, 'root-sturdyref'), 'w');
-  await f.appendFile(`${id.toB58String()}/0\n`);
+  await f.appendFile(`${id.toB58String()}/${rootSwissnum}\n`);
   await f.close();
 
   f = await fs.promises.open(path.join(basedir, 'vat-version'), 'w');

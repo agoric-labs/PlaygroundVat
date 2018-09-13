@@ -10,7 +10,8 @@
 // use the same hash58() function that we use elsewhere, which produces a
 // 128-bit base58 string (instead of a full 256-bit binary Buffer). Since
 // that's fixed-length, it is safe to merely concatenate it with a decimal
-// string containing the counter (which happens to start with "1").
+// string containing the counter (which happens to start with "1", because
+// "0" is reserved for the "root sturdyref" generated during "vat create").
 
 // We prepend a "comment" to our swissnums: anything before the last hyphen
 // is a comment. When comparing swissnums, we compare everything, including
