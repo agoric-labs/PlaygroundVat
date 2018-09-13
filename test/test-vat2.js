@@ -57,7 +57,7 @@ test('comms, sending a message', async (t) => {
   got = q.expect(1, 2,
                  { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0},
                  { op: 'send',
-                   resultSwissbase: 'base-1',
+                   resultSwissbase: 'b1-ScrHVw5LqkhEJMJdeCE17W',
                    targetSwissnum: '0',
                    methodName: 'pleaseRespond',
                    args: ['marco'],
@@ -67,7 +67,7 @@ test('comms, sending a message', async (t) => {
   got = q.expect(1, 2,
                  { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1},
                  { op: 'when',
-                   targetSwissnum: 'hash-of-base-1',
+                   targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
                  });
   v2.commsReceived('vat1', got);
   q.expectEmpty(1, 2);
@@ -85,7 +85,7 @@ test('comms, sending a message', async (t) => {
   got = q.expect(2, 1,
                  { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                  { op: 'resolve',
-                   targetSwissnum: 'hash-of-base-1',
+                   targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
                    value: 'marco-polo',
                  });
 
@@ -159,18 +159,18 @@ test('sending unresolved local Vow', async (t) => {
   got = q.expect(1, 2,
                  { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0 },
                  { op: 'send',
-                   resultSwissbase: 'base-1',
+                   resultSwissbase: 'b1-ScrHVw5LqkhEJMJdeCE17W',
                    targetSwissnum: '0',
                    methodName: 'pleaseWait',
                    args: [{'@qclass': 'vow',
                            vatID: 'vat1',
-                           swissnum: '2'}],
+                           swissnum: '2-XpvixAJgvUFL8NY6AZkUH9'}],
                  });
   v2.commsReceived('vat1', got);
   got = q.expect(1, 2,
                  { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1 },
                  { op: 'when',
-                   targetSwissnum: 'hash-of-base-1',
+                   targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
                  });
   q.expectEmpty(1, 2);
   v2.commsReceived('vat1', got);
@@ -184,7 +184,7 @@ test('sending unresolved local Vow', async (t) => {
   got = q.expect(2, 1,
                  { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                  { op: 'when',
-                   targetSwissnum: '2',
+                   targetSwissnum: '2-XpvixAJgvUFL8NY6AZkUH9',
                  });
   v1.commsReceived('vat2', got);
   q.expectEmpty(2, 1);
@@ -198,7 +198,7 @@ test('sending unresolved local Vow', async (t) => {
   got = q.expect(2, 1,
                  { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 1 },
                  { op: 'resolve',
-                   targetSwissnum: 'hash-of-base-1',
+                   targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
                    value: {'@qclass': 'undefined' },
                  });
   t.equal(v2root.getAnswer(), 'not yet');
@@ -222,7 +222,7 @@ test('sending unresolved local Vow', async (t) => {
   got = q.expect(1, 2,
                  { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 2 },
                  { op: 'resolve',
-                   targetSwissnum: '2',
+                   targetSwissnum: '2-XpvixAJgvUFL8NY6AZkUH9',
                    value: 'pretty',
                  });
   v2.commsReceived('vat1', got);
@@ -300,7 +300,7 @@ test('sending third-party Vow', async (t) => {
   const got1 = q.expect(1, 2,
                         { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0 },
                         { op: 'send',
-                          resultSwissbase: 'base-1',
+                          resultSwissbase: 'b1-ScrHVw5LqkhEJMJdeCE17W',
                           targetSwissnum: '0',
                           methodName: 'getVow',
                           args: [],
@@ -308,25 +308,25 @@ test('sending third-party Vow', async (t) => {
   const got2 = q.expect(1, 2,
                         { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1 },
                         { op: 'when',
-                          targetSwissnum: 'hash-of-base-1',
+                          targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
                         });
   q.expectEmpty(1, 2);
 
   const got3 = q.expect(1, 3,
                         { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 0 },
                         { op: 'send',
-                          resultSwissbase: 'base-2',
+                          resultSwissbase: 'b2-XpvixAJgvUFL8NY6AZkUH9',
                           targetSwissnum: '0',
                           methodName: 'pleaseWait',
                           args: [{ '@qclass': 'vow',
                                    vatID: 'vat1', // owned by vat1
-                                   swissnum: '3',
+                                   swissnum: '3-2WmvhqEL1SgSTa9chi8PAr',
                                  }],
                         });
   const got4 = q.expect(1, 3,
                         { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 1 },
                         { op: 'when',
-                          targetSwissnum: 'hash-of-base-2'
+                          targetSwissnum: 'hb2-Xpv-H9Ti5fawDV9VkowVJWEBzJ'
                         });
   q.expectEmpty(1, 3);
 
@@ -347,7 +347,7 @@ test('sending third-party Vow', async (t) => {
   const got5 = q.expect(3, 1,
                         { fromVatID: 'vat3', toVatID: 'vat1', seqnum: 0 },
                         { op: 'when',
-                          targetSwissnum: '3',
+                          targetSwissnum: '3-2WmvhqEL1SgSTa9chi8PAr',
                         });
   q.expectEmpty(3, 1);
   v1.commsReceived('vat3', got5);
@@ -361,7 +361,7 @@ test('sending third-party Vow', async (t) => {
   const got6 = q.expect(3, 1,
                         { fromVatID: 'vat3', toVatID: 'vat1', seqnum: 1 },
                         { op: 'resolve',
-                          targetSwissnum: 'hash-of-base-2',
+                          targetSwissnum: 'hb2-Xpv-H9Ti5fawDV9VkowVJWEBzJ',
                           value: {'@qclass': 'undefined' },
                         });
   q.expectEmpty(3, 1);
@@ -386,7 +386,7 @@ test('sending third-party Vow', async (t) => {
   const got7 = q.expect(2, 1,
                         { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                         { op: 'resolve',
-                          targetSwissnum: 'hash-of-base-1',
+                          targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
                           value: 'burns',
                         });
 
@@ -398,7 +398,7 @@ test('sending third-party Vow', async (t) => {
   const got8 = q.expect(1, 3,
                         { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 2 },
                         { op: 'resolve',
-                          targetSwissnum: '3',
+                          targetSwissnum: '3-2WmvhqEL1SgSTa9chi8PAr',
                           value: 'burns',
                         });
   v3.commsReceived('vat1', got8);
@@ -478,7 +478,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const got1 = q.expect(1, 2,
                         { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0 },
                         { op: 'send',
-                          resultSwissbase: 'base-1',
+                          resultSwissbase: 'b1-ScrHVw5LqkhEJMJdeCE17W',
                           targetSwissnum: '0',
                           methodName: 'getVow',
                           args: [],
@@ -486,24 +486,24 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const got2 = q.expect(1, 2,
                         { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1 },
                         { op: 'when',
-                          targetSwissnum: 'hash-of-base-1',
+                          targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
                  });
   q.expectEmpty(2, 1);
   const got3 = q.expect(1, 3,
                         { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 0 },
                         { op: 'send',
-                          resultSwissbase: 'base-2',
+                          resultSwissbase: 'b2-XpvixAJgvUFL8NY6AZkUH9',
                           targetSwissnum: '0',
                           methodName: 'pleaseWait',
                           args: [{ '@qclass': 'vow',
                                    vatID: 'vat1', // owned by vat1
-                                   swissnum: '3',
+                                   swissnum: '3-2WmvhqEL1SgSTa9chi8PAr',
                                  }],
                         });
   const got4 = q.expect(1, 3,
                         { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 1 },
                         { op: 'when',
-                          targetSwissnum: 'hash-of-base-2',
+                          targetSwissnum: 'hb2-Xpv-H9Ti5fawDV9VkowVJWEBzJ',
                  });
   q.expectEmpty(3, 1);
 
@@ -521,7 +521,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const got5 = q.expect(3, 1,
                         { fromVatID: 'vat3', toVatID: 'vat1', seqnum: 0 },
                         { op: 'when',
-                          targetSwissnum: '3',
+                          targetSwissnum: '3-2WmvhqEL1SgSTa9chi8PAr',
                         });
   q.expectEmpty(3, 1);
 
@@ -532,7 +532,7 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const got6 = q.expect(3, 1,
                         { fromVatID: 'vat3', toVatID: 'vat1', seqnum: 1 },
                         { op: 'resolve',
-                          targetSwissnum: 'hash-of-base-2',
+                          targetSwissnum: 'hb2-Xpv-H9Ti5fawDV9VkowVJWEBzJ',
                           value: {'@qclass': 'undefined' },
                         });
 
@@ -561,9 +561,9 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const got7 = q.expect(2, 1,
                         { fromVatID: 'vat2', toVatID: 'vat1', seqnum: 0 },
                         { op: 'resolve',
-                          targetSwissnum: 'hash-of-base-1',
+                          targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
                           value: {'@qclass': 'presence',
-                                  vatID: 'vat2', swissnum: '1' },
+                                  vatID: 'vat2', swissnum: '1-YAjJjvUTPE9jgFC1USrG5B' },
                         });
 
   v1.commsReceived('vat2', got7); // resolves getVow()
@@ -575,9 +575,9 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const got8 = q.expect(1, 3,
                         { fromVatID: 'vat1', toVatID: 'vat3', seqnum: 2 },
                         { op: 'resolve',
-                          targetSwissnum: '3',
+                          targetSwissnum: '3-2WmvhqEL1SgSTa9chi8PAr',
                           value: {'@qclass': 'presence',
-                                  vatID: 'vat2', swissnum: '1' },
+                                  vatID: 'vat2', swissnum: '1-YAjJjvUTPE9jgFC1USrG5B' },
                         });
   v3.commsReceived('vat1', got8);
 
@@ -666,17 +666,17 @@ test('third-party Vow gets resolved', async (t) => {
   let got1 = q.expect(ALICE, BOB,
                       { fromVatID: 'vatALICE', toVatID: 'vatBOB', seqnum: 0 },
                       { op: 'send',
-                        resultSwissbase: 'base-1',
+                        resultSwissbase: 'b1-MNQVNFAc7xPRwuiSDCk9G4',
                         targetSwissnum: '0',
                         methodName: 'send1',
                         args: [ { '@qclass': 'vow',
                                   vatID: 'vatALICE',
-                                  swissnum: '2' } ],
+                                  swissnum: '2-AKBLiXq4RBPLe9jVZFKD6o' } ],
                       });
   let got1a = q.expect(ALICE, BOB,
                       { fromVatID: 'vatALICE', toVatID: 'vatBOB', seqnum: 1 },
                       { op: 'when',
-                        targetSwissnum: 'hash-of-base-1',
+                        targetSwissnum: 'hb1-MNQ-DKZopq7QbRY29Fi8JZKi7u',
                       });
   q.expectEmpty(ALICE, BOB);
 
@@ -690,23 +690,23 @@ test('third-party Vow gets resolved', async (t) => {
   let got2 = q.expect(BOB, ALICE,
                       { fromVatID: 'vatBOB', toVatID: 'vatALICE', seqnum: 0 },
                       { op: 'when',
-                        targetSwissnum: '2',
+                        targetSwissnum: '2-AKBLiXq4RBPLe9jVZFKD6o',
                       });
   q.expectEmpty(BOB, ALICE);
   let got3 = q.expect(BOB, CAROL,
                       { fromVatID: 'vatBOB', toVatID: 'vatCAROL', seqnum: 0 },
                       { op: 'send',
-                        resultSwissbase: 'base-1',
+                        resultSwissbase: 'b1-QJsvncNfsZ1Qt2SaYXuLvF',
                         targetSwissnum: '0',
                         methodName: 'send2',
                         args: [ { '@qclass': 'vow',
                                   vatID: 'vatALICE',
-                                  swissnum: '2' } ],
+                                  swissnum: '2-AKBLiXq4RBPLe9jVZFKD6o' } ],
                       });
   let got3a = q.expect(BOB, CAROL,
                        { fromVatID: 'vatBOB', toVatID: 'vatCAROL', seqnum: 1 },
                        { op: 'when',
-                         targetSwissnum: 'hash-of-base-1',
+                         targetSwissnum: 'hb1-QJs-5XMaJFpEsbnQ5keusqDWQG',
                        });
   q.expectEmpty(BOB, CAROL);
 
@@ -716,7 +716,7 @@ test('third-party Vow gets resolved', async (t) => {
   let got4 = q.expect(CAROL, ALICE,
                       { fromVatID: 'vatCAROL', toVatID: 'vatALICE', seqnum: 0 },
                       { op: 'when',
-                        targetSwissnum: '2',
+                        targetSwissnum: '2-AKBLiXq4RBPLe9jVZFKD6o',
                       });
   return t.end();
 });

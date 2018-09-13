@@ -49,7 +49,7 @@ export function makeSwissbase(vatSecret, count, hash58) {
   return 'b' + makeSwissnum(vatSecret, count, hash58);
 }
 
-export function NEWdoSwissHashing(base, hash58) {
+export function doSwissHashing(base, hash58) {
   const commentEnd = base.lastIndexOf('-');
   const citation = base.slice(0, commentEnd + 4);
   const newComment = 'h' + citation;
@@ -63,8 +63,4 @@ export function NEWdoSwissHashing(base, hash58) {
 export function vatMessageIDHash(vatMessageString, hash58) {
   const preimage = `msgID-hash-of-${vatMessageString}`;
   return hash58(preimage);
-}
-
-export function doSwissHashing(base) {
-  return `hash-of-${base}`; // todo hahaha
 }

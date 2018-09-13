@@ -4,6 +4,7 @@ import SES from 'ses';
 import { promisify } from 'util';
 import { makeTranscript, funcToSource } from './util';
 import { hash58 } from '../src/host';
+import { doSwissHashing } from '../src/vat/swissCrypto';
 
 function s1() {
   exports.default = function(argv) {
@@ -99,8 +100,7 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
                               targetSwissnum: '123',
                               methodName: 'foo',
                               argsS: JSON.stringify(['arg1', 'arg2']),
-                              // todo: this will become random
-                              resultSwissbase: 'base-1',
+                              resultSwissbase: 'b1-Y74TZcuaAYa3B4JwDWbKqM',
                             },
                    };
   t.deepEqual(op, expected);
@@ -113,7 +113,7 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
                toVatID: 'vat2',
                seqnum: 1,
                opMsg: { op: 'when',
-                        targetSwissnum: 'hash-of-base-1',
+                        targetSwissnum: 'hb1-Y74-T2sLvC4p1vL4cVJoHpwZS',
                       },
              };
   t.deepEqual(op, expected);
@@ -163,8 +163,7 @@ test('methods can send messages via commsReceived', async (t) => {
                      methodName: 'foo',
                      argsS: JSON.stringify([
                        'arg1', 'arg2']),
-                     // todo: this will become random
-                     resultSwissbase: 'base-1',
+                     resultSwissbase: 'b1-Y74TZcuaAYa3B4JwDWbKqM',
                    }};
   t.deepEqual(op, expected);
 
@@ -177,7 +176,7 @@ test('methods can send messages via commsReceived', async (t) => {
                seqnum: 1,
                opMsg: {
                  op: 'when',
-                 targetSwissnum: 'hash-of-base-1',
+                 targetSwissnum: 'hb1-Y74-T2sLvC4p1vL4cVJoHpwZS',
                }};
   t.deepEqual(op, expected);
 
@@ -199,8 +198,9 @@ test('method results are sent back', async (t) => {
                   methodName: 'returnValue',
                   argsS: JSON.stringify([3]) };
   await v.debugRxMessage('vat2', 0, opMsg);
+  const sh = doSwissHashing('5', hash58);
   const whenMsg = { op: 'when',
-                    targetSwissnum: 'hash-of-5' };
+                    targetSwissnum: sh };
   await v.debugRxMessage('vat2', 1, whenMsg);
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 1);
@@ -213,7 +213,7 @@ test('method results are sent back', async (t) => {
                      seqnum: 0,
                      opMsg: {
                        op: 'resolve',
-                       targetSwissnum: 'hash-of-5',
+                       targetSwissnum: sh,
                        valueS: JSON.stringify(3),
                      }};
   t.deepEqual(op, expected);

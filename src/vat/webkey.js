@@ -100,28 +100,15 @@ export function makeWebkeyMarshal(log, hash58,
   const val2Record = new WeakMap();
   const webkey2Record = new Map();
 
-  let fakeSwissCounter = 0;
+  let swissCounter = 0;
   function allocateSwissnum() {
-    fakeSwissCounter += 1;
-    const swissnum = `${fakeSwissCounter}`; // todo: random, of course
-    return swissnum;
+    swissCounter += 1;
+    return makeSwissnum(myVatSecret, swissCounter, hash58);
   }
 
   function allocateSwissbase() {
-    fakeSwissCounter += 1;
-    const swissbase = `base-${fakeSwissCounter}`; // todo: random, of course
-    return swissbase;
-  }
-
-  let swissCounter = 0;
-  function NEWallocateSwissnum() {
     swissCounter += 1;
-    return makeSwissnum(vatSecret, swissCounter, hash58);
-  }
-
-  function NEWallocateSwissbase() {
-    swissCounter += 1;
-    return makeSwissbase(vatSecret, swissCounter, hash58);
+    return makeSwissbase(myVatSecret, swissCounter, hash58);
   }
 
   function serializePassByPresence(val, resolutionOf, swissnum=undefined) {

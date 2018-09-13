@@ -56,10 +56,10 @@ test('marshal', async (t) => {
   //const ref1 = mdef`{ a() { return 1; } }`;
 
   // as a side effect, this stashes the object in the marshaller's tables
-  t.equal(ser(h.ref1), '{"@qclass":"presence","vatID":"v1","swissnum":"1"}');
+  t.equal(ser(h.ref1), '{"@qclass":"presence","vatID":"v1","swissnum":"1-Y74TZcuaAYa3B4JwDWbKqM"}');
 
-  t.equal(ser(h.empty), '{"@qclass":"presence","vatID":"v1","swissnum":"2"}');
-  t.equal(m.unserialize('{"@qclass":"presence","vatID":"v1","swissnum":"2"}'), h.empty);
+  t.equal(ser(h.empty), '{"@qclass":"presence","vatID":"v1","swissnum":"2-HsfpAvGAS8GS3ENVCn9VUm"}');
+  t.equal(m.unserialize('{"@qclass":"presence","vatID":"v1","swissnum":"2-HsfpAvGAS8GS3ENVCn9VUm"}'), h.empty);
 
   // todo: what if the unserializer is given "{}"
 
@@ -95,7 +95,7 @@ test('marshal', async (t) => {
 
   // pass-by-copy can contain pass-by-reference
   const aser = ser(h.nested1);
-  t.equal(aser, '{"b":{"@qclass":"presence","vatID":"v1","swissnum":"1"},"c":3}');
+  t.equal(aser, '{"b":{"@qclass":"presence","vatID":"v1","swissnum":"1-Y74TZcuaAYa3B4JwDWbKqM"},"c":3}');
 
   t.end();
 });
