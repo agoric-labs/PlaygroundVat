@@ -1,5 +1,5 @@
 {
-  "name": "solovat",
+  "name": "playground-vat",
   "version": "0.0.1",
   "description": "SES Launcher",
   "main": "src/index.js",
@@ -27,14 +27,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Agoric/SoloVat.git"
+    "url": "git+https://github.com/Agoric/PlaygroundVat.git"
   },
   "author": "Agoric",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/Agoric/SoloVat/issues"
+    "url": "https://github.com/Agoric/PlaygroundVat/issues"
   },
-  "homepage": "https://github.com/Agoric/SoloVat#readme",
+  "homepage": "https://github.com/Agoric/PlaygroundVat#readme",
   "directories": {
     "example": "examples"
   }
