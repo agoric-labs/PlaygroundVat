@@ -3,6 +3,7 @@ import { makeRemoteForVatID, makeDecisionList,
          makeRemoteManager } from '../src/vat/remotes';
 import { parseVatID } from '../src/vat/id';
 import { vatMessageIDHash } from '../src/vat/swissCrypto';
+import { hash58 } from '../src/host';
 
 function shallowDef(obj) {
   return Object.freeze(obj);
@@ -55,7 +56,7 @@ function makeMsg(vat, seqnum, target='etc', toVatID='vat1') {
                                target },
                       };
   const wireMessage = `op ${JSON.stringify(hostMessage)}`;
-  const id = vatMessageIDHash(JSON.stringify(hostMessage));
+  const id = vatMessageIDHash(JSON.stringify(hostMessage), hash58);
   return { hostMessage, wireMessage, id };
 }
 
@@ -383,7 +384,7 @@ test('connections', (t) => {
 
   const rm = makeRemoteManager('vat1', 'vat1', comms,
                                managerWriteInput, managerWriteOutput,
-                               def, console.log, logConflict);
+                               def, console.log, logConflict, hash58);
   const fakeEngine = {};
   rm.setEngine(fakeEngine);
   rm.sendTo('vat2', {op: 'whatever'});

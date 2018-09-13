@@ -9,9 +9,20 @@
 import fs from 'fs';
 import crypto from 'crypto';
 import process from 'process';
+import bs58 from 'bs58';
+
+export function hash58(s) {
+  // this takes a string (unicode), encodes it to UTF-8, then hashes it.
+  // We use SHA256 truncated to 128 bits for our swissnums.
+  const buf = Buffer.from(s, 'utf8');
+  const h = crypto.createHash('sha256');
+  h.update(s);
+  return bs58.encode(h.digest().slice(0,16));
+}
 
 export function makeVatEndowments(s, output, comms) {
   const power = { // made available to build()
+    hash58,
     comms,
     output,
     exit(rc, message) {
@@ -35,6 +46,9 @@ export function makeVatEndowments(s, output, comms) {
       Promise.resolve().then(_ => f());
     }
     return def({
+      hash58(s) {
+        return power.hash58(s);
+      },
       comms: {
         registerManager(m) { // m is SES
           // the manager will be called with connectionMade, commsReceived,

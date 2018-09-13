@@ -1,14 +1,17 @@
 import test from 'tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
+import { makeVatEndowments } from '../src/host';
 import SES from 'ses';
 import { promisify } from 'util';
 import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
-
+import { hash58 } from '../src/host';
 
 test('marshal', async (t) => {
   const s = SES.makeSESRootRealm();
   const code = await bundleCode(require.resolve('../src/vat/webkey'));
   const e = confineVatSource(s, code);
+  const endowments = makeVatEndowments(s, null, null);
+  const hash58 = endowments.hash58;
 
   function helpers() {
     function serializer(x) {
@@ -33,11 +36,11 @@ test('marshal', async (t) => {
     }
     return s.evaluate(`def(${template[0]})`);
   }
-
-  const m = e.makeWebkeyMarshal(console.log,
+  const myVatSecret = 'v1 secret';
+  const m = e.makeWebkeyMarshal(console.log, hash58,
                                 Vow, isVow, Flow,
                                 makePresence, makeUnresolvedRemoteVow,
-                                'v1', h.serializer);
+                                'v1', myVatSecret, h.serializer);
   function resolutionOf(val) {
     return val;
   }
@@ -53,10 +56,10 @@ test('marshal', async (t) => {
   //const ref1 = mdef`{ a() { return 1; } }`;
 
   // as a side effect, this stashes the object in the marshaller's tables
-  t.equal(ser(h.ref1), '{"@qclass":"presence","vatID":"v1","swissnum":1}');
+  t.equal(ser(h.ref1), '{"@qclass":"presence","vatID":"v1","swissnum":"1-Y74TZcuaAYa3B4JwDWbKqM"}');
 
-  t.equal(ser(h.empty), '{"@qclass":"presence","vatID":"v1","swissnum":2}');
-  t.equal(m.unserialize('{"@qclass":"presence","vatID":"v1","swissnum":2}'), h.empty);
+  t.equal(ser(h.empty), '{"@qclass":"presence","vatID":"v1","swissnum":"2-HsfpAvGAS8GS3ENVCn9VUm"}');
+  t.equal(m.unserialize('{"@qclass":"presence","vatID":"v1","swissnum":"2-HsfpAvGAS8GS3ENVCn9VUm"}'), h.empty);
 
   // todo: what if the unserializer is given "{}"
 
@@ -92,7 +95,7 @@ test('marshal', async (t) => {
 
   // pass-by-copy can contain pass-by-reference
   const aser = ser(h.nested1);
-  t.equal(aser, '{"b":{"@qclass":"presence","vatID":"v1","swissnum":1},"c":3}');
+  t.equal(aser, '{"b":{"@qclass":"presence","vatID":"v1","swissnum":"1-Y74TZcuaAYa3B4JwDWbKqM"},"c":3}');
 
   t.end();
 });
@@ -118,8 +121,9 @@ function s1() {
 test('deliver farref to vat', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput() {},
-                  comms: { registerManager() {} } };
-  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s1));
+                  comms: { registerManager() {} },
+                  hash58 };
+  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s1));
   await v.initializeCode('v1/0');
   const opMsg = {op: 'send',
                  targetSwissnum: '0',
@@ -127,7 +131,7 @@ test('deliver farref to vat', async (t) => {
                  argsS: JSON.stringify([
                    {'@qclass': 'presence',
                     vatID: 'vat2',
-                    swissnum: 123
+                    swissnum: "123"
                    }])};
 
   const res = await v.doSendOnly(opMsg);
@@ -135,7 +139,7 @@ test('deliver farref to vat', async (t) => {
   // but roundtrips correctly
   t.deepEqual(res, {});
   t.deepEqual(v.serialize(res),
-              '{"@qclass":"presence","vatID":"vat2","swissnum":123}');
+              '{"@qclass":"presence","vatID":"vat2","swissnum":"123"}');
 
   t.end();
 });

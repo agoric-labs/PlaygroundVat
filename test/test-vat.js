@@ -3,6 +3,8 @@ import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
 import { makeTranscript, funcToSource } from './util';
+import { hash58 } from '../src/host';
+import { doSwissHashing } from '../src/vat/swissCrypto';
 
 function s1() {
   exports.default = function(argv) {
@@ -71,8 +73,9 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
   const s = makeRealm();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
-  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s2));
+                           wantConnection() {} },
+                  hash58 };
+  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   const opMsg = {op: 'send',
@@ -81,7 +84,7 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
                  argsS: JSON.stringify([
                    {'@qclass': 'presence',
                     vatID: 'vat2',
-                    swissnum: 123
+                    swissnum: '123'
                    }])};
   await v.doSendOnly(opMsg);
   console.log(`transcript is ${tr.lines}`);
@@ -94,11 +97,10 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
                      toVatID: 'vat2',
                      seqnum: 0,
                      opMsg: { op: 'send',
-                              targetSwissnum: 123,
+                              targetSwissnum: '123',
                               methodName: 'foo',
                               argsS: JSON.stringify(['arg1', 'arg2']),
-                              // todo: this will become random
-                              resultSwissbase: 'base-1',
+                              resultSwissbase: 'b1-Y74TZcuaAYa3B4JwDWbKqM',
                             },
                    };
   t.deepEqual(op, expected);
@@ -111,7 +113,7 @@ test('methods can send messages via doSendOnly', async (t) => { // todo remove
                toVatID: 'vat2',
                seqnum: 1,
                opMsg: { op: 'when',
-                        targetSwissnum: 'hash-of-base-1',
+                        targetSwissnum: 'hb1-Y74-T2sLvC4p1vL4cVJoHpwZS',
                       },
              };
   t.deepEqual(op, expected);
@@ -124,8 +126,9 @@ test('methods can send messages via commsReceived', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
-  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s2));
+                           wantConnection() {}  },
+                  hash58 };
+  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   const opMsg = {op: 'send',
@@ -134,7 +137,7 @@ test('methods can send messages via commsReceived', async (t) => {
                  argsS: JSON.stringify([
                    { '@qclass': 'presence',
                      vatID: 'vat2',
-                     swissnum: 123
+                     swissnum: '123'
                    }]) };
   const body = { fromVatID: 'vat2',
                  toVatID: 'v1',
@@ -156,12 +159,11 @@ test('methods can send messages via commsReceived', async (t) => {
                    seqnum: 0,
                    opMsg: {
                      op: 'send',
-                     targetSwissnum: 123,
+                     targetSwissnum: '123',
                      methodName: 'foo',
                      argsS: JSON.stringify([
                        'arg1', 'arg2']),
-                     // todo: this will become random
-                     resultSwissbase: 'base-1',
+                     resultSwissbase: 'b1-Y74TZcuaAYa3B4JwDWbKqM',
                    }};
   t.deepEqual(op, expected);
 
@@ -174,7 +176,7 @@ test('methods can send messages via commsReceived', async (t) => {
                seqnum: 1,
                opMsg: {
                  op: 'when',
-                 targetSwissnum: 'hash-of-base-1',
+                 targetSwissnum: 'hb1-Y74-T2sLvC4p1vL4cVJoHpwZS',
                }};
   t.deepEqual(op, expected);
 
@@ -186,8 +188,9 @@ test('method results are sent back', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
-  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s2));
+                           wantConnection() {} },
+                  hash58 };
+  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
   const opMsg = { op: 'send',
                   resultSwissbase: '5',
@@ -195,8 +198,9 @@ test('method results are sent back', async (t) => {
                   methodName: 'returnValue',
                   argsS: JSON.stringify([3]) };
   await v.debugRxMessage('vat2', 0, opMsg);
+  const sh = doSwissHashing('5', hash58);
   const whenMsg = { op: 'when',
-                    targetSwissnum: 'hash-of-5' };
+                    targetSwissnum: sh };
   await v.debugRxMessage('vat2', 1, whenMsg);
   console.log(`transcript is ${tr.lines}`);
   t.equal(tr.lines.length, 1);
@@ -209,7 +213,7 @@ test('method results are sent back', async (t) => {
                      seqnum: 0,
                      opMsg: {
                        op: 'resolve',
-                       targetSwissnum: 'hash-of-5',
+                       targetSwissnum: sh,
                        valueS: JSON.stringify(3),
                      }};
   t.deepEqual(op, expected);
@@ -221,8 +225,9 @@ test('methods can return a promise', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
-  const v = await buildVat(s, 'v1', 'v1', endow, funcToSource(s2));
+                           wantConnection() {} },
+                  hash58 };
+  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   let result = false;

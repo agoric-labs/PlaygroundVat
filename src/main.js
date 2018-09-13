@@ -12,7 +12,7 @@ import PeerId from 'peer-id';
 import PeerInfo from 'peer-info';
 
 import { createComms } from './comms';
-import { makeVatEndowments, readAndHashFile } from './host';
+import { hash58, makeVatEndowments, readAndHashFile } from './host';
 import { parseVatID } from './vat/id';
 
 export function confineVatSource(s, source) {
@@ -48,7 +48,7 @@ export async function bundleCode(filename, appendSourcemap) {
   return source;
 }
 
-export async function buildVat(s, myVatID, myHostID, vatEndowments, guestSource) {
+export async function buildVat(s, myVatID, myVatSecret, myHostID, vatEndowments, guestSource) {
 
   // This needs to read the contents of vat.js, as a string. SES manages this
   // by putting all the code (as ES6 modules) in a directory named bundle/ ,
@@ -66,7 +66,7 @@ export async function buildVat(s, myVatID, myHostID, vatEndowments, guestSource)
   //const vatSource = fs.readFileSync(require.resolve('./vat.js'));
   const { makeVat } = confineVatSource(s, vatSource);
 
-  return makeVat(vatEndowments, myVatID, myHostID, guestSource);
+  return makeVat(vatEndowments, myVatID, myVatSecret, myHostID, guestSource);
 }
 
 async function create(argv) {
@@ -192,6 +192,7 @@ export async function buildArgv(vat, argvJSON, readBaseFile, vatEndowments) {
 
 async function buildComms(readBaseFile, readBaseLines, locatordir) {
   const myPeerID_s = await readBaseFile('private-id');
+  const myVatSecret = hash58(myPeerID_s);
   const myPeerID = await promisify(PeerId.createFromJSON)(JSON.parse(myPeerID_s));
   const myPeerInfo = new PeerInfo(myPeerID);
   const ports = await readBaseLines('listen-ports');
@@ -226,7 +227,8 @@ async function buildComms(readBaseFile, readBaseLines, locatordir) {
     return [];
   }
 
-  return await createComms(myPeerInfo, getAddressesForHostID);
+  const comms = await createComms(myPeerInfo, getAddressesForHostID);
+  return { comms, myVatSecret };
 }
 
 
@@ -268,7 +270,8 @@ async function run(argv) {
   const output = await fs.promises.open(path.join(basedir, 'output-transcript'), 'w');
 
   const locatordir = path.join(basedir, '..');
-  const comms = await buildComms(readBaseFile, readBaseLines, locatordir);
+  const { comms,
+          myVatSecret } = await buildComms(readBaseFile, readBaseLines, locatordir);
 
   const vatEndowments = makeVatEndowments(s, output, comms);
   if (!vatEndowments instanceof s.global.Object) {
@@ -276,7 +279,8 @@ async function run(argv) {
   }
   console.log('vatEndowments are', vatEndowments);
   const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
-  const v = await buildVat(s, myVatID, myHostID, vatEndowments, guestSource);
+
+  const v = await buildVat(s, myVatID, myVatSecret, myHostID, vatEndowments, guestSource);
   const guestArgvJSON = await readBaseFile('argv.json');
   const guestArgv = await buildArgv(v, guestArgvJSON, readBaseFile, vatEndowments);
 
