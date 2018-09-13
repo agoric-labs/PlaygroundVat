@@ -60,15 +60,11 @@ export function NEWdoSwissHashing(base, hash58) {
   return newComment + '-' + newSwiss;
 }
 
-export function NEWvatMessageIDHash(vatMessageString, hash58) {
+export function vatMessageIDHash(vatMessageString, hash58) {
   const preimage = `msgID-hash-of-${vatMessageString}`;
   return hash58(preimage);
 }
 
 export function doSwissHashing(base) {
   return `hash-of-${base}`; // todo hahaha
-}
-
-export function vatMessageIDHash(vatMessageString) {
-  return `msgID-hash-of-${vatMessageString}`;
 }
