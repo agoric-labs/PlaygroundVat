@@ -127,7 +127,7 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
   }
   const manager = makeRemoteManager(myVatID, myHostID, endowments.comms,
                                     managerWriteInput, managerWriteOutput,
-                                    def, log, logConflict);
+                                    def, log, logConflict, endowments.hash58);
 
   const engine = makeEngine(def, endowments.hash58,
                             Vow, isVow, Flow,

@@ -196,7 +196,7 @@ export function makeDecisionList(log, myVatID, isLeader, followers,
 
 export function makeRemoteManager(myVatID, myHostID, comms,
                                   managerWriteInput, managerWriteOutput,
-                                  def, log, logConflict) {
+                                  def, log, logConflict, hash58) {
   const vatRemotes = new Map();
   const hostRemotes = new Map();
   let engine;
@@ -276,7 +276,7 @@ export function makeRemoteManager(myVatID, myHostID, comms,
     if (wireMessage.startsWith(OP)) {
       const hostMessage = JSON.parse(wireMessage.slice(OP.length));
       const hostMessageAndWire = { hostMessage, wireMessage };
-      const msgID = vatMessageIDHash(wireMessage.slice(OP.length));
+      const msgID = vatMessageIDHash(wireMessage.slice(OP.length), hash58);
       // todo: assert that toVatID === myVatID
       const toVatID = hostMessage.toVatID;
       const fromVatID = hostMessage.fromVatID;

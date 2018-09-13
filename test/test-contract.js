@@ -2,6 +2,7 @@ import { test } from 'tape-promise/tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
+import { hash58 } from '../src/host';
 
 function sendCall(v, methodName, ...args) {
   const opMsg = { op: 'send',
@@ -20,7 +21,8 @@ async function buildContractVat(source='../examples/contract') {
   const s = makeRealm();
   const contractTestSource = await bundleCode(require.resolve(source));
   const endow = { writeOutput,
-                  comms: { registerManager() {} } };
+                  comms: { registerManager() {} },
+                  hash58 };
   const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, contractTestSource);
   await v.initializeCode('v1/0');
   return v;

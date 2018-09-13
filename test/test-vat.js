@@ -3,6 +3,7 @@ import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import SES from 'ses';
 import { promisify } from 'util';
 import { makeTranscript, funcToSource } from './util';
+import { hash58 } from '../src/host';
 
 function s1() {
   exports.default = function(argv) {
@@ -124,7 +125,8 @@ test('methods can send messages via commsReceived', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
+                           wantConnection() {}  },
+                  hash58 };
   const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 

@@ -1,6 +1,7 @@
 import { test } from 'tape-promise/tape';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import { makeTranscript, funcToSource, makeQueues } from './util';
+import { hash58 } from '../src/host';
 
 function t1_sender() {
   exports.default = function(argv) {
@@ -35,7 +36,8 @@ test('comms, sending a message', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {} } };
+                           wantConnection() {} },
+                  hash58 };
   const s = makeRealm();
   const v1src = funcToSource(t1_sender);
   const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
@@ -136,7 +138,8 @@ test('sending unresolved local Vow', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
+                           wantConnection() {} },
+                  hash58 };
   const s = makeRealm();
   const v1src = funcToSource(t2_sender);
   const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
@@ -268,7 +271,8 @@ test('sending third-party Vow', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
+                           wantConnection() {} },
+                  hash58 };
   const s = makeRealm();
   const v1src = funcToSource(t3_one);
   const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
@@ -445,7 +449,8 @@ test('sending third-party Vow that resolves to Presence', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
+                           wantConnection() {} },
+                  hash58 };
   const s = makeRealm();
   const v1src = funcToSource(t4_one);
   const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
@@ -626,7 +631,8 @@ test('third-party Vow gets resolved', async (t) => {
   const tr = makeTranscript();
   const endow = { writeOutput: tr.writeOutput,
                   comms: { registerManager() {},
-                           wantConnection() {}  } };
+                           wantConnection() {} },
+                  hash58 };
   const s = makeRealm();
 
   const ALICE = 'ALICE';

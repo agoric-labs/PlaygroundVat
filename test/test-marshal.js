@@ -4,7 +4,7 @@ import { makeVatEndowments } from '../src/host';
 import SES from 'ses';
 import { promisify } from 'util';
 import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
-
+import { hash58 } from '../src/host';
 
 test('marshal', async (t) => {
   const s = SES.makeSESRootRealm();
@@ -121,7 +121,8 @@ function s1() {
 test('deliver farref to vat', async (t) => {
   const s = makeRealm();
   const endow = { writeOutput() {},
-                  comms: { registerManager() {} } };
+                  comms: { registerManager() {} },
+                  hash58 };
   const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s1));
   await v.initializeCode('v1/0');
   const opMsg = {op: 'send',
