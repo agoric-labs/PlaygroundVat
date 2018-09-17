@@ -21,12 +21,14 @@ export default function(argv) {
 
   const f = new Flow();
 
+  let initialized = false;
   let myMoneyPurseP;
   let myMoneyIssuerP;
   let myStockPurseP;
   let myStockIssuerP;
 
   function init(myMoneyPurse, myStockPurse) {
+    initialized = true;
     myMoneyPurseP = Vow.resolve(myMoneyPurse);
     myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
     myStockPurseP = Vow.resolve(myStockPurse);
@@ -48,6 +50,9 @@ export default function(argv) {
      * is a bit confusing here.
      */
     buy: function(desc, paymentP) {
+      if (!initialized) {
+        log('++ ERR: buy called before init()');
+      }
       let amount;
       let good;
       desc = ''+desc;
@@ -67,6 +72,9 @@ export default function(argv) {
 
     tradeWell: function(bobLies=false) {
       log('++ bob.tradeWell starting');
+      if (!initialized) {
+        log('++ ERR: tradeWell called before init()');
+      }
       const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
@@ -89,6 +97,9 @@ export default function(argv) {
      * requesting that this object invite anything.
      */
     invite: function(tokenP, allegedSrc, allegedSide) {
+      if (!initialized) {
+        log('++ ERR: invite called before init()');
+      }
       log('++ bob.invite start');
       check(allegedSrc, allegedSide);
       log('++ bob.invite passed check');

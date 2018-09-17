@@ -21,12 +21,14 @@ export default function(argv) {
 
   const f = new Flow();
 
+  let initialized = false;
   let myMoneyPurseP;
   let myMoneyIssuerP;
   let myStockPurseP;
   let myStockIssuerP;
 
   function init(myMoneyPurse, myStockPurse) {
+    initialized = true;
     myMoneyPurseP = Vow.resolve(myMoneyPurse);
     myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
     myStockPurseP = Vow.resolve(myStockPurse);
@@ -42,21 +44,33 @@ export default function(argv) {
   const alice = def({
     init,
     payBobWell: function() {
+      if (!initialized) {
+        log('++ ERR: payBobWell called before init()');
+      }
       const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
       const ackP = paymentP.e.deposit(10, myMoneyPurseP);
       return ackP.then(_ => bobP.e.buy('shoe', paymentP));
     },
     payBobBadly1: function() {
+      if (!initialized) {
+        log('++ ERR: payBobBadly1 called before init()');
+      }
       const payment = def({ deposit: function(amount, src) {} });
       return bobP.e.buy('shoe', payment);
     },
     payBobBadly2: function() {
+      if (!initialized) {
+        log('++ ERR: payBobBadly2 called before init()');
+      }
       const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
       const ackP = paymentP.e.deposit(5, myMoneyPurseP);
       return ackP.then(_ => bobP.e.buy('shoe', paymentP));
     },
 
     tradeWell: function() {
+      if (!initialized) {
+        log('++ ERR: tradeWell called before init()');
+      }
       const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
@@ -65,6 +79,10 @@ export default function(argv) {
     },
 
     invite: function(tokenP, allegedSrc, allegedSide) {
+      if (!initialized) {
+        log('++ ERR: invite called before init()');
+      }
+
       check(allegedSrc, allegedSide);
 
       let cancel;
