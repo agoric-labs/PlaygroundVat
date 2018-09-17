@@ -79,7 +79,14 @@ async function create(argv) {
   const privateId = `${JSON.stringify(id.toJSON(), null, 2)}\n`;
   await f.appendFile(privateId);
   await f.close();
-  const myVatSecret = hash58(privateId);
+
+  // generate a random vatSecret, unrelated to the per-host privateID
+  // quorum vats must share a vatSecret
+  const myVatSecret = hash58(crypto.randomBytes(128/8));
+  f = await fs.promises.open(path.join(basedir, 'vat-secret'), 'w');
+  await f.appendFile(`${myVatSecret}\n`);
+  await f.close();
+
   const rootSwissnum = makeSwissnum(myVatSecret, 0, hash58);
 
   f = await fs.promises.open(path.join(basedir, 'id'), 'w'); // VatID
@@ -123,6 +130,7 @@ async function create(argv) {
 
 export async function convertToQuorum(argv) {
   const quorumVatID = argv.vatid;
+  const myVatSecret = argv.vatsecret;
   let basedir = '.';
   if (argv.basedir) {
     basedir = argv.basedir;
@@ -157,16 +165,21 @@ export async function convertToQuorum(argv) {
     console.log(`I am a follower in the new Quorum Vat`);
   }
 
-  let rootSturdyRef = readBaseLine('root-sturdyref');
-  let swiss = rootSturdyRef.split('/')[1];
-  rootSturdyRef = `${quorumVatID}/${swiss}`;
+  // rewrite the swissnum: it is a function of the (new) vat secret
+  const rootSwissnum = makeSwissnum(myVatSecret, 0, hash58);
 
-  let f = await fs.promises.open(path.join(basedir, 'root-sturdyref'), 'w');
-  await f.appendFile(`${rootSturdyRef}\n`);
+  let f;
+
+  f = await fs.promises.open(path.join(basedir, 'root-sturdyref'), 'w');
+  await f.appendFile(`${quorumVatID}/${rootSwissnum}\n`);
   await f.close();
 
-  let f = await fs.promises.open(path.join(basedir, 'id'), 'w'); // VatID
+  f = await fs.promises.open(path.join(basedir, 'id'), 'w'); // VatID
   await f.appendFile(`${quorumVatID}\n`);
+  await f.close();
+
+  f = await fs.promises.open(path.join(basedir, 'vat-secret'), 'w');
+  await f.appendFile(`${myVatSecret}\n`);
   await f.close();
 
   console.log('Conversion to Quorum Vat complete.');
@@ -194,9 +207,8 @@ export async function buildArgv(vat, argvJSON, readBaseFile, vatEndowments) {
   return argv;
 }
 
-async function buildComms(readBaseFile, readBaseLines, locatordir) {
+async function buildComms(myVatSecret, readBaseFile, readBaseLines, locatordir) {
   const myPeerID_s = await readBaseFile('private-id');
-  const myVatSecret = hash58(myPeerID_s);
   const myPeerID = await promisify(PeerId.createFromJSON)(JSON.parse(myPeerID_s));
   const myPeerInfo = new PeerInfo(myPeerID);
   const ports = await readBaseLines('listen-ports');
@@ -231,8 +243,7 @@ async function buildComms(readBaseFile, readBaseLines, locatordir) {
     return [];
   }
 
-  const comms = await createComms(myPeerInfo, getAddressesForHostID);
-  return { comms, myVatSecret };
+  return await createComms(myPeerInfo, getAddressesForHostID);
 }
 
 
@@ -265,7 +276,8 @@ async function run(argv) {
   const myVatID = await readBaseLine('id');
   console.log(`myVatID ${myVatID}`);
   const myHostID = await readBaseLine('host-id');
-  console.log(`myVatID ${myVatID}`);
+  console.log(`myHostID ${myHostID}`);
+  const myVatSecret = await readBaseLine('vat-secret');
   const rootSturdyRef = await readBaseLine('root-sturdyref');
 
   const s = makeRealm();
@@ -274,8 +286,7 @@ async function run(argv) {
   const output = await fs.promises.open(path.join(basedir, 'output-transcript'), 'w');
 
   const locatordir = path.join(basedir, '..');
-  const { comms,
-          myVatSecret } = await buildComms(readBaseFile, readBaseLines, locatordir);
+  const comms = await buildComms(myVatSecret, readBaseFile, readBaseLines, locatordir);
 
   const vatEndowments = makeVatEndowments(s, output, comms);
   if (!vatEndowments instanceof s.global.Object) {
@@ -340,7 +351,7 @@ export async function main() {
         })
       ;
     }, (argv) => run(argv))
-    .command('convert-to-quorum <vatid> [basedir]', 'convert a Solo Vat (in current directory, or from BASEDIR) to the new Quorum VatID', (yargs) => {
+    .command('convert-to-quorum <vatid> <vatsecret> [basedir]', 'convert a Solo Vat (in current directory, or from BASEDIR) to the new Quorum VatID', (yargs) => {
       yargs
         .positional('vatid', {
           describe: 'new Quorum VatID',
@@ -350,6 +361,9 @@ export async function main() {
             throw new Error(`new vatid must start with 'qNN-', but is ${vatid}`);
           }
           return vatid;
+        })
+        .positional('vatsecret', {
+          describe: 'Quorum Vat secret, copy from LEADERDIR/vat-secret',
         })
         .option('basedir', {
           describe: 'base directory, created by "vat create"',
