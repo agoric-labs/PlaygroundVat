@@ -73,11 +73,8 @@ export function betterContractTestAliceFirst(mint, host, alice, bob) {
   const aliceStockPurseP = stockMintP.e.mint(2002);
   const bobStockPurseP = stockMintP.e.mint(2003);
 
-  const aliceP = Vow.resolve(alice);
-  aliceP.e.init(aliceMoneyPurseP, aliceStockPurseP);
-
-  const bobP = Vow.resolve(bob);
-  bobP.e.init(bobMoneyPurseP, bobStockPurseP);
+  const aliceP = Vow.resolve(alice).e.init(aliceMoneyPurseP, aliceStockPurseP);
+  const bobP = Vow.resolve(bob).e.init(bobMoneyPurseP, bobStockPurseP);
 
   const ifItFitsP = aliceP.e.payBobWell();
   ifItFitsP.then(res => {
@@ -98,10 +95,8 @@ export function betterContractTestBobFirst(mint, host, alice, bob, bobLies=false
   const aliceStockPurseP = stockMintP.e.mint(2002, 'aliceMainStock');
   const bobStockPurseP = stockMintP.e.mint(2003, 'bobMainStock');
 
-  const aliceP = Vow.resolve(alice);
-  aliceP.e.init(aliceMoneyPurseP, aliceStockPurseP);
-  const bobP = Vow.resolve(bob);
-  bobP.e.init(bobMoneyPurseP, bobStockPurseP);
+  const aliceP = Vow.resolve(alice).e.init(aliceMoneyPurseP, aliceStockPurseP);
+  const bobP = Vow.resolve(bob).e.init(bobMoneyPurseP, bobStockPurseP);
 
   bobP.e.tradeWell(bobLies).then(
     res => {

@@ -33,6 +33,7 @@ export default function(argv) {
     myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
     myStockPurseP = Vow.resolve(myStockPurse);
     myStockIssuerP = myStockPurseP.e.getIssuer();
+    return bob;
   }
 
   const check = function(allegedSrc, allegedSide) {
