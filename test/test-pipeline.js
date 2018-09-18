@@ -125,3 +125,170 @@ test('promise pipelining', async (t) => {
 
   t.end();
 });
+
+function t2_alice() {
+  exports.default = function(argv) {
+    const p1 = Vow.resolve(argv.bob).e.getTarget1();
+    const p2 = p1.e.call('foo');
+    return {
+      // send bar manually after we see it get shortened
+      sendBar() {
+        p1.e.call('bar');
+      },
+    };
+  };
+}
+
+function t2_bob() {
+  exports.default = function(argv) {
+    const carolP = Vow.resolve(argv.carol);
+    return {
+      getTarget1() {
+        const targetP = carolP.e.getTarget2();
+        targetP.e.call('baz');
+        return targetP;
+      },
+    };
+  };
+}
+
+function t2_carol() {
+  exports.default = function(argv) {
+    const calls = [];
+    const target = {
+      call(arg) {
+        calls.push(arg);
+        return arg;
+      },
+    };
+    return {
+      getTarget2() {
+        return target;
+      },
+    };
+  };
+}
+
+
+test('promise pipelining to third party', async (t) => {
+  const tr = makeTranscript();
+  const endow = { writeOutput: tr.writeOutput,
+                  comms: { registerManager() {},
+                           wantConnection() {} },
+                  hash58 };
+  const s = makeRealm();
+  const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow,
+                            funcToSource(t2_alice));
+  const v1argv = { bob: v1.createPresence('vat2/0') };
+  const v1root = await v1.initializeCode('vat1/0', v1argv);
+
+  const v2 = await buildVat(s, 'vat2', 'vat2 secret', 'vat2', endow,
+                            funcToSource(t2_bob));
+  const v2argv = { carol: v2.createPresence('vat3/0') };
+  const v2root = await v2.initializeCode('vat2/0', v2argv);
+
+  const v3 = await buildVat(s, 'vat3', 'vat3 secret', 'vat3', endow,
+                            funcToSource(t2_carol));
+  const v3argv = {};
+  const v3root = await v3.initializeCode('vat3/0', v3argv);
+
+  const q = makeQueues(t);
+
+  v1.connectionMade('vat2', q.addQueue(1, 2));
+  v1.connectionMade('vat3', q.addQueue(1, 3));
+  v2.connectionMade('vat1', q.addQueue(2, 1));
+  v2.connectionMade('vat3', q.addQueue(2, 3));
+  v3.connectionMade('vat1', q.addQueue(3, 1));
+  v3.connectionMade('vat2', q.addQueue(3, 2));
+
+  // getTarget1 is sent immediately, causing p1 to point at Bob, and
+  // call(foo) is pipelined right behind it
+
+  const got1 = q.expect(1, 2,
+                        { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 0},
+                        { op: 'send',
+                          resultSwissbase: 'b1-ScrHVw5LqkhEJMJdeCE17W',
+                          targetSwissnum: '0',
+                          methodName: 'getTarget1',
+                          args: [],
+                        });
+
+  const got2 = q.expect(1, 2,
+                        { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 1},
+                        { op: 'when',
+                          targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
+                        });
+
+  const got3 = q.expect(1, 2,
+                        { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 2},
+                        { op: 'send',
+                          resultSwissbase: 'b2-XpvixAJgvUFL8NY6AZkUH9',
+                          targetSwissnum: 'hb1-Scr-V3gfYa5Ho4vdveBTCUjPsV',
+                          methodName: 'call',
+                          args: ['foo'],
+                        });
+
+  const got4 = q.expect(1, 2,
+                        { fromVatID: 'vat1', toVatID: 'vat2', seqnum: 3},
+                        { op: 'when',
+                          targetSwissnum: 'hb2-Xpv-H9Ti5fawDV9VkowVJWEBzJ'
+                        });
+
+  q.expectEmpty(1, 2);
+
+  // delivering getTarget1 can shorten p1 to point at Carol
+  v2.commsReceived('vat1', got1); // getTarget1()
+  v2.commsReceived('vat1', got2); // 'when' to resolve p2
+  await Promise.resolve(0);
+
+  // this sends getTarget2 to Carol, with baz right behind it
+
+  const got5 = q.expect(2, 3,
+                        { fromVatID: 'vat2', toVatID: 'vat3', seqnum: 0},
+                        { op: 'send',
+                          resultSwissbase: 'b1-YAjJjvUTPE9jgFC1USrG5B',
+                          targetSwissnum: '0',
+                          methodName: 'getTarget2',
+                          args: [],
+                        });
+
+  const got6 = q.expect(2, 3,
+                        { fromVatID: 'vat2', toVatID: 'vat3', seqnum: 1},
+                        { op: 'when',
+                          targetSwissnum: 'hb1-YAj-Vv5XMJYHSunn14Xhp12q4V',
+                        });
+
+
+  const got7 = q.expect(2, 3,
+                        { fromVatID: 'vat2', toVatID: 'vat3', seqnum: 2},
+                        { op: 'send',
+                          resultSwissbase: 'b2-FjSN9V1NRpjdk6mWpF4dJV',
+                          targetSwissnum: 'hb1-YAj-Vv5XMJYHSunn14Xhp12q4V',
+                          methodName: 'call',
+                          args: ['baz'],
+                        });
+
+  const got8 = q.expect(2, 3,
+                        { fromVatID: 'vat2', toVatID: 'vat3', seqnum: 3},
+                        { op: 'when',
+                          targetSwissnum: 'hb2-FjS-7T1oQyBfNxTdFHzv34sA7P',
+                        });
+
+  q.expectEmpty(2, 3);
+
+  // TODO: delivering call(foo) to Bob should cause it to be forwarded to
+  // Carol, but for now it just gets queued at Bob until targetP resolves.
+  // When we implement forwarding/shortening, this will change.
+  v2.commsReceived('vat1', got3);
+  v2.commsReceived('vat1', got4);
+  await Promise.resolve(0);
+
+  q.expectEmpty(2, 3);
+  q.expectEmpty(2, 1);
+
+  // todo: after implementing forwarding, look at the 2->3 messages and make
+  // sure both call(foo) and call(baz) are sent. And trigger v1root.sendBar()
+  // to see how call(bar) is interleaved.
+
+  t.end();
+});
