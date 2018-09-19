@@ -1,9 +1,9 @@
 Each Vat lives in a "base directory", which contains mutable state for the
-Vat. Create these with `bin/vat create <port>`, which allocates a HostID,
-creates a new directory named after that HostID, and populates it with state.
-Later, you run vat by chdiring into the new base directory and running
-`bin/vat run`. You can also name the base directory directly with `bin/vat
-run <basedir>`.
+Vat. Create these with `bin/vat create <basedir> <address> <port>`, which
+allocates a HostID, creates a new directory named `<basedir>`, and populates
+it with state. Later, you run vat by chdiring into the new base directory and
+running `bin/vat run`. You can also name the base directory directly with
+`bin/vat run <basedir>`.
 
 `vat create` makes a Solo Vat, in which the VatID and the HostID are the
 same. To convert it into a member of a Quorum Vat, see below.
@@ -25,12 +25,13 @@ The contents of `BASEDIR` are files with the following names:
 * `input-transcript` (optional): if present, each line will delivered as a
   synthetic inbound message at startup, to reconstruct the vat's previous
   state.
-* `source/index.js`: the initial occupant of the Vat. This should be an
-  ES6-style module, exporting function names like `foo` and `bar`. These will
-  be exposed as if they were methods on a root object.
+* `source/index.js`: the initial code to be executed inside the Vat. This
+  should be an ES6-style module, exporting a default function which returns
+  the "root object".
 * `root-sturdyref`: a sturdyref for the root object. Invoking the `foo`
-  method on this object will run the `foo()` function exported by
-  `source/index.js`.
+  method on this object will run the `foo()` method of the object returned by
+  the default function exported by `source/index.js`.
+* `argv.json`: this defines the arguments available to the initial code.
 
 In addition, `BASEDIR/locator` is used to locate connection hints for other
 Hosts by computing a value named `$LOCATORDIR`. If `BASEDIR/locator` is a
