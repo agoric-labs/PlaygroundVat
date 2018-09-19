@@ -95,12 +95,12 @@ the first message, receive the second message, then exit.
 
 The [`examples/contractHost`](../examples/contractHost) directory contains
 the examples from our [Distributed Electronic Rights in
-JavaScript](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/40673.pdf)
-paper. There are five Vats involved: Alice, bob, Mint, Host, and Driver. The
-"driver" Vat drives the process: change the `which` argument in
-`driver/argv.json` to control which variant to exercise. The `start.sh`
-script will launch all five vats at the same time (but you will need to kill
-the resulting processes yourself when done).
+JavaScript](https://ai.google/research/pubs/pub40673) paper. There are five
+Vats involved: Alice, bob, Mint, Host, and Driver. The "driver" Vat drives
+the process: change the `which` argument in `driver/argv.json` to control
+which variant to exercise. The `start.sh` script will launch all five vats at
+the same time (but you will need to kill the resulting processes yourself
+when done).
 
 ## Quorum Vats
 
