@@ -9,9 +9,9 @@ In the Object-Capability world, each "object" is a defensible unit of
 behavior. These objects have private state (not directly accessible from
 outside), which includes both plain data and references to other objects.
 They also have a set of public methods, which accept arguments, trigger the
-execution of some piece of code, and return a Promise for their result. This
-code can examine or modify the private state, and it can send messages to any
-object to which it has a reference.
+execution of some private piece of code, and return a Promise for their
+result. This private code can examine or modify the private state, and it can
+send messages to any object to which it has a reference.
 
 The important rules of object-capability discipline are:
 
@@ -37,20 +37,20 @@ allow objects on different computers to interact with each other.
 On a single computer, inter-object messages are simply method invocations.
 But between computers, these messages must be serialized into bytes. And on
 the open internet, we must use cryptography to maintain the unforgeability of
-references against eavesdroppers and Vats which simply create unauthorized
-messages.
+references against eavesdroppers and Vats which simply try to create
+unauthorized messages.
 
 Vats also represent a "termination domain" that partitions
 resource-exhaustion attacks. Any code running inside a Vat could go into an
-infinite loop, bringing further progess of the Vat to a halt. Likewise the
+infinite loop, bringing further progress of the Vat to a halt. Likewise the
 code might allocate more memory than the host can provide, or use more stack
 frames than can fit into memory, both of which could cause the Vat to crash.
 However this only affects the one Vat which hosted the troublesome code: all
-other Vats with which it might communication are insulated from the failure.
+other Vats with which it might communicate are insulated from the failure.
 For this reason, it can be useful to run multiple Vats on a single computer.
 Typically each Vat will be associated with a single customer, so if that
-customer intentionally does something to cause a failure, they'll only be
-hurting themselves and service can continue unaffected for other (nicer)
+(mean) customer intentionally does something to cause a failure, they'll only
+be hurting themselves and service can continue unaffected for other (nicer)
 customers.
 
 Vats maintain a queue of messages that need to be delivered. This queue is
@@ -73,8 +73,11 @@ simply replaying all of them in the same order.
   primordials are frozen to prevent tampering.
 * `def()` is available to tamperproof API objects against manipulation by
   callers
+* `new Flow()` and `new Flow().makeVow()` are available to create
+  Promise-like objects which enable eventual-send and remote message
+  delivery, with per-Flow ordering and some amount of promise-pipelining
 * Cross-Vat references can be used to send messages to external hosts, with
-  some amount of promise-pipelining
+  full cryptographic protection on the network protocol
 * State checkpoints are implemented by recording all inbound messages (in
   order), enabling deterministic playback after restart.
 * "Quorum Vats" replicate computation across multiple hosts. Downstream Vats
@@ -99,20 +102,23 @@ provides the authority to send messages to that object. This is the same
 approach used by [Foolscap](https://foolscap.lothar.com/) and
 [Waterken](http://waterken.sourceforge.net/).
 
-This requires a confidential channel between Vats, otherwise a network
-eavesdropper could learn the swissnums and exercise authority that was not
-granted to them. In Foolscap, Waterken, and E's
-[VatTP](http://erights.org/elib/distrib/vattp/index.html) layer, this is
-achieved with TLS (or TLS-like) 
-
 While security on the Internet always depends upon secrets, ideally these
 secrets can be sequestered into as small a domain as possible. Webkeys are
 the opposite: they are exercised by delivering them to the target vat
 (imagine if I asked you to prove that you know a secret by telling me the
 secret; if I didn't already know the secret, well, I do now). To do this
-safely, we need a confidential channel that is bound to the target Vat. A
-failure in the confidentiality will enable eavesdroppers to violate
-integrity.
+safely, we need a confidential channel that is bound to the target Vat,
+otherwise a network eavesdropper could learn the swissnums and exercise
+authority that was not granted to them. A failure in the confidentiality of
+the channel will enable eavesdroppers to violate integrity.
+
+In Foolscap, Waterken, and E's
+[VatTP](http://erights.org/elib/distrib/vattp/index.html) layer, channel
+confidentiality is achieved with a TLS (or TLS-like) secure-transport
+protocol. Asymmetric public keys are used for Vat identity, a key-agreement
+protocol is used to establish a symmetric transport key, and an authenticated
+encryption mode provides both confidentiality and integrity for the actual
+records.
 
 A better approach would use signing keys as the secret. The sender
 demonstrates knowledge of the secret by signing the message, and the
@@ -149,9 +155,9 @@ commits to executing a particular message: deterministic execution requires
 each Vat to remember their execution history (despite restarts) and never
 execute messages in a different order.
 
-The ACK enables the sender to safely forget about messages. It also interacts
-with the ordering properties of three-party handoffs (to implement the
-[WormholeOp](http://erights.org/elib/distrib/captp/WormholeOp.html)).
+The ACK enables the sender to safely forget about outbound messages. It also
+interacts with the ordering properties of three-party handoffs (to implement
+the [WormholeOp](http://erights.org/elib/distrib/captp/WormholeOp.html)).
 
 Since every message will require an ACK, a simplistic approach would double
 the number of network messages. Optimizing this out is valuable, which
@@ -167,12 +173,13 @@ messages.
 ### Inefficiently Serialized Checkpoints
 
 The current prototype does not serialize the state of the Vat. Instead, it
-simply remembers every inbound message. To pause and resume a Vat, you kill
-the process, copy the `output-transcript` file to `input-transcript`, and
-then restart the process with `vat run`. The new process will start by
-executing every message from `input-transcript`, and since execution is
-deterministic, this should result in exactly the same internal state as
-existed when the process was killed.
+simply remembers every inbound message by writing them to a file named
+`output-transcript`. To pause and resume a Vat, you kill the process, copy
+the `output-transcript` file to `input-transcript`, and then restart the
+process with `vat run`. The new process will start by executing every message
+from `input-transcript`, and since execution is deterministic, this should
+result in exactly the same internal state as existed when the process was
+killed.
 
 A better approach would persist the state of all objects reachable from
 sturdyrefs, transparently, in some sort of database checkpoint. The
@@ -191,12 +198,14 @@ its Vow to a third Vat, the messages do not flow through to the third Vat.
 Instead, they sit queued on the second Vat until the target has fully
 resolved.
 
-In addition, these messages are likely to be delivered in the wrong order.
-The ordering properties of Flows that span Vat boundaries are still being
-developed, as well as wire protocols that enable efficient enforcement of
-those properties. The protocol must also protect "liveness": one Vat should
-not be able to prevent progress of messages in a Flow that is not depending
-upon that Vat, even when three-party handoffs are involved.
+In addition, these messages are likely to be delivered in the wrong order
+(specifically, messages sent through the original "long" path might arrive
+after messages sent later through the "short" path). The ordering properties
+of Flows that span Vat boundaries are still being developed, as well as wire
+protocols that enable efficient enforcement of those properties. The protocol
+must also protect "liveness": one Vat should not be able to prevent progress
+of messages in a Flow that is not depending upon that Vat, even when
+three-party handoffs are involved.
 
 ### Non-Ideal Message-Send Syntax
 
