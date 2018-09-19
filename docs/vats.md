@@ -194,15 +194,15 @@ until a threshold of member hosts have all sent the same message.
 
 Once the judgment has been made, the complete Vat Message is passed to the
 **jury**. The jury is responsible for ordering decisions: which message
-should be executed next. This is trival for messages sent *to* a Solo Vat:
-there is only one Host involved, so it just executes each Vat Message as soon
-as the judge recognizes them. The jury inside a Quorum Vat is more
+should be executed next. This is trival for messages sent *to* a Solo Vat, as
+their jury has only one member: they just execute each Vat Message as soon as
+their judge recognizes them. The jury inside a Quorum Vat is more
 complicated, because the entire Vat needs to make the same decision. The
 members of the receiving Vat must somehow negotiate to select one message of
 all the eligible (judged) Vat Messages they are aware of.
 
 Once the jury has finished its deliberation, the selected Vat Message is sent
-to the Execution Engine. The message is first written to a durable
+to the **Execution Engine**. The message is first written to a durable
 "transcript" (in our prototype this is a file named
 `$BASEDIR/output-transcript`) so that subsequent restarts will execute
 exactly the same message to ensure deterministic behavior. Then the type of

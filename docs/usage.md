@@ -3,6 +3,12 @@
 This prototype is still very rough, and lacks both developer ergonomics and
 user-friendliness. Please accept our apologies.
 
+Run `npm install` from the top of the source tree to install all the
+dependencies. The `bin/vat` command is then available to be run. You might
+want to add the `bin/` directory to your `$PATH` to reduce typing later.
+
+## The 'vat' command
+
 `vat create` is used to make a new Vat "base directory", which creates the
 encryption keys and the Vat ID. This takes arguments to assign the IP address
 and TCP port where it will be reachable, as well as the name of the base
@@ -71,3 +77,43 @@ To ensure deterministic execution, do not change the code in
 A `log()` function is available to Vat code. Unfortunately `console.log()`
 does not work there yet (we're
 [trying](https://github.com/Agoric/PlaygroundVat/issues/5) to fix that).
+
+## Examples
+
+[examples/callResponse](../examples/callResponse) contains a simple example
+with two Vats. The "left" vat sends a message at startup, the "right" vat
+responds to that message, and finally the left vat logs the result.
+
+To run it, navigate to the `examples/callResponse` directory and open two
+shells (one for each Vat). In one shell, run `vat left`. Run `vat right` in
+the other shell.
+
+You should see the left vat create a TCP connection to the right vat, send
+the first message, receive the second message, then exit.
+
+## Experimenting With Contract Code
+
+The [`examples/contractHost`](../examples/contractHost) directory contains
+the examples from our [Distributed Electronic Rights in
+JavaScript](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/40673.pdf)
+paper. There are five Vats involved: Alice, bob, Mint, Host, and Driver. The
+"driver" Vat drives the process: change the `which` argument in
+`driver/argv.json` to control which variant to exercise. The `start.sh`
+script will launch all five vats at the same time (but you will need to kill
+the resulting processes yourself when done).
+
+## Quorum Vats
+
+Quorum Vats are created from a collection of Solo Vats with the [`vat
+convert-to-quorum`](vat-basedir.md#quorum-vats) tool. For a preconfigured
+example, look in [examples/quorum](../examples/quorum).
+
+## Running Vats on Separate Computers
+
+The examples in `examples/` rely upon all the communicating Vats sharing a
+common parent directory: they look in sibling directories to find the network
+addresses of the hosts they are asked to contact. To run Vats on different
+computers, you will need to copy this address information into a nearby
+directory so the comms layer can find it. We hope to remove this limitation
+eventually, via some kind of address-discovery mechanism (possibly using
+libp2p's DHT feature, once is it available in javascript).
