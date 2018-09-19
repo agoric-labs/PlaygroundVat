@@ -110,6 +110,16 @@ q2-QmP1yPTRZLKiB9mNDDBvfSCPbi1mBH2w8uLsurcr2iS47X-QmTxsHYt2a5sWpatR6LTaW4eHR9d4B
 `vat create` builds a Solo Vat in which the HostID and the VatID are the
 same. To build a Quorum Vat, you must first create (but not launch) all the
 Solo Vats, and copy down their HostIDs. Now construct the desired Quorum
-VatID. Then go back to each Solo Vat and run `vat convert-to-quorum` with the
-new Quorum VatID.
+VatID.
+
+You must also extract the shared "Vat Secret" from the leader vat: this is a
+string stored in `vat-secret` (it doesn't really matter which Vat you take
+the secret from: what matters is that all hosts wind up sharing the same Vat
+Secret). This secret is used to build deterministic pseudorandom Swissnums
+for newly exposed objects.
+
+Then go back to each Solo Vat and run `vat convert-to-quorum <vatid>
+<vatsecret>` with the new Quorum VatID and the shared Vat Secret. This will
+modify the basedir to set the new VatID, replace the Vat Secret, and
+recompute the root sturdyref.
 
