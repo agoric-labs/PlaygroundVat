@@ -4,6 +4,9 @@
   "description": "SES Launcher",
   "main": "src/index.js",
   "module": "src/main.js",
+  "bin": {
+    "vat": "bin/vat"
+  },
   "scripts": {
     "test": "tape -r esm test/**/test*.js"
   },
