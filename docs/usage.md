@@ -69,4 +69,5 @@ To ensure deterministic execution, do not change the code in
 ## Logging
 
 A `log()` function is available to Vat code. Unfortunately `console.log()`
-does not work there yet (we're [trying](#5) to fix that).
+does not work there yet (we're
+[trying](https://github.com/Agoric/PlaygroundVat/issues/5) to fix that).
