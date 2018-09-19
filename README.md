@@ -79,7 +79,7 @@ simply replaying all of them in the same order.
   Promise-like objects which enable eventual-send and remote message
   delivery, with per-Flow ordering and some amount of promise-pipelining
 * Cross-Vat references can be used to send messages to external hosts, with
-  full cryptographic protection on the network protocol
+  full cryptographic protection on the network protocol, provided by libp2p
 * State checkpoints are implemented by recording all inbound messages (in
   order), enabling deterministic playback after restart.
 * "Quorum Vats" replicate computation across multiple hosts. Downstream Vats

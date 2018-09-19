@@ -183,3 +183,40 @@ This Vat uses the SES library to get a object-capability -safe execution
 environment. SES does [not yet](https://github.com/Agoric/SES/issues/3) fully
 freeze the primordials, which permits several communication channels that
 should be forbidden.
+
+### Incomplete libp2p-js
+
+We use [libp2p](https://libp2p.io/) for networking, specifically the
+[js-libp2p](https://github.com/libp2p/js-libp2p) Javascript implementation.
+HostIDs are libp2p node identifiers (a base58 hash of an RSA public key).
+Libp2p gives us transport-layer encryption with strong identifiers for the
+other end of each connection (inbound and outbound), which is critical for
+the security of our VatTP message-passing protocol.
+
+However js-libp2p is missing a lot of features that the flagship [Go
+implementation](https://github.com/libp2p/go-libp2p) provides. One feature we
+would like is the DHT that disseminates host addresses. With that in place,
+knowledge of a HostID would be sufficient to reach that host. Since we don't
+have it, we need a way to learn a host's multiaddresses before we can connect
+to it. Our prototype does this automatically if and only if the Vats are all
+running in sibling directories. When running Vats on separate computers, you
+must manually copy the address information into each new Vat (somewhat like
+an `/etc/hosts` file).
+
+We might address this with embedded address hints, "redirectories", and/or by
+running a central server that can distribute address information.
+
+Closely related to this is the NAT-bypassing relay behavior that allows IPFS
+servers to work behind firewalls. The consequence of this being absent from
+the JS port is that Vat nodes behind a firewall will not be able to accept
+connections from other Vats outside that firewall. Once a connection is made,
+it is used for messages in both directions, so certain topologies will work
+anyways.
+
+js-libp2p defaults to using (2048-bit) RSA keys for the node identities,
+which is adequate, but I'd prefer Ed25519 elliptic-curve keys, which are
+smaller and much faster. We may rewrite VatTP to use an entirely different
+wire protocol, in which messages are individually encrypted and *then* signed
+(so the signatures could be checked by third parties). In that case, the
+transport-layer encryption would be redundant, and we wouldn't care so much
+about the details.
