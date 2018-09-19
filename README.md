@@ -1,5 +1,7 @@
 # The Agoric "Playground" Vat
 
+[![License][license-image]][license-url]
+
 This repository contains the first prototype of our object-capability -style
 Javascript execution environment, otherwise known as a "Vat".
 
@@ -268,3 +270,23 @@ This Vat uses the SES library to get a object-capability -safe execution
 environment. SES does [not yet](https://github.com/Agoric/SES/issues/3) fully
 freeze the primordials, which permits several communication channels that
 should be forbidden.
+
+## Bug Disclosure
+
+Despite this not being ready for production use, we'd like to get into the
+practice of responsible disclosure. If you find a security-sensitive bug that
+should not be revealed publically until a fix is available, please send email
+to `security` at (@) `agoric.com`. To encrypt, please use my (@warner)
+personal GPG key [A476E2E6 11880C98 5B3C3A39 0386E81B
+11CAA07A](http://www.lothar.com/warner-gpg.html) . Keybase users can also
+send messages to `@agoric_security`, or share code and other log files via
+the Keybase encrypted file system
+(`/keybase/private/agoric_security,$YOURNAME`).
+
+For non-security bugs, use the
+[regular Issues page](https://github.com/Agoric/PlaygroundVat/issues).
+
+
+
+[license-image]: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+[license-url]: LICENSE
