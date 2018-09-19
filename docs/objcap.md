@@ -56,10 +56,12 @@ which are local messages that have been deliberately enqueued rather than
 being invoked synchronously. This avoids accidental reentrancy and other
 forms of "plan interference" hazards.
 
-Vat execution is deterministic, given a previous state and a specific
+Vat execution is deterministic, given an initial state and a specific
 ordering of input messages. This allows the Vat's state to be checkpointed
 and restarted later (perhaps to recover from a host CPU failure, or to
 migrate it to a different host entirely). One technique is to wait until the
 message queue is empty and then record the entire object graph. Another is to
 record the entire sequence of delivered messages and restore the Vat by
-simply replaying all of them in the same order.
+simply replaying all of them in the same order before accepting any new
+messages. In either case, the Vat is obligated to tolerate (ignore) inbound
+messages that it has seen before.

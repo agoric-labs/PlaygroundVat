@@ -31,7 +31,7 @@ to an object in some other Vat. References can be sent as arguments in
 messages, or as the return value of a message, but to bootstrap the process,
 at least one Vat must have an `argv` that includes a sturdyref.
 
-Look at the (callResponse example)[../examples/callResponse] for a
+Look at the [callResponse example](../examples/callResponse) for a
 demonstration.
 
 Once you've created and edited the Vat, you can launch it with `vat run` from

@@ -107,17 +107,18 @@ result until it gets 2 first). The recipient is responsible for maintaining
 this ordering, by buffering incoming messages until they can be delivered.
 There may be additional (more restrictive) ordering constraints.
 
-There are two types of Vat Messages: **opSend** and **opResolve** (and we
-might add **opReject** in the future). "opSend" messages include the target
-object identifier, method name, serialized arguments, and optionally a way to
-deliver the result of the invocation. "opResolve" messages refer to a
-resolver (perhaps the answer of a previous message) and a value to resolve it
-to. These are combined with the operation type, and serialized into the Vat
-Message.
+There are three types of Vat Messages: **opSend**, **opWhen**, and
+**opResolve** (and we might add **opReject** in the future). "opSend"
+messages include the target object identifier, method name, serialized
+arguments, and optionally a way to deliver the result of the invocation.
+"opWhen" messages specify a target object (which is always a Vow) and
+subscribe to hear about that target being resolved. Each one maybe eventually
+trigger a single "opResolve" message, which identifies the Vow and includes
+the value to which it has been resolved (or forwarded). These fields are
+combined with the operation type, and serialized into the Vat Message.
 
 The **Vat Message ID** is a string which definitively identifies a single Vat
-Message. It is nominally a secure hash of the serialized Vat Message, but for
-the prototype we simply use the entire serialized form.
+Message. It is a secure hash of the serialized Vat Message.
 
 The comms layer must look inside the Vat Message to extract the Sender Vat ID
 and the sequence number, both of which affect delivery. These sequence
@@ -130,9 +131,10 @@ these hosts. When a Vat Message needs to be sent between Hosts, it is encoded
 into a **Host Message**. 
 
 There are three types of Host Messages: **op**, **ack**, and **decide**. The
-first two are sent when the containing Vat wants to send an opSend or
-opResolve to a member of some other Vat, or acknowledge the same. These
-consist of a type keyword (like ``OP``), and the serialized Vat Message.
+first two are sent when the containing Vat wants to send an
+opSend/opWhen/opResolve to a member of some other Vat, or acknowledge the
+same. These consist of a type keyword (like ``OP``), and the serialized Vat
+Message.
 
 The ``DECIDE`` Host Message is used internally among members of a Quorum Vat
 to coordinate their actions, and contains a "decision seqnum", a Recipient
@@ -174,18 +176,42 @@ To keep a group of Hosts (members of a Quorum Vat) in sync, we must ensure
 they all see the same sequence of messages. The question they must achieve
 consensus about is the order in which they will process inbound messages.
 
-## Message Delivery, Input Transcript
+## Judge, Jury, and Execution Engine
 
-Each host has a "Comms Manager" which determines which an inbound Host
-Messages can be upgraded to Vat Messages and then executed. Each time this
-happens, the Vat Message is written to the durable "input transcript", then
-delivered to the Execution Engine, which might make changes to internal state
-and/or emit new outbound Vat messages. If/when the Vat is restarted, we
-recover the same internal state by replaying everything in the input
-transcript.
+Inbound Host Messages represent **evidence** that some Vat might have sent a
+Vat Message. For our current comms layer, this relies upon the
+transport-layer encryption protocol, which uses the negotiated session key to
+identify the remote HostID, and supplies that HostID with each message. A
+future comms layer may represent this with a digital signature. In a
+blockchain environment (like Ethereum), the EVM platform identifies the
+sender of each message in a field like `msg.sender`.
 
-We allow the outbound messages to be retransmitted, because other Vats will
-ignore these replays.
+Inside each Host, this evidence is weighed by a **judge**, which is
+responsible for deciding when the Host Messages qualify as a Vat Message
+which is eligible for execution. This is trivial for messages coming *from*
+Solo Vats, but for messages coming from Quorum Vats the judge must be held
+until a threshold of member hosts have all sent the same message.
+
+Once the judgment has been made, the complete Vat Message is passed to the
+**jury**. The jury is responsible for ordering decisions: which message
+should be executed next. This is trival for messages sent *to* a Solo Vat:
+there is only one Host involved, so it just executes each Vat Message as soon
+as the judge recognizes them. The jury inside a Quorum Vat is more
+complicated, because the entire Vat needs to make the same decision. The
+members of the receiving Vat must somehow negotiate to select one message of
+all the eligible (judged) Vat Messages they are aware of.
+
+Once the jury has finished its deliberation, the selected Vat Message is sent
+to the Execution Engine. The message is first written to a durable
+"transcript" (in our prototype this is a file named
+`$BASEDIR/output-transcript`) so that subsequent restarts will execute
+exactly the same message to ensure deterministic behavior. Then the type of
+the message is examined: `opSend` causes a target object to be located and
+one of its messages invoked, `opWhen` registers a `.then()` on a Vow, and
+`opResolve` causes a Vow to be resolved. These might make changes to the
+internal state of the Vat, and/or emit new outbound Vat messages.
+
+## Message Delivery, ACKs
 
 We remember each outbound message until it is acknowledged by the recipient
 Vat. This will not happen until that Vat has written the message to its
@@ -207,12 +233,13 @@ must meet a threshold requirement just like opSend and opResolve.
 
 ## Quorum Leaders and Followers
 
-The consensus algorithm we use for this prototype is a simple fixed
-leader/follower protocol. When the Quorum Vat is first created, one specific
-Host is named the Leader, and the rest are Followers. We minimize internal
-coordination by declaring the first host of the quorum VatID list as the
-leader (although other Vats are generally unaware of the difference: they
-send to the Vat as a whole, and don't care about how the internal politics).
+The consensus algorithm (i.e. the "jury") we use for this prototype is a
+simple fixed leader/follower protocol. When the Quorum Vat is first created,
+one specific Host is named the Leader, and the rest are Followers. We
+minimize internal coordination by declaring the first host of the quorum
+VatID list as the leader (although other Vats are generally unaware of the
+difference: they send to the Vat as a whole, and don't care about how the
+internal politics).
 
 Leaders make the decision about which message to deliver. Followers (are
 supposed to) receive the same messages as leaders, but they refrain from
