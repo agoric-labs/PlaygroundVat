@@ -85,6 +85,22 @@ remembers every outbound message, forever, and re-delivers all of them each
 time a new network connection is made. The recipient ignores duplicate
 messages.
 
+## SES not limited to deterministic subset of JavaScript
+
+The JavaScript language does not have a deterministic spec, giving
+implementations [some wiggle
+room](https://github.com/tc39/proposal-frozen-realms#how-deterministic)
+in how they implement the language. Currently, SES inherits much of
+this non-determinism. For example, JavaScript specifies that
+`Array.prototype.sort` must use a correct sorting algorithm, but does
+not specify which one. These differences are observable. Thus, given
+the same starting state and incoming messages, the same JavaScript
+program may execute differently on different implementation.
+
+However, JavaScript is deterministic enough that the typical program,
+not written to provoke these issues, will execute deterministically
+enough for our present prototyping purposes.
+
 ## Inefficiently Serialized Checkpoints
 
 The current prototype does not serialize the state of the Vat. Instead, it
@@ -92,9 +108,9 @@ simply remembers every inbound message by writing them to a file named
 `output-transcript`. To pause and resume a Vat, you kill the process, copy
 the `output-transcript` file to `input-transcript`, and then restart the
 process with `vat run`. The new process will start by executing every message
-from `input-transcript`, and since execution is deterministic, this should
-result in exactly the same internal state as existed when the process was
-killed.
+from `input-transcript`, and since execution should be deterministic, this
+should result in exactly the same internal state as existed when the process
+was killed.
 
 A better approach would persist the state of all objects reachable from
 sturdyrefs, transparently, in some sort of database checkpoint. The
@@ -122,7 +138,7 @@ must also protect "liveness": one Vat should not be able to prevent progress
 of messages in a Flow that is not depending upon that Vat, even when
 three-party handoffs are involved.
 
-## Non-Ideal Message-Send Syntax
+## Awkward Message-Send Syntax
 
 Code run in this Vat has access to a `Flow` constructor, which augments
 Promises with some new useful delivery-ordering properties. Flows provide
@@ -133,18 +149,18 @@ If you know that `fooP` is a Vow, you can send a message `bar()` with
 some arguments to its target like this:
 
 ```javascript
-let resultVow = fooP.e.bar(arg1, arg2)
+const resultVow = fooP.e.bar(arg1, arg2)
 ```
 
 If and when `fooP` eventually resolves to some object `foo`, this will
 cause `bar` to be invoked:
 
 ```javascript
-let result = foo.bar(arg1, arg2)
+const result = foo.bar(arg1, arg2)
 ```
 
-The special `.e` property is a special Proxy that records `.bar` as a method
-name, along with the arguments. This enables normal Javascript
+The special `.e` property is a specialized Proxy that records `.bar` as a
+method name, along with the arguments. This enables normal Javascript
 method-invocation syntax to be used (vs something awkward that requires the
 method name to be provided as a string, e.g. `fooP.invoke('bar', arg1,
 arg2)`).
@@ -154,8 +170,8 @@ as the target of another method invocation, without waiting for it to
 resolve:
 
 ```javascript
-let directoryP = fsP.e.getDir('music');
-let fileP = directoryP.e.getFile('never-gonna-give-you-up.mp3');
+const directoryP = fsP.e.getDir('music');
+const fileP = directoryP.e.getFile('never-gonna-give-you-up.mp3');
 playerP.e.play(fileP);
 ```
 
@@ -165,26 +181,35 @@ point (pronounced "bang"), which will require a parser or source-to-source
 transformation function:
 
 ```javascript
-let resultVow = fooP!bar(arg1, arg2)
+const resultVow = fooP!bar(arg1, arg2)
 ```
 
-The motivation for `!` is that `fooP!bar()` is just like `foo.bar()`, but the
+The motivation for `!` is that `fooP!bar()` is like `foo.bar()`, but the
 "bang" brings the readers attention to the asynchronous nature of its
 execution.
 
-(The E language, from which this originates, used a left-arrow: `fooP <-
-bar(args)`. However in Javascript this syntax would collide with comparison
-and negation: `fooP < -bar(args)`.)
+(The E language, from which this originates, used a left-arrow: `fooP
+<- bar(args)`. However in Javascript this syntax would collide with
+comparison and negation: `fooP < -bar(args)`. Many message passing
+languages and formalisms, from CSP to Pi Calculus to Erlang, use infix
+`!` to send its right operand as a message to the destination
+designated by its left operand.)
 
 
 ## Incomplete SES Implementation
 
-This Vat uses the SES library to get a object-capability -safe execution
+This Vat uses the SES library to get a object-capability-safe execution
 environment. SES does [not yet](https://github.com/Agoric/SES/issues/3) fully
 freeze the primordials, which permits several communication channels that
 should be forbidden.
 
-### Incomplete libp2p-js
+## No Resource controls
+
+We currently have nothing like a gas model, nor any clean way to handle
+out-of-memory conditions. Rather, for purposes of the prototype, we assume
+SES programs only use "reasonable" amounts of resources.
+
+## Incomplete libp2p-js
 
 We use [libp2p](https://libp2p.io/) for networking, specifically the
 [js-libp2p](https://github.com/libp2p/js-libp2p) Javascript implementation.

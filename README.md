@@ -2,7 +2,7 @@
 
 [![License][license-image]][license-url]
 
-This repository contains the first prototype of our object-capability -style
+This repository contains the first prototype of our object-capability-style
 Javascript execution environment, otherwise known as a "Vat". You can load
 code inside a Vat to create an initial object, and then that object can
 create other objects, or communicate with objects in other Vats. All of these
