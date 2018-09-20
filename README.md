@@ -17,6 +17,7 @@ consensus execution, in which a quorum of replicas must agree upon an order of
 incoming messages. The secure data connections are implemented using libp2p.
 
 ## How to use it
+
 You can load code inside a Vat to create an initial object, and then
 that object can create other objects, or communicate with objects in
 other Vats. All of these objects are sandboxed and cannot affect the
