@@ -1,6 +1,6 @@
 # CapTP (the new/prototype version)
 
-This documents the approach we currently use (in our protype) for the
+This documents the approach we currently use (in our prototype) for the
 equivalent of E's **CapTP** layer. This layer managers promises, resolution,
 messaging, and serialization. It does no cryptography or network IO: that is
 left up to the equivalent of VatTP (roughly src/vat/remotes.js and
