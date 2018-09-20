@@ -245,3 +245,14 @@ wire protocol, in which messages are individually encrypted and *then* signed
 (so the signatures could be checked by third parties). In that case, the
 transport-layer encryption would be redundant, and we wouldn't care so much
 about the details.
+
+The networking code currently brings up connections on demand: the TCP
+connection for each target host is initiated as soon as the first outbound
+message is generated for that host. An additional one-second loop is used to
+retry any failed connections. This is a bit too aggressive, and should be
+changed to use an exponential backoff algorithm, with random jitter to avoid
+the "thundering herd" problem. In addition, until we have ACKs, we will try
+to make a connection even after all the messages have been delivered. Status
+messages are displayed to stdout each time the loop runs, making the console
+somewhat noisy (but we should display at least one message when the
+connection fails, to help diagnose problems).
