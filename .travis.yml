@@ -1,0 +1,19 @@
+language: node_js
+node_js:
+  - "10"
+
+sudo: false
+
+install:
+  - npm install
+
+script:
+#  - npm run shim:lint
+  - npm run test
+
+after_success:
+#  - npm run shim:coverage && npm run shim:coveralls
+
+branches:
+  only:
+    - master
