@@ -7,6 +7,11 @@ Run `npm install` from the top of the source tree to install all the
 dependencies. The `bin/vat` command is then available to be run. You might
 want to add the `bin/` directory to your `$PATH` to reduce typing later.
 
+You'll need to use a version of Node.js that understands async functions.
+[nvm](https://github.com/creationix/nvm) is handy: after installing, run `nvm
+use 10` in your shell, and all subsequent uses of `node` or `npm` will use
+the right version.
+
 ## The 'vat' command
 
 `vat create` is used to make a new Vat "base directory", which creates the
