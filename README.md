@@ -1,5 +1,8 @@
 # The Agoric "Playground" Vat
 
+[![Build Status][travis-svg]][travis-url]
+[![dependency status][deps-svg]][deps-url]
+[![dev dependency status][dev-deps-svg]][dev-deps-url]
 [![License][license-image]][license-url]
 
 This repository contains a proof-of-concept implementation for our
@@ -74,6 +77,13 @@ For non-security bugs, use the
 [regular Issues page](https://github.com/Agoric/PlaygroundVat/issues).
 
 
-
+[travis-svg]: https://travis-ci.com/Agoric/PlaygroundVat.svg?branch=master
+[travis-url]: https://travis-ci.com/Agoric/PlaygroundVat
+[coveralls-svg]: https://coveralls.io/repos/github/Agoric/PlaygroundVat/badge.svg
+[coveralls-url]: https://coveralls.io/github/Agoric/PlaygroundVat
+[deps-svg]: https://david-dm.org/Agoric/PlaygroundVat.svg
+[deps-url]: https://david-dm.org/Agoric/PlaygroundVat
+[dev-deps-svg]: https://david-dm.org/Agoric/PlaygroundVat/dev-status.svg
+[dev-deps-url]: https://david-dm.org/Agoric/PlaygroundVat?type=dev
 [license-image]: https://img.shields.io/badge/License-Apache%202.0-blue.svg
 [license-url]: LICENSE
