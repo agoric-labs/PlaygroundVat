@@ -2,13 +2,26 @@
 
 [![License][license-image]][license-url]
 
-This repository contains the first prototype of our object-capability-style
-Javascript execution environment, otherwise known as a "Vat". You can load
-code inside a Vat to create an initial object, and then that object can
-create other objects, or communicate with objects in other Vats. All of these
-objects are sandboxed and cannot affect the host machine except through
-specifically provided "endowments". An executable tool named `vat` is
-provided to create and launch these Vats.
+This repository contains a proof-of-concept implementation for our
+distributed smart contracts system. Contracts are written in SES, a
+secure subset of JavaScript. SES programs are deployed in _vats_, a
+runtime that operates consistently across single "solo" machines,
+permissioned/quorum clusters, or public blockchains. This proof-of-concept
+demonstrates the "solo" and "quorum" vats executing in independent
+machines and processes, communicating securely using ocap protocols.
+
+The example contracts are taken from [Distributed Electronic Rights in
+JavaScript](https://ai.google/research/pubs/pub40673). The SES runtime
+is enhanced so that it runs deterministically, and supports replicated
+consensus execution, in which a quorum of replicas must agree upon an order of
+incoming messages. The secure data connections are implemented using libp2p.
+
+## How to use it
+You can load code inside a Vat to create an initial object, and then
+that object can create other objects, or communicate with objects in
+other Vats. All of these objects are sandboxed and cannot affect the
+host machine except through specifically provided "endowments". An
+executable tool named `vat` is provided to create and launch these Vats.
 
 See [docs/objcap.md](docs/objcap.md) for an introduction to Vats and
 Object-Capabilities. [docs/usage.md](docs/usage.md) contains some brief
