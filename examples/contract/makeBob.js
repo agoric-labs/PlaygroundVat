@@ -86,7 +86,12 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       const ackP = b.stockSrcP.e.deposit(7, myStockPurse);
 
       const doneP = ackP.then(
-        _ => contractHostP.e.play(tokenP, allegedSrc, [], allegedSide, b));
+        _ => contractHostP.e.play(
+          tokenP,
+          allegedSrc,
+          [myMoneyIssuerP, myStockIssuerP],
+          allegedSide,
+          b));
       return doneP.then(_ => b.moneyDstP.e.getBalance());
     }
   });

@@ -68,7 +68,12 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
       const ackP = a.moneySrcP.e.deposit(10, myMoneyPurseP);
 
       const doneP = ackP.then(
-        _ => contractHostP.e.play(tokenP, allegedSrc, [], allegedSide, a));
+        _ => contractHostP.e.play(
+          tokenP,
+          allegedSrc,
+          [myMoneyIssuerP, myStockIssuerP],
+          allegedSide,
+          a));
       return doneP.then(_ => a.stockDstP.e.getBalance());
     }
   });
