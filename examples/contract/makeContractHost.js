@@ -81,24 +81,24 @@
  * </pre>
  */
 
-export function makeContractHost() {
+export const makeContractHost = def(() => {
   const m = new WeakMap();
 
   return def({
-    setup: function(contractSrc) {
+    setup(contractSrc) {
       contractSrc = `${contractSrc}`;
       const tokens = [];
       const argPs = [];
       let resolve;
       const f = new Flow();
-      const resultP = f.makeVow((r) => resolve = r);
+      const resultP = f.makeVow(r => resolve = r);
       const contract = SES.confineExpr(contractSrc, {Flow, Vow, log});
 
-      const addParam = function(i, token) {
+      const addParam = (i, token) => {
         tokens[i] = token;
         let resolveArg;
-        argPs[i] = f.makeVow((r) => resolveArg = r);
-        m.set(token, function(allegedSrc, allegedI, arg) {
+        argPs[i] = f.makeVow(r => resolveArg = r);
+        m.set(token, (allegedSrc, allegedI, arg) => {
           if (contractSrc !== allegedSrc) {
             throw new Error(`unexpected contract: ${contractSrc}`);
           }
@@ -113,12 +113,12 @@ export function makeContractHost() {
       for (let i = 0; i < contract.length; i++) {
         addParam(i, def({}));
       }
-      resolve(Vow.all(argPs).then(
-        function(args) { return contract.apply(undefined, args); }));
+      resolve(Vow.all(argPs).then(args => contract(...args)));
       return tokens;
     },
-    play: function(tokenP, allegedSrc, allegedI, arg) {
+    play(tokenP, allegedSrc, allegedI, arg) {
       return Vow.resolve(tokenP).then(
-        function(token) { return m.get(token)(allegedSrc, allegedI, arg); }); }
+        token => m.get(token)(allegedSrc, allegedI, arg));
+    }
   });
-}
+});

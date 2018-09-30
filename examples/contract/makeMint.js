@@ -14,8 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-let counter = 0;
-function makeMint() {
+const makeMint = def(() => {
   // Map from purse or payment to balance
   const ledger = new WeakMap();
 
@@ -23,26 +22,23 @@ function makeMint() {
     makeEmptyPurse(name) { return mint(0, name); }
   });
 
-  const mint = function(initialBalance, name) {
+  const mint = def((initialBalance, name) => {
     const purse = def({
-      getBalance: function() { return ledger.get(purse); },
+      getBalance() { return ledger.get(purse); },
       getIssuer() { return issuer; },
-      deposit: function(amount, srcP) {
+      deposit(amount, srcP) {
         amount = Nat(amount);
-        counter += 1;
-        const c = counter;
-        //log(`deposit[${name}]#${c}: bal=${ledger.get(purse)} amt=${amount}`);
         return Vow.resolve(srcP).then(src => {
-          //log(` dep[${name}]#${c} (post-P): bal=${
-          // ledger.get(purse)} amt=${amount}`);
           const myOldBal = Nat(ledger.get(purse));
           const srcOldBal = Nat(ledger.get(src));
           Nat(myOldBal + amount);
           const srcNewBal = Nat(srcOldBal - amount);
+
           /////////////////// commit point //////////////////
           // All queries above passed with no side effects.
           // During side effects below, any early exits should be made into
           // fatal turn aborts.
+
           ledger.set(src, srcNewBal);
           // In case purse and src are the same, add to purse's updated
           // balance rather than myOldBal above. The current balance must be
@@ -55,9 +51,9 @@ function makeMint() {
     });
     ledger.set(purse, initialBalance);
     return purse;
-  };
+  });
   return def({ mint });
-}
+});
 
 export const mintMaker = {
   makeMint
