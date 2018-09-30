@@ -1,4 +1,4 @@
-/*global SES Vow Flow def log*/
+/*global SES Vow Flow def log Nat*/
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -47,16 +47,16 @@
  * playing "white" and argument one is provided by the player
  * playing "black".
  *
- * <p>The {@code setup} method returns an array of tokens, one per
- * argument, where each token represents the exclusive right to
- * provide that argument. The initiator would then distribute these
- * tokens to each of the players, together with the alleged source
- * for the game they would be playing, and their alleged side, i.e.,
- * which argument position they are responsible for providing.
+ * <p>The {@code setup} method returns an array of numPlayer tokens,
+ * one per argument, where each token represents the exclusive right
+ * to provide that argument. The initiator would then distribute these
+ * tokens to each of the players, together with the alleged source for
+ * the game they would be playing, and their alleged side, i.e., which
+ * argument position they are responsible for providing.
  *
  * <pre>
  *   // Contract initiator
- *   var tokensP = Q(contractHostP).invoke('setup', chessSrc);
+ *   var tokensP = Q(contractHostP).invoke('setup', chessSrc, 2);
  *   var whiteTokenP = Q(tokensP).get(0);
  *   var blackTokenP = Q(tokensP).get(1);
  *   Q(whitePlayer).invoke('invite', whiteTokenP, chessSrc, 0);
@@ -84,41 +84,53 @@
 export const makeContractHost = def(() => {
   const m = new WeakMap();
 
+  // TODO fix
+  const joinAll = def(commonPs => Vow.resolve([]));
+
   return def({
-    setup(contractSrc) {
-      contractSrc = `${contractSrc}`;
+    setup(contractMakerSrc, numPlayers) {
+      contractMakerSrc = `${contractMakerSrc}`;
+      numPlayers = Nat(numPlayers);
       const tokens = [];
+      const commonPs = [];
       const argPs = [];
       let resolve;
       const f = new Flow();
       const resultP = f.makeVow(r => resolve = r);
-      const contract = SES.confineExpr(contractSrc, {Flow, Vow, log});
+      const makeContract = SES.confineExpr(contractMakerSrc, {Flow, Vow, log});
 
       const addParam = (i, token) => {
         tokens[i] = token;
+        let resolveCommon;
+        commonPs[i] = f.makeVow(r => resolveCommon = r);
         let resolveArg;
         argPs[i] = f.makeVow(r => resolveArg = r);
-        m.set(token, (allegedSrc, allegedI, arg) => {
-          if (contractSrc !== allegedSrc) {
-            throw new Error(`unexpected contract: ${contractSrc}`);
+
+        m.set(token, (allegedSrc, allegedCommon, allegedI, arg) => {
+          if (contractMakerSrc !== allegedSrc) {
+            throw new Error(`unexpected contract maker: ${contractMakerSrc}`);
           }
           if (i !== allegedI) {
             throw new Error(`unexpected side: ${i}`);
           }
           m.delete(token);
+          resolveCommon(allegedCommon);
           resolveArg(arg);
           return resultP;
         });
       };
-      for (let i = 0; i < contract.length; i++) {
+      for (let i = 0; i < numPlayers; i++) {
         addParam(i, def({}));
       }
-      resolve(Vow.all(argPs).then(args => contract(...args)));
+      joinAll(commonPs).then(common => {
+        const contract = makeContract(...common);
+        resolve(Vow.all(argPs).then(args => contract(...args)));
+      });
       return tokens;
     },
-    play(tokenP, allegedSrc, allegedI, arg) {
+    play(tokenP, allegedSrc, allegedCommon, allegedI, arg) {
       return Vow.resolve(tokenP).then(
-        token => m.get(token)(allegedSrc, allegedI, arg));
+        token => m.get(token)(allegedSrc, allegedCommon, allegedI, arg));
     }
   });
 });

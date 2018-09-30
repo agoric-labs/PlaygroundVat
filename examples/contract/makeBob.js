@@ -14,10 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { escrowExchange } from './escrow';
+import { makeEscrowExchange } from './escrow';
 
 function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
-  const escrowSrc = `${escrowExchange}`;
+  const escrowSrc = `${makeEscrowExchange}`;
   const myMoneyPurseP = Vow.resolve(myMoneyPurse);
   const myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
   const myStockPurseP = Vow.resolve(myStockPurse);
@@ -57,7 +57,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
     },
 
     tradeWell: function(aliceP, bobLies=false) {
-      const tokensP = contractHostP.e.setup(escrowSrc);
+      const tokensP = contractHostP.e.setup(escrowSrc, 2);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
       let escrowSrcWeTellAlice = escrowSrc;
@@ -86,7 +86,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       const ackP = b.stockSrcP.e.deposit(7, myStockPurse);
 
       const doneP = ackP.then(
-        _ => contractHostP.e.play(tokenP, allegedSrc, allegedSide, b));
+        _ => contractHostP.e.play(tokenP, allegedSrc, [], allegedSide, b));
       return doneP.then(_ => b.moneyDstP.e.getBalance());
     }
   });
