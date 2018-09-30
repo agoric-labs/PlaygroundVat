@@ -82,10 +82,30 @@
  */
 
 export const makeContractHost = def(() => {
-  const m = new WeakMap();
 
-  // TODO fix
-  const joinAll = def(commonPs => Vow.resolve([]));
+  const joinAll = def((xs, ys) => {
+    if (xs.length !== ys.length) {
+      throw new RangeError(`different lengths: ${xs} vs ${ys}`);
+    }
+    return xs.map((x, i) => Vow.join(x, ys[i]));
+  });   
+
+  // joinCommon is given a list of promises for common argument lists,
+  // one per player. It immediately returns a promise for the common
+  // argument list they all agree on, to be provided to contract maker
+  // to create the contract. Because this needs to be provided by each
+  // player, it should only contain authority that all players may have.
+
+  // To agree, the common argument list provided by all the players
+  // must have the same length. For each common argument, We test that
+  // they agree using Vow.join.
+  const joinCommon = def(commonPs => (
+    Vow.all(commonPs).then(allegedlyCommon => {
+      if (allegedlyCommon.length === 0) { return []; }
+      return Vow.all(allegedlyCommon.reduce(joinAll));
+    })));
+  
+  const m = new WeakMap();
 
   return def({
     setup(contractMakerSrc, numPlayers) {
@@ -122,7 +142,7 @@ export const makeContractHost = def(() => {
       for (let i = 0; i < numPlayers; i++) {
         addParam(i, def({}));
       }
-      joinAll(commonPs).then(common => {
+      joinCommon(commonPs).then(common => {
         const contract = makeContract(...common);
         resolve(Vow.all(argPs).then(args => contract(...args)));
       });
