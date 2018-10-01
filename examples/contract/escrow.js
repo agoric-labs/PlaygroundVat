@@ -8,7 +8,7 @@ export const makeEscrowExchange = def((moneyIssuerP, stockIssuerP) => (
       // say Vow.resolve around a possible vow.
       issuerP = Vow.resolve(issuerP);
       
-      const escrowPurseP = issuerP.e.getExclusive(srcPurseP, "escrow");
+      const escrowPurseP = issuerP.e.getExclusive(amount, srcPurseP, "escrow");
       return def({
         phase1() { return escrowPurseP; },
         phase2() { return dstPurseP.e.deposit(amount, escrowPurseP); },

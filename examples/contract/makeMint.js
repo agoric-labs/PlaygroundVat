@@ -25,20 +25,9 @@ const makeMint = def(() => {
     makeEmptyPurse(name) { return mint(0, name); },
 
     // More convenient API for non-fungible goods
-    getExclusive(srcP, name) {
-      return Vow.resolve(srcP).then(src => {
-        // throws is src is invalid
-        const amount = Nat(ledger.get(src));
-
-        /////////////////// commit point //////////////////
-        // All queries above passed with no side effects.
-        // During side effects below, any early exits should be made into
-        // fatal turn aborts.
-        ///////////////////////////////////////////////////
-
-        ledger.set(src, 0);
-        return mint(amount, name);
-      });
+    getExclusive(amount, srcP, name) {
+      const newPurse = issuer.makeEmptyPurse();
+      return newPurse.deposit(amount, srcP).then(_ => newPurse);
     },
 
     // Amounts are data, but are not necessarily numbers. Together
