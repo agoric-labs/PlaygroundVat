@@ -144,7 +144,7 @@ export const makeContractHost = def(() => {
       }
       joinCommon(commonPs).then(common => {
         const contract = makeContract(...common);
-        resolve(Vow.all(argPs).then(args => contract(...args)));
+        Vow.all(argPs).then(args => resolve(contract(...args)));
       });
       return tokens;
     },

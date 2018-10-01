@@ -19,13 +19,46 @@ const makeMint = def(() => {
   const ledger = new WeakMap();
 
   const issuer = def({
-    makeEmptyPurse(name) { return mint(0, name); }
+    // Make a purse initially holding no rights (the empty set of
+    // rights), but able to hold the kinds of rights managed by this
+    // issuer.
+    makeEmptyPurse(name) { return mint(0, name); },
+
+    // More convenient API for non-fungible goods
+    getExclusive(srcP, name) {
+      return Vow.resolve(srcP).then(src => {
+        // throws is src is invalid
+        const amount = Nat(ledger.get(src));
+
+        /////////////////// commit point //////////////////
+        // All queries above passed with no side effects.
+        // During side effects below, any early exits should be made into
+        // fatal turn aborts.
+        ///////////////////////////////////////////////////
+
+        ledger.set(src, 0);
+        return mint(amount, name);
+      });
+    },
+
+    // Amounts are data, but are not necessarily numbers. Together
+    // with an Issuer identity, an amount describes some set of rights
+    // as would be interpreted by that issuer. This asks whether
+    // providedAmount describes a set of rights that includes all
+    // rights in the set described by neededAmount.
+    //
+    // The parameter names suggest only one of two major use
+    // cases. The other is includes(offeredAmount, takenAmount)
+    includes(providedAmount, neededAmount) {
+      return Nat(providedAmount) >= Nat(neededAmount);
+    }
   });
 
   const mint = def((initialBalance, name) => {
     const purse = def({
-      getBalance() { return ledger.get(purse); },
       getIssuer() { return issuer; },
+      // An amount describing the set of rights currently in the purse.
+      getBalance() { return ledger.get(purse); },
       deposit(amount, srcP) {
         amount = Nat(amount);
         return Vow.resolve(srcP).then(src => {
@@ -38,6 +71,7 @@ const makeMint = def(() => {
           // All queries above passed with no side effects.
           // During side effects below, any early exits should be made into
           // fatal turn aborts.
+          ///////////////////////////////////////////////////
 
           ledger.set(src, srcNewBal);
           // In case purse and src are the same, add to purse's updated

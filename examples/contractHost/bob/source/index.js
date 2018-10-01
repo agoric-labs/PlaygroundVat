@@ -1,4 +1,4 @@
-/*global Vow Flow def*/
+/*global Vow Flow def log*/
 // Copyright (C) 2013 Google Inc.
 // Copyright (C) 2018 Agoric
 //
