@@ -6,10 +6,11 @@ export const makeEscrowExchange = def((moneyIssuerP, stockIssuerP) => (
 
       // TODO: Adopt a consistent style about when we do and do not to
       // say Vow.resolve around a possible vow.
+      issuerP = Vow.resolve(issuerP);
       
-      const escrowPurseP = Vow.resolve(issuerP).e.makeEmptyPurse("escrow");
+      const escrowPurseP = issuerP.e.getExclusive(srcPurseP, "escrow");
       return def({
-        phase1() { return escrowPurseP.e.deposit(amount, srcPurseP); },
+        phase1() { return escrowPurseP; },
         phase2() { return dstPurseP.e.deposit(amount, escrowPurseP); },
         abort() { return srcPurseP.e.deposit(amount, escrowPurseP); }
       });
