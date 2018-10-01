@@ -1,9 +1,13 @@
-/*global Vow def*/
+/*global Vow def log*/
 export const makeEscrowExchange = def((moneyIssuerP, stockIssuerP) => (
   def((a, b) => {  // a from Alice , b from Bob
 
     const makeTransfer = (issuerP, srcPurseP, dstPurseP, amount) => {
-      const escrowPurseP = issuerP.e.makeEmptyPurse("escrow");
+
+      // TODO: Adopt a consistent style about when we do and do not to
+      // say Vow.resolve around a possible vow.
+      
+      const escrowPurseP = Vow.resolve(issuerP).e.makeEmptyPurse("escrow");
       return def({
         phase1() { return escrowPurseP.e.deposit(amount, srcPurseP); },
         phase2() { return dstPurseP.e.deposit(amount, escrowPurseP); },
