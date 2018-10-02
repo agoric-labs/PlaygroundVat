@@ -79,6 +79,7 @@ const makeEscrowExchange = def(([moneyIssuerP, stockIssuerP]) => (
           stockRefundP: seller.stockRefundP,
           moneyDstP: seller.moneyDstP,
           moneyNeeded: exerciseCost,
+          // TODO is new Vow ok?
           cancellationP: new Vow(r => { cancel = r; })
         });
 
