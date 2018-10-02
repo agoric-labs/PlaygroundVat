@@ -160,8 +160,8 @@ const makeMint = def(() => {
   const m = new WeakMap();
 
   return def({
-    // This should return the contractMakerSrc and terms, validating
-    // what this issuer means.
+    // TODO This should return the contractMakerSrc and terms,
+    // validating what this issuer means.
     vouchForTokenIssuer(allegedIssuer) {
       return m.has(allegedIssuer);
     },
