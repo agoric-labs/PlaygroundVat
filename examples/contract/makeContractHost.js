@@ -182,7 +182,7 @@ const makeMint = def(() => {
         let resolveArg;
         argPs[i] = f.makeVow(r => resolveArg = r);
 
-        m.set(tokenIssuer, (allegedSrc, allegedTerms, allegedI, arg) => {
+        const exerciseFunc = def((allegedSrc, allegedTerms, allegedI, arg) => {
           if (contractMakerSrc !== allegedSrc) {
             throw new Error(`unexpected contract maker: ${contractMakerSrc}`);
           }
@@ -196,6 +196,7 @@ const makeMint = def(() => {
               return resultP;
             });
         });
+        m.set(tokenIssuer, exerciseFunc);
       };
       for (let i = 0; i < numPlayers; i++) {
         addParam(i, makeMint().mint(1, `singleton token ${i}`));
