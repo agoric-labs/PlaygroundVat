@@ -160,6 +160,10 @@ const makeMint = def(() => {
   const m = new WeakMap();
 
   return def({
+    vouchForTokenIssuer(allegedIssuer) {
+      return m.has(allegedIssuer);
+    },
+    
     setup(contractMakerSrc, numPlayers, terms, ...setupArgs) {
       contractMakerSrc = `${contractMakerSrc}`;
       numPlayers = Nat(numPlayers);
