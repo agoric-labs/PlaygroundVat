@@ -83,6 +83,72 @@
 
 export const makeContractHost = def(() => {
 
+// Kludge. Do not include this by copying the source.
+const makeMint = def(() => {
+  // Map from purse or payment to balance
+  const ledger = new WeakMap();
+
+  const issuer = def({
+    // Make a purse initially holding no rights (the empty set of
+    // rights), but able to hold the kinds of rights managed by this
+    // issuer.
+    makeEmptyPurse(name) { return mint(0, name); },
+
+    // More convenient API for non-fungible goods
+    getExclusive(amount, srcP, name) {
+      const newPurse = issuer.makeEmptyPurse();
+      return newPurse.deposit(amount, srcP).then(_ => newPurse);
+    },
+
+    // Amounts are data, but are not necessarily numbers. Together
+    // with an Issuer identity, an amount describes some set of rights
+    // as would be interpreted by that issuer. This asks whether
+    // providedAmount describes a set of rights that includes all
+    // rights in the set described by neededAmount.
+    //
+    // The parameter names suggest only one of two major use
+    // cases. The other is includes(offeredAmount, takenAmount)
+    includes(providedAmount, neededAmount) {
+      return Nat(providedAmount) >= Nat(neededAmount);
+    }
+  });
+
+  const mint = def((initialBalance, name) => {
+    const purse = def({
+      getIssuer() { return issuer; },
+      // An amount describing the set of rights currently in the purse.
+      getBalance() { return ledger.get(purse); },
+      deposit(amount, srcP) {
+        amount = Nat(amount);
+        return Vow.resolve(srcP).then(src => {
+          const myOldBal = Nat(ledger.get(purse));
+          const srcOldBal = Nat(ledger.get(src));
+          Nat(myOldBal + amount);
+          const srcNewBal = Nat(srcOldBal - amount);
+
+          /////////////////// commit point //////////////////
+          // All queries above passed with no side effects.
+          // During side effects below, any early exits should be made into
+          // fatal turn aborts.
+          ///////////////////////////////////////////////////
+
+          ledger.set(src, srcNewBal);
+          // In case purse and src are the same, add to purse's updated
+          // balance rather than myOldBal above. The current balance must be
+          // >= 0 and <= myOldBal, so no additional Nat test is needed.
+          // This is good because we're after the commit point, where no
+          // non-fatal errors are allowed.
+          ledger.set(purse, ledger.get(purse) + amount);
+        });
+      }
+    });
+    ledger.set(purse, initialBalance);
+    return purse;
+  });
+  return def({ mint });
+});
+
+
   const joinAll = def((xs, ys) => {
     if (xs.length !== ys.length) {
       throw new RangeError(`different lengths: ${xs} vs ${ys}`);
@@ -90,25 +156,27 @@ export const makeContractHost = def(() => {
     return Vow.all(xs.map((x, i) => Vow.join(x, ys[i])));
   });   
 
+  // Map from tokenIssuer to exercise function.
   const m = new WeakMap();
 
   return def({
     setup(contractMakerSrc, numPlayers, terms, ...setupArgs) {
       contractMakerSrc = `${contractMakerSrc}`;
       numPlayers = Nat(numPlayers);
-      const tokens = [];
+      const tokenPurses = [];
       const argPs = [];
       let resolve;
       const f = new Flow();
       const resultP = f.makeVow(r => resolve = r);
       const makeContract = SES.confineExpr(contractMakerSrc, {Flow, Vow, log});
 
-      const addParam = (i, token) => {
-        tokens[i] = token;
+      const addParam = (i, tokenPurse) => {
+        const tokenIssuer = tokenPurse.getIssuer();
+        tokenPurses[i] = tokenPurse;
         let resolveArg;
         argPs[i] = f.makeVow(r => resolveArg = r);
 
-        m.set(token, (allegedSrc, allegedTerms, allegedI, arg) => {
+        m.set(tokenIssuer, (allegedSrc, allegedTerms, allegedI, arg) => {
           if (contractMakerSrc !== allegedSrc) {
             throw new Error(`unexpected contract maker: ${contractMakerSrc}`);
           }
@@ -117,25 +185,31 @@ export const makeContractHost = def(() => {
           }
           return joinAll(terms, allegedTerms).then(
             _ => {
-              m.delete(token);
+              m.delete(tokenIssuer);
               resolveArg(arg);
               return resultP;
             });
         });
       };
       for (let i = 0; i < numPlayers; i++) {
-        addParam(i, def({}));
+        addParam(i, makeMint().mint(1, `singleton token ${i}`));
       }
       return Vow.resolve(makeContract(terms, ...setupArgs)).then(contract => {
         Vow.all(argPs).then(args => resolve(contract(...args)));
-        // Don't return the tokens until and unless we succeeded at
+        // Don't return the tokenPurses until and unless we succeeded at
         // making the contract instance.
-        return tokens;
+        return tokenPurses;
       });
     },
-    play(tokenP, allegedSrc, allegedTerms, allegedI, arg) {
-      return Vow.resolve(tokenP).then(
-        token => m.get(token)(allegedSrc, allegedTerms, allegedI, arg));
+    play(allegedTokenPurseP, allegedSrc, allegedTerms, allegedI, arg) {
+      return Vow.resolve(allegedTokenPurseP).e.getIssuer().then(tokenIssuer => {
+        const exerciseFunc = m.get(tokenIssuer);
+        if (!exerciseFunc) { throw new TypeError(`invalid issuer`); }
+        const redeemPurseP = tokenIssuer.getExclusive(
+          1, allegedTokenPurseP, `thrown away redeem purse`);
+        return redeemPurseP.then(_ => exerciseFunc(
+          allegedSrc, allegedTerms, allegedI, arg));
+      });
     }
   });
 });
