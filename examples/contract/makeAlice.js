@@ -22,6 +22,8 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
   const myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
   const myStockPurseP = Vow.resolve(myStockPurse);
   const myStockIssuerP = myStockPurseP.e.getIssuer();
+  const terms = [myMoneyIssuerP, myStockIssuerP];
+
   contractHostP = Vow.resolve(contractHostP);
   const f = new Flow();
 
@@ -48,7 +50,7 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
     },
 
     tradeWell: function(bobP) {
-      const tokensP = contractHostP.e.setup(escrowSrc, 2);
+      const tokensP = contractHostP.e.setup(escrowSrc, 2, terms);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
       Vow.resolve(bobP).e.invite(bobTokenP, escrowSrc, 1);
@@ -71,7 +73,7 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
         _ => contractHostP.e.play(
           tokenP,
           allegedSrc,
-          [myMoneyIssuerP, myStockIssuerP],
+          terms,
           allegedSide,
           a));
       return doneP.then(_ => a.stockDstP.e.getBalance());

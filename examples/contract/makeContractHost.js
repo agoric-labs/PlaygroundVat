@@ -87,32 +87,16 @@ export const makeContractHost = def(() => {
     if (xs.length !== ys.length) {
       throw new RangeError(`different lengths: ${xs} vs ${ys}`);
     }
-    return xs.map((x, i) => Vow.join(x, ys[i]));
+    return Vow.all(xs.map((x, i) => Vow.join(x, ys[i])));
   });   
 
-  // joinTerms is given a list of promises for terms argument lists,
-  // one per player. It immediately returns a promise for the terms
-  // argument list they all agree on, to be provided to contract maker
-  // to create the contract. Because this needs to be provided by each
-  // player, it should only contain authority that all players may have.
-
-  // To agree, the terms argument list provided by all the players
-  // must have the same length. For each terms argument, we test that
-  // they agree using Vow.join.
-  const joinTerms = def(termsPs => (
-    Vow.all(termsPs).then(allegedTerms => {
-      if (allegedTerms.length === 0) { return []; }
-      return Vow.all(allegedTerms.reduce(joinAll));
-    })));
-  
   const m = new WeakMap();
 
   return def({
-    setup(contractMakerSrc, numPlayers, ...setupArgs) {
+    setup(contractMakerSrc, numPlayers, terms, ...setupArgs) {
       contractMakerSrc = `${contractMakerSrc}`;
       numPlayers = Nat(numPlayers);
       const tokens = [];
-      const termsPs = [];
       const argPs = [];
       let resolve;
       const f = new Flow();
@@ -121,8 +105,6 @@ export const makeContractHost = def(() => {
 
       const addParam = (i, token) => {
         tokens[i] = token;
-        let resolveTerms;
-        termsPs[i] = f.makeVow(r => resolveTerms = r);
         let resolveArg;
         argPs[i] = f.makeVow(r => resolveArg = r);
 
@@ -133,20 +115,23 @@ export const makeContractHost = def(() => {
           if (i !== allegedI) {
             throw new Error(`unexpected side: ${i}`);
           }
-          m.delete(token);
-          resolveTerms(allegedTerms);
-          resolveArg(arg);
-          return resultP;
+          return joinAll(terms, allegedTerms).then(
+            _ => {
+              m.delete(token);
+              resolveArg(arg);
+              return resultP;
+            });
         });
       };
       for (let i = 0; i < numPlayers; i++) {
         addParam(i, def({}));
       }
-      joinTerms(termsPs).then(terms => {
-        Vow.resolve(makeContract(terms, ...setupArgs)).then(contract => (
-          Vow.all(argPs).then(args => resolve(contract(...args)))));
+      return Vow.resolve(makeContract(terms, ...setupArgs)).then(contract => {
+        Vow.all(argPs).then(args => resolve(contract(...args)));
+        // Don't return the tokens until and unless we succeeded at
+        // making the contract instance.
+        return tokens;
       });
-      return tokens;
     },
     play(tokenP, allegedSrc, allegedTerms, allegedI, arg) {
       return Vow.resolve(tokenP).then(
