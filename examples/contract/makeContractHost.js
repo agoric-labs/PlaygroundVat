@@ -14,73 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/**
- * @fileoverview Simple AMD module exports a {@code makeContractHost}
- * function, which makes a contract host, which makes and runs a
- * contract. Requires SES and its simple AMD loader.
- * @requires define, WeakMap, Q, cajaVM
- * @author Mark S. Miller erights@gmail.com
- */
-
-/**
- * A contract host as a mutually trusted third party for honestly
- * running whatever smart contract code its customers agree on.
- *
- * <p>When mutually suspicious parties wish to engage in a joint
- * contract, if they can agree on a contract host to be run the
- * following code honestly, agree on the code that represents their
- * smart contract, and agree on which side of the contract they each
- * play, then they can validly engage in the contract.
- *
- * <p>The {@code contractSrc} is assumed to be the source code for a
- * closed SES function, where each of the parties to the contract is
- * supposed to provide their respective fulfilled arguments. Once
- * all these arguments are fulfilled, then the contract is run.
- *
- * <p>There are two "roles" for participating in the protocol:
- * contract initiator, who calls the contract host's {@code setup}
- * method, and contract participants, who call the contract host's
- * {@code play} method. For example, let's say the contract in
- * question is the board manager for playing chess. The initiator
- * instantiates a new chess game, whose board manager is a two
- * argument function, where argument zero is provided by the player
- * playing "white" and argument one is provided by the player
- * playing "black".
- *
- * <p>The {@code setup} method returns an array of numPlayer tokens,
- * one per argument, where each token represents the exclusive right
- * to provide that argument. The initiator would then distribute these
- * tokens to each of the players, together with the alleged source for
- * the game they would be playing, and their alleged side, i.e., which
- * argument position they are responsible for providing.
- *
- * <pre>
- *   // Contract initiator
- *   var tokensP = Q(contractHostP).invoke('setup', chessSrc, 2);
- *   var whiteTokenP = Q(tokensP).get(0);
- *   var blackTokenP = Q(tokensP).get(1);
- *   Q(whitePlayer).invoke('invite', whiteTokenP, chessSrc, 0);
- *   Q(blackPlayer).invoke('invite', blackTokenP, chessSrc, 1);
- * </pre>
- *
- * <p>Each player, on receiving the token, alleged game source, and
- * alleged argument index, would first decide (e.g., with the {@code
- * check} function below) whether this is a game they would be
- * interested in playing. If so, the redeem the token to
- * start playing their side of the game -- but only if the contract
- * host verifies that they are playing the side of the game that
- * they think they are.
- *
- * <pre>
- *   // Contract participant
- *   function invite(tokenP, allegedChessSrc, allegedSide) {
- *     check(allegedChessSrc, allegedSide);
- *     var outcomeP = Q(contractHostP).invoke(
- *         'play', tokenP, allegedChessSrc, allegedSide, arg);
- *   }
- * </pre>
- */
-
 export const makeContractHost = def(() => {
 
 // TODO Kludge. Do not include this by copying the source.
@@ -169,9 +102,9 @@ const makeMint = def(() => {
 });
 
 
-  // Map from tokenIssuer to exercise function.
+  // Map from ticketIssuer to facet
   const m = new WeakMap();
-  // Map from tokenIssuer to description
+  // Map from ticketIssuer to description
   const descriptions = new WeakMap();
 
   return def({
@@ -180,59 +113,51 @@ const makeMint = def(() => {
       const allegedIssuer = allegedPurse.getIssuer();
       const issuerDesc = descriptions.get(allegedIssuer);
       if (issuerDesc === undefined) {
-        throw new TypeError(`wrong token issuer`);
+        throw new TypeError(`wrong ticket issuer`);
       }
       const purseDesc = allegedIssuer.describe(allegedPurse);
       return def({...issuerDesc, purseDesc});
     },
     
-    setup(contractMakerSrc, numPlayers, terms, ...setupArgs) {
-      contractMakerSrc = `${contractMakerSrc}`;
-      numPlayers = Nat(numPlayers);
-      const tokenPurses = [];
-      const argPs = [];
-      let resolve;
+    setupContract(contractSrc, contractTerms) {
+      contractSrc = `${contractSrc}`;
       const f = new Flow();
-      const resultP = f.makeVow(r => resolve = r);
-      const makeContract = SES.confineExpr(contractMakerSrc, {Flow, Vow, log});
+      const contract = SES.confineExpr(contractSrc, {Flow, Vow, log});
 
-      const addParam = (side, tokenPurse) => {
-        const tokenIssuer = tokenPurse.getIssuer();
-        tokenPurses[side] = tokenPurse;
-        let resolveArg;
-        argPs[side] = f.makeVow(r => resolveArg = r);
+      const contractMgr = def({
+        setupFacet(facetName, facet) {
+          const ticketPurse = makeMint().mint(1, `facet ${facetName}`);
+          const ticketIssuer = ticketPurse.getIssuer();
 
-        const exerciseFunc = def(arg => {
-          m.delete(tokenIssuer);
-          descriptions.delete(tokenIssuer);
-          resolveArg(arg);
-          return resultP;
-        });
-        m.set(tokenIssuer, exerciseFunc);
-        descriptions.set(tokenIssuer, def({
-          contractMakerSrc,
-          numPlayers,
-          terms,
-          side
-        }));
-      };
-      for (let i = 0; i < numPlayers; i++) {
-        addParam(i, makeMint().mint(1, `singleton token ${i}`));
-      }
-      return Vow.resolve(makeContract(terms, ...setupArgs)).then(contract => {
-        Vow.all(argPs).then(args => resolve(contract(...args)));
-        // Don't return the tokenPurses until and unless we succeeded at
-        // making the contract instance.
-        return tokenPurses;
+          m.set(ticketIssuer, facet);
+          descriptions.set(ticketIssuer, def({
+            contractSrc,
+            contractTerms,
+            facetName            
+          }));
+          return ticketPurse;
+        }
       });
+
+      // The top-level contract function will typically end with
+      // calls to setupFacet, returning the ticketPurses that it returns,
+      // so that the contract initiator can redeem them for the initial
+      // facets.
+      return contract(contractMgr, contractTerms);
     },
-    play(allegedTokenPurseP, arg) {
-      return Vow.resolve(allegedTokenPurseP).e.getIssuer().then(tokenIssuer => {
-        const exerciseFunc = m.get(tokenIssuer);
-        if (!exerciseFunc) { throw new TypeError(`invalid issuer`); }
-        const redeemPurseP = tokenIssuer.getExclusive(
-          1, allegedTokenPurseP, `thrown away redeem purse`);
-        return redeemPurseP.then(_ => exerciseFunc(arg));
+
+    redeemFacet(allegedTicketPurseP) {
+      allegedTicketPurseP = Vow.resolve(allegedTicketPurseP);
+      return allegedTicketPurseP.e.getIssuer().then(ticketIssuer => {
+        const facet = m.get(ticketIssuer);
+        if (facet === undefined) { throw new TypeError(`invalid issuer`); }
+        const redeemPurseP = ticketIssuer.getExclusive(
+          1, allegedTicketPurseP, `thrown away redeem purse`);
+        return redeemPurseP.then(_ => {
+          m.delete(ticketIssuer);
+          descriptions.delete(ticketIssuer);
+          return facet;
+        });
       });
     }
   });
