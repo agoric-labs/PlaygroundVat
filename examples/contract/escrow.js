@@ -1,5 +1,5 @@
 /*global Vow def log*/
-export const makeEscrowExchange = def(([moneyIssuerP, stockIssuerP]) => (
+export const makeEscrowExchange = def(({moneyIssuerP, stockIssuerP}) => (
   def((a, b) => {  // a from Alice , b from Bob
 
     const makeTransfer = (issuerP, srcPurseP, refundPurseP,

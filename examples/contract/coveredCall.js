@@ -1,15 +1,15 @@
 /*global Vow def log Nat*/
 export const makeCoveredCall = def((
-  [moneyIssuerP,
+  {moneyIssuerP,
    stockIssuerP,
    timerP,
    deadline,
    strikePrice,
-   numShares],
+   numShares},
   stockSrcP) => {
 
 // TODO Kludge. Do not include this by copying the source.
-const makeEscrowExchange = def(([moneyIssuerP, stockIssuerP]) => (
+const makeEscrowExchange = def(({moneyIssuerP, stockIssuerP}) => (
   def((a, b) => {  // a from Alice , b from Bob
 
     const makeTransfer = (issuerP, srcPurseP, refundPurseP,
@@ -19,7 +19,8 @@ const makeEscrowExchange = def(([moneyIssuerP, stockIssuerP]) => (
       // say Vow.resolve around a possible vow.
       issuerP = Vow.resolve(issuerP);
       
-      const escrowPurseP = issuerP.e.getExclusive(amount, srcPurseP, "escrow");
+      const escrowPurseP = issuerP.e.getExclusive(amount, srcPurseP,
+                                                  "escrow");
       return def({
         phase1() { return escrowPurseP; },
         phase2() { return dstPurseP.e.deposit(amount, escrowPurseP); },

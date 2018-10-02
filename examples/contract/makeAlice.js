@@ -22,7 +22,9 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
   const myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
   const myStockPurseP = Vow.resolve(myStockPurse);
   const myStockIssuerP = myStockPurseP.e.getIssuer();
-  const terms = [myMoneyIssuerP, myStockIssuerP];
+  const terms = {moneyIssuerP: myMoneyIssuerP,
+                 stockIssuerP: myStockIssuerP};
+
 
   contractHostP = Vow.resolve(contractHostP);
   const f = new Flow();
@@ -70,13 +72,7 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
       });
       const ackP = a.moneySrcP.e.deposit(10, myMoneyPurseP);
 
-      const doneP = ackP.then(
-        _ => contractHostP.e.play(
-          tokenP,
-          allegedSrc,
-          terms,
-          allegedSide,
-          a));
+      const doneP = ackP.then(_ => contractHostP.e.play(tokenP, a));
       return doneP.then(_ => a.stockDstP.e.getBalance());
     }
   });

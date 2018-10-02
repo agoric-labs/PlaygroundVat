@@ -98,7 +98,11 @@ const makeMint = def(() => {
     // result is not undefined, you can trust the allegedPurse as much
     // as you trust this issuer.
     describePurse(allegedPurse) {
-      return descriptions.get(allegedPurse);
+      const desc = descriptions.get(allegedPurse);
+      if (desc === undefined) {
+        throw new TypeError(`not a purse of this issuer`);
+      }
+      return desc;
     },
     
     // Make a purse initially holding no rights (the empty set of
@@ -165,41 +169,21 @@ const makeMint = def(() => {
 });
 
 
-  const joinAll = def((xs, ys) => {
-    if (xs.length !== ys.length) {
-      throw new RangeError(`different lengths: ${xs} vs ${ys}`);
-    }
-    return Vow.all(xs.map((x, i) => Vow.join(x, ys[i])));
-  });
-
-  const joinTerms = def((xTerms, yTerms) => {
-    const xKeys = Object.keys(xTerms).sort();
-    const yKeys = Object.keys(yTerms).sort();
-    if (xKeys.length !== yKeys.length) {
-      throw new RangeError(`different lengths: ${xKeys} vs ${yKeys}`);
-    }
-    const xVals = xKeys.map((xKey, i) => {
-      if (xKey !== yKeys[i]) {
-        throw new TypeError(`different ${xKey} ${yKeys[i]}`);
-      }
-      return xTerms[xKey];
-    });
-    const yVals = xKeys.map(key => yTerms[key]);
-    return joinAll(xVals, yVals).then(vals => {
-      const result = {};
-      vals.forEach((val, i) => { result[xKeys[i]] = val; });
-      return def(result);
-    });
-  });
-
   // Map from tokenIssuer to exercise function.
   const m = new WeakMap();
+  // Map from tokenIssuer to description
+  const descriptions = new WeakMap();
 
   return def({
-    // TODO This should return the contractMakerSrc and terms,
-    // validating what this issuer means.
-    vouchForTokenIssuer(allegedIssuer) {
-      return m.has(allegedIssuer);
+
+    describePurse(allegedPurse) {
+      const allegedIssuer = allegedPurse.getIssuer();
+      const issuerDesc = descriptions.get(allegedIssuer);
+      if (issuerDesc === undefined) {
+        throw new TypeError(`wrong token issuer`);
+      }
+      const purseDesc = allegedIssuer.describe(allegedPurse);
+      return def({...issuerDesc, purseDesc});
     },
     
     setup(contractMakerSrc, numPlayers, terms, ...setupArgs) {
@@ -212,27 +196,25 @@ const makeMint = def(() => {
       const resultP = f.makeVow(r => resolve = r);
       const makeContract = SES.confineExpr(contractMakerSrc, {Flow, Vow, log});
 
-      const addParam = (i, tokenPurse) => {
+      const addParam = (side, tokenPurse) => {
         const tokenIssuer = tokenPurse.getIssuer();
-        tokenPurses[i] = tokenPurse;
+        tokenPurses[side] = tokenPurse;
         let resolveArg;
-        argPs[i] = f.makeVow(r => resolveArg = r);
+        argPs[side] = f.makeVow(r => resolveArg = r);
 
-        const exerciseFunc = def((allegedSrc, allegedTerms, allegedI, arg) => {
-          if (contractMakerSrc !== allegedSrc) {
-            throw new Error(`unexpected contract maker: ${contractMakerSrc}`);
-          }
-          if (i !== allegedI) {
-            throw new Error(`unexpected side: ${i}`);
-          }
-          return joinTerms(terms, allegedTerms).then(
-            _ => {
-              m.delete(tokenIssuer);
-              resolveArg(arg);
-              return resultP;
-            });
+        const exerciseFunc = def(arg => {
+          m.delete(tokenIssuer);
+          descriptions.delete(tokenIssuer);
+          resolveArg(arg);
+          return resultP;
         });
         m.set(tokenIssuer, exerciseFunc);
+        descriptions.set(tokenIssuer, def({
+          contractMakerSrc,
+          numPlayers,
+          terms,
+          side
+        }));
       };
       for (let i = 0; i < numPlayers; i++) {
         addParam(i, makeMint().mint(1, `singleton token ${i}`));
@@ -244,14 +226,13 @@ const makeMint = def(() => {
         return tokenPurses;
       });
     },
-    play(allegedTokenPurseP, allegedSrc, allegedTerms, allegedI, arg) {
+    play(allegedTokenPurseP, arg) {
       return Vow.resolve(allegedTokenPurseP).e.getIssuer().then(tokenIssuer => {
         const exerciseFunc = m.get(tokenIssuer);
         if (!exerciseFunc) { throw new TypeError(`invalid issuer`); }
         const redeemPurseP = tokenIssuer.getExclusive(
           1, allegedTokenPurseP, `thrown away redeem purse`);
-        return redeemPurseP.then(_ => exerciseFunc(
-          allegedSrc, allegedTerms, allegedI, arg));
+        return redeemPurseP.then(_ => exerciseFunc(arg));
       });
     }
   });

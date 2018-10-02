@@ -39,20 +39,18 @@ async function mintTest() {
 export function trivialContractTest() {
   const contractHostP = Vow.fromFn(makeContractHost);
 
-  const trivContractMaker = ([five, two], one) =>
+  const trivContractMaker = ({five, two}, one) =>
         (whiteP, blackP) => five + two + one;
   const contractMakerSrc = `${trivContractMaker}`;
 
   const tokensP = Vow.resolve(contractHostP).e.setup(
-    contractMakerSrc, 2, [5,2], 1);
+    contractMakerSrc, 2, {five:5, two:2}, 1);
 
   const whiteTokenP = tokensP.then(tokens => tokens[0]);
-  contractHostP.e.play(whiteTokenP,
-                       contractMakerSrc, [5,2], 0, {});
+  contractHostP.e.play(whiteTokenP, {});
 
   const blackTokenP = tokensP.then(tokens => tokens[1]);
-  const eightP = contractHostP.e.play(blackTokenP,
-                                      contractMakerSrc, [5,2], 1, {});
+  const eightP = contractHostP.e.play(blackTokenP, {});
   // check that eightP fulfills with 8.
   // (At the time of this writing, did the right thing under debugger)
   return eightP;

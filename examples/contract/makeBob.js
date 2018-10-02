@@ -22,7 +22,10 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
   const myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
   const myStockPurseP = Vow.resolve(myStockPurse);
   const myStockIssuerP = myStockPurseP.e.getIssuer();
-  const terms = [myMoneyIssuerP, myStockIssuerP];
+  const terms = def({
+    moneyIssuerP: myMoneyIssuerP,
+    stockIssuerP: myStockIssuerP
+  });
   
   contractHostP = Vow.resolve(contractHostP);
   const f = new Flow();
@@ -88,13 +91,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       });
       const ackP = b.stockSrcP.e.deposit(7, myStockPurse);
 
-      const doneP = ackP.then(
-        _ => contractHostP.e.play(
-          tokenP,
-          allegedSrc,
-          terms,
-          allegedSide,
-          b));
+      const doneP = ackP.then(_ => contractHostP.e.play(tokenP, b));
       return doneP.then(_ => b.moneyDstP.e.getBalance());
     }
   });
