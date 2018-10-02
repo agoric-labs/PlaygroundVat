@@ -63,6 +63,7 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
       let cancel;
       const a = def({
         moneySrcP: myMoneyIssuerP.e.makeEmptyPurse('aliceMoneySrc'),
+        moneyRefundP: myMoneyIssuerP.e.makeEmptyPurse('aliceMoneyRefund'),
         stockDstP: myStockIssuerP.e.makeEmptyPurse('aliceStockDst'),
         stockNeeded: 7,
         cancellationP: f.makeVow(function(r) { cancel = r; })

@@ -2,7 +2,8 @@
 export const makeEscrowExchange = def(([moneyIssuerP, stockIssuerP]) => (
   def((a, b) => {  // a from Alice , b from Bob
 
-    const makeTransfer = (issuerP, srcPurseP, dstPurseP, amount) => {
+    const makeTransfer = (issuerP, srcPurseP, refundPurseP,
+                          dstPurseP, amount) => {
 
       // TODO: Adopt a consistent style about when we do and do not to
       // say Vow.resolve around a possible vow.
@@ -12,7 +13,7 @@ export const makeEscrowExchange = def(([moneyIssuerP, stockIssuerP]) => (
       return def({
         phase1() { return escrowPurseP; },
         phase2() { return dstPurseP.e.deposit(amount, escrowPurseP); },
-        abort() { return srcPurseP.e.deposit(amount, escrowPurseP); }
+        abort() { return refundPurseP.e.deposit(amount, escrowPurseP); }
       });
     };
 
@@ -21,10 +22,10 @@ export const makeEscrowExchange = def(([moneyIssuerP, stockIssuerP]) => (
         throw cancellation;
       }));
 
-    const aT = makeTransfer(moneyIssuerP,
-                            a.moneySrcP, b.moneyDstP, b.moneyNeeded);
-    const bT = makeTransfer(stockIssuerP,
-                            b.stockSrcP, a.stockDstP, a.stockNeeded);
+    const aT = makeTransfer(moneyIssuerP, a.moneySrcP, a.moneyRefundP,
+                            b.moneyDstP, b.moneyNeeded);
+    const bT = makeTransfer(stockIssuerP, b.stockSrcP, a.stockRefundP,
+                            a.stockDstP, a.stockNeeded);
     return Vow.race([Vow.all([aT.phase1(), bT.phase1()]),
                      failOnly(a.cancellationP),
                      failOnly(b.cancellationP)])

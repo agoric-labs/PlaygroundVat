@@ -81,6 +81,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
       let cancel;
       const b = def({
         stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
+        stockRefundP: myStockIssuerP.e.makeEmptyPurse('bobStockRefund'),
         moneyDstP: myMoneyIssuerP.e.makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,
         cancellationP: f.makeVow(function(r) { cancel = r; })

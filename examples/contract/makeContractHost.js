@@ -83,7 +83,7 @@
 
 export const makeContractHost = def(() => {
 
-// Kludge. Do not include this by copying the source.
+// TODO Kludge. Do not include this by copying the source.
 const makeMint = def(() => {
   // Map from purse or payment to balance
   const ledger = new WeakMap();
