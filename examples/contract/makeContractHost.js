@@ -90,29 +90,29 @@ export const makeContractHost = def(() => {
     return xs.map((x, i) => Vow.join(x, ys[i]));
   });   
 
-  // joinCommon is given a list of promises for common argument lists,
-  // one per player. It immediately returns a promise for the common
+  // joinTerms is given a list of promises for terms argument lists,
+  // one per player. It immediately returns a promise for the terms
   // argument list they all agree on, to be provided to contract maker
   // to create the contract. Because this needs to be provided by each
   // player, it should only contain authority that all players may have.
 
-  // To agree, the common argument list provided by all the players
-  // must have the same length. For each common argument, We test that
+  // To agree, the terms argument list provided by all the players
+  // must have the same length. For each terms argument, we test that
   // they agree using Vow.join.
-  const joinCommon = def(commonPs => (
-    Vow.all(commonPs).then(allegedlyCommon => {
-      if (allegedlyCommon.length === 0) { return []; }
-      return Vow.all(allegedlyCommon.reduce(joinAll));
+  const joinTerms = def(termsPs => (
+    Vow.all(termsPs).then(allegedTerms => {
+      if (allegedTerms.length === 0) { return []; }
+      return Vow.all(allegedTerms.reduce(joinAll));
     })));
   
   const m = new WeakMap();
 
   return def({
-    setup(contractMakerSrc, numPlayers) {
+    setup(contractMakerSrc, numPlayers, ...setupArgs) {
       contractMakerSrc = `${contractMakerSrc}`;
       numPlayers = Nat(numPlayers);
       const tokens = [];
-      const commonPs = [];
+      const termsPs = [];
       const argPs = [];
       let resolve;
       const f = new Flow();
@@ -121,12 +121,12 @@ export const makeContractHost = def(() => {
 
       const addParam = (i, token) => {
         tokens[i] = token;
-        let resolveCommon;
-        commonPs[i] = f.makeVow(r => resolveCommon = r);
+        let resolveTerms;
+        termsPs[i] = f.makeVow(r => resolveTerms = r);
         let resolveArg;
         argPs[i] = f.makeVow(r => resolveArg = r);
 
-        m.set(token, (allegedSrc, allegedCommon, allegedI, arg) => {
+        m.set(token, (allegedSrc, allegedTerms, allegedI, arg) => {
           if (contractMakerSrc !== allegedSrc) {
             throw new Error(`unexpected contract maker: ${contractMakerSrc}`);
           }
@@ -134,7 +134,7 @@ export const makeContractHost = def(() => {
             throw new Error(`unexpected side: ${i}`);
           }
           m.delete(token);
-          resolveCommon(allegedCommon);
+          resolveTerms(allegedTerms);
           resolveArg(arg);
           return resultP;
         });
@@ -142,15 +142,15 @@ export const makeContractHost = def(() => {
       for (let i = 0; i < numPlayers; i++) {
         addParam(i, def({}));
       }
-      joinCommon(commonPs).then(common => {
-        Vow.resolve(makeContract(...common)).then(contract => (
+      joinTerms(termsPs).then(terms => {
+        Vow.resolve(makeContract(terms, ...setupArgs)).then(contract => (
           Vow.all(argPs).then(args => resolve(contract(...args)))));
       });
       return tokens;
     },
-    play(tokenP, allegedSrc, allegedCommon, allegedI, arg) {
+    play(tokenP, allegedSrc, allegedTerms, allegedI, arg) {
       return Vow.resolve(tokenP).then(
-        token => m.get(token)(allegedSrc, allegedCommon, allegedI, arg));
+        token => m.get(token)(allegedSrc, allegedTerms, allegedI, arg));
     }
   });
 });
