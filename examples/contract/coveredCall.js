@@ -71,20 +71,17 @@ const makeEscrowExchange = def(({moneyIssuerP, stockIssuerP}) => (
           moneyRefundP: buyer.moneyRefundP,
           stockDstP: buyer.stockDstP,
           stockNeeded: numShares,
+          // TODO is new Vow ok?
           cancellationP: new Vow()
         });
 
-        let cancel;
         const bobArg = def({
           stockSrcP: stockEscrowP,
           stockRefundP: seller.stockRefundP,
           moneyDstP: seller.moneyDstP,
           moneyNeeded: exerciseCost,
-          // TODO is new Vow ok?
-          cancellationP: new Vow(r => { cancel = r; })
+          cancellationP: timerP.e.delayUntil(deadline, `expired`)
         });
-
-        timerP.delayUntil(deadline).then(_ => cancel(`expired`));
 
         return escrowExchange(aliceArg, bobArg);
       }));
