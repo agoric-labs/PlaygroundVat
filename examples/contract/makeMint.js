@@ -26,7 +26,7 @@ const makeMint = def(() => {
 
     // More convenient API for non-fungible goods
     getExclusive(amount, srcP, name) {
-      const newPurse = issuer.makeEmptyPurse();
+      const newPurse = issuer.makeEmptyPurse(name);
       return newPurse.deposit(amount, srcP).then(_ => newPurse);
     },
 

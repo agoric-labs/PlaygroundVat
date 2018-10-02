@@ -85,18 +85,30 @@ export const makeContractHost = def(() => {
 
 // TODO Kludge. Do not include this by copying the source.
 const makeMint = def(() => {
-  // Map from purse or payment to balance
+
+  // Map from purse to balance.
   const ledger = new WeakMap();
+  // Map from purse to description, which must not be undefined.
+  const descriptions = new WeakMap();
 
   const issuer = def({
+
+    // Iff this is a purse of the this issuer, return its
+    // description. Otherwise return undefined. Thus, if the returned
+    // result is not undefined, you can trust the allegedPurse as much
+    // as you trust this issuer.
+    describePurse(allegedPurse) {
+      return descriptions.get(allegedPurse);
+    },
+    
     // Make a purse initially holding no rights (the empty set of
     // rights), but able to hold the kinds of rights managed by this
     // issuer.
-    makeEmptyPurse(name) { return mint(0, name); },
+    makeEmptyPurse(description) { return mint(0, description); },
 
     // More convenient API for non-fungible goods
-    getExclusive(amount, srcP, name) {
-      const newPurse = issuer.makeEmptyPurse();
+    getExclusive(amount, srcP, description) {
+      const newPurse = issuer.makeEmptyPurse(description);
       return newPurse.deposit(amount, srcP).then(_ => newPurse);
     },
 
@@ -113,7 +125,10 @@ const makeMint = def(() => {
     }
   });
 
-  const mint = def((initialBalance, name) => {
+  const mint = def((initialBalance, description) => {
+    initialBalance = Nat(initialBalance);
+    description = `${description}`;
+    
     const purse = def({
       getIssuer() { return issuer; },
       // An amount describing the set of rights currently in the purse.
@@ -143,6 +158,7 @@ const makeMint = def(() => {
       }
     });
     ledger.set(purse, initialBalance);
+    descriptions.set(purse, description);
     return purse;
   });
   return def({ mint });
@@ -154,7 +170,27 @@ const makeMint = def(() => {
       throw new RangeError(`different lengths: ${xs} vs ${ys}`);
     }
     return Vow.all(xs.map((x, i) => Vow.join(x, ys[i])));
-  });   
+  });
+
+  const joinTerms = def((xTerms, yTerms) => {
+    const xKeys = Object.keys(xTerms).sort();
+    const yKeys = Object.keys(yTerms).sort();
+    if (xKeys.length !== yKeys.length) {
+      throw new RangeError(`different lengths: ${xKeys} vs ${yKeys}`);
+    }
+    const xVals = xKeys.map((xKey, i) => {
+      if (xKey !== yKeys[i]) {
+        throw new TypeError(`different ${xKey} ${yKeys[i]}`);
+      }
+      return xTerms[xKey];
+    });
+    const yVals = xKeys.map(key => yTerms[key]);
+    return joinAll(xVals, yVals).then(vals => {
+      const result = {};
+      vals.forEach((val, i) => { result[xKeys[i]] = val; });
+      return def(result);
+    });
+  });
 
   // Map from tokenIssuer to exercise function.
   const m = new WeakMap();
@@ -189,7 +225,7 @@ const makeMint = def(() => {
           if (i !== allegedI) {
             throw new Error(`unexpected side: ${i}`);
           }
-          return joinAll(terms, allegedTerms).then(
+          return joinTerms(terms, allegedTerms).then(
             _ => {
               m.delete(tokenIssuer);
               resolveArg(arg);
