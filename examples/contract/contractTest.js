@@ -1,4 +1,4 @@
-/*global Vow*/
+/*global Vow def*/
 // Copyright (C) 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,18 +39,29 @@ async function mintTest() {
 export function trivialContractTest() {
   const contractHostP = Vow.fromFn(makeContractHost);
 
-  const trivContractMaker = ({five, two}, one) =>
-        (whiteP, blackP) => five + two + one;
-  const contractMakerSrc = `${trivContractMaker}`;
+  const trivContract = ({five, two}, registrar) => {
+    const wSide = def({
+      play(one) {
+        return one => five + two + one;
+      }
+    });
+    registrar.register('w', wSide);
+    registrar.register('b', def({play(_){}}));
+  };
+  
+  const contractSrc = `${trivContract}`;
 
-  const tokensP = Vow.resolve(contractHostP).e.setup(
-    contractMakerSrc, {players: ['w', 'b'], five:5, two:2}, 1);
+  const tokensP = contractHostP.e.setup(
+    contractSrc, {players: ['w', 'b'], five:5, two:2});
 
-  const whiteTokenP = tokensP.then(tokens => tokens[0]);
-  contractHostP.e.play(whiteTokenP, {});
+  const whiteTokenP = tokensP.e.get('w');
+  const whiteSideP = contractHostP.e.redeem(whiteTokenP);
+  const eightP = whiteSideP.e.play(1);
 
-  const blackTokenP = tokensP.then(tokens => tokens[1]);
-  const eightP = contractHostP.e.play(blackTokenP, {});
+  const blackTokenP = tokensP.e.get('b');
+  const blackSideP = contractHostP.e.redeem(blackTokenP);
+  const blackOutcomeP = blackSideP.e.play({});
+
   // check that eightP fulfills with 8.
   // (At the time of this writing, did the right thing under debugger)
   return eightP;

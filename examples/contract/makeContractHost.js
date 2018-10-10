@@ -102,75 +102,76 @@ const makeMint = def(() => {
 });
 
 
-  // Map from tokenIssuer to exercise function.
-  const m = new WeakMap();
+  // Map from tokenIssuer to sides
+  const sides = new WeakMap();
   // Map from tokenIssuer to description
   const descriptions = new WeakMap();
 
   return def({
 
-    describe(allegedTicketPurse) {
-      const allegedIssuer = allegedTicketPurse.getIssuer();
-      const issuerDesc = descriptions.get(allegedIssuer);
-      if (issuerDesc === undefined) {
-        throw new TypeError(`wrong token issuer`);
-      }
-      const purseDescription = allegedIssuer.describe(allegedTicketPurse);
-      return def({...issuerDesc, purseDescription});
+    describe(allegedTicketPurseP) {
+      return Vow.resolve(allegedTicketPurseP).then(allegedTicketPurse => {
+        const allegedTicketIssuer = allegedTicketPurse.getIssuer();
+        const ticketIssuerDesc = descriptions.get(allegedTicketIssuer);
+        if (ticketIssuerDesc === undefined) {
+          throw new TypeError(`wrong ticket issuer`);
+        }
+        const purseDescription = allegedTicketIssuer.describe(allegedTicketPurse);
+        return def({...ticketIssuerDesc, purseDescription});
+      });
     },
-    
-    setup(contractSrc, terms, ...setupArgs) {
+
+    redeem(allegedTicketPurseP) {
+      return Vow.resolve(allegedTicketPurseP).then(allegedTicketPurse => {
+        const allegedTicketIssuer = allegedTicketPurse.getIssuer();
+        const side = sides.get(allegedTicketIssuer);
+        if (side === undefined) {
+          throw new TypeError(`wrong ticket issuer, or used up`);
+        }
+        const redeemP = allegedTicketIssuer.getExclusive(1, allegedTicketPurse, 'redeemed');
+        return Vow.resolve(redeemP).then(_ => {
+          sides.delete(allegedTicketIssuer);
+          return side;
+        });
+      });
+    },
+
+    setup(contractSrc, terms) {
       contractSrc = `${contractSrc}`;
       // TODO BUG SECURITY: insufficient coercion
       // players must be a normal array of distinct strings
       // terms must be...
       const {players: [...players], ...restTerms} = terms;
       terms = def({players, ...restTerms});
-      
-      const tokenPurses = [];
-      const argPs = [];
-      let resolve;
+
       const f = new Flow();
-      const resultP = f.makeVow(r => resolve = r);
-      const makeContract = SES.confineExpr(contractSrc, {Flow, Vow, log});
+      const ticketPs = new Map();
+      const ticketRs = new Map();
+      
+      for (const player of players) {
+        ticketPs.set(player, f.makeFlow(r => ticketRs.set(player, r)));
+      }
 
-      const addParam = (side, tokenPurse) => {
-        const tokenIssuer = tokenPurse.getIssuer();
-        tokenPurses[side] = tokenPurse;
-        let resolveArg;
-        argPs[side] = f.makeVow(r => resolveArg = r);
+      const sideRegistrar = def({
 
-        const exerciseFunc = def(arg => {
-          m.delete(tokenIssuer);
-          descriptions.delete(tokenIssuer);
-          resolveArg(arg);
-          return resultP;
-        });
-        m.set(tokenIssuer, exerciseFunc);
-        descriptions.set(tokenIssuer, def({
-          contractSrc,
-          terms,
-          side
-        }));
-      };
-      players.forEach((player, i) => {
-        addParam(i, makeMint().mint(1, `player ${i}: ${player}`));
+        register(player, side) {
+          player = `${player}`;
+          const ticketResolver = ticketRs.get(player);
+          if (ticketResolver === undefined) {
+            throw new TypeError(`unrecognized player ${player}`);
+          }
+          const ticketPurse = makeMint().mint(1, `ticket for player ${player}`);
+
+          sides.set(player, def(side));
+          descriptions.set(player, `player ${player}`);
+          ticketResolver(ticketPurse);
+        }
       });
-      return Vow.resolve(makeContract(terms, ...setupArgs)).then(contract => {
-        Vow.all(argPs).then(args => resolve(contract(...args)));
-        // Don't return the tokenPurses until and unless we succeeded at
-        // making the contract instance.
-        return tokenPurses;
-      });
-    },
-    play(allegedTokenPurseP, arg) {
-      return Vow.resolve(allegedTokenPurseP).e.getIssuer().then(tokenIssuer => {
-        const exerciseFunc = m.get(tokenIssuer);
-        if (!exerciseFunc) { throw new TypeError(`invalid issuer`); }
-        const redeemPurseP = tokenIssuer.getExclusive(
-          1, allegedTokenPurseP, `thrown away redeem purse`);
-        return redeemPurseP.then(_ => exerciseFunc(arg));
-      });
+
+      const contractP = Vow.resolve(SES.confineExpr(contractSrc, {Flow, Vow, log}));
+      const doneP = contractP.then(contract => contract(terms, sideRegistrar));
+
+      return def(ticketPs);
     }
   });
 });
