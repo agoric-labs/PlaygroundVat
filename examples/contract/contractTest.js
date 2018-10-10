@@ -44,7 +44,7 @@ export function trivialContractTest() {
   const contractMakerSrc = `${trivContractMaker}`;
 
   const tokensP = Vow.resolve(contractHostP).e.setup(
-    contractMakerSrc, 2, {five:5, two:2}, 1);
+    contractMakerSrc, {players: ['w', 'b'], five:5, two:2}, 1);
 
   const whiteTokenP = tokensP.then(tokens => tokens[0]);
   contractHostP.e.play(whiteTokenP, {});

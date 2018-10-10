@@ -22,8 +22,11 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
   const myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
   const myStockPurseP = Vow.resolve(myStockPurse);
   const myStockIssuerP = myStockPurseP.e.getIssuer();
-  const terms = {moneyIssuerP: myMoneyIssuerP,
-                 stockIssuerP: myStockIssuerP};
+  const terms = def({
+    players: ['a', 'b'],
+    moneyIssuerP: myMoneyIssuerP,
+    stockIssuerP: myStockIssuerP
+  });
 
 
   contractHostP = Vow.resolve(contractHostP);
@@ -52,7 +55,7 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
     },
 
     tradeWell: function(bobP) {
-      const tokensP = contractHostP.e.setup(escrowSrc, 2, terms);
+      const tokensP = contractHostP.e.setup(escrowSrc, terms);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
       Vow.resolve(bobP).e.invite(bobTokenP, escrowSrc, 1);

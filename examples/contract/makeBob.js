@@ -23,6 +23,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
   const myStockPurseP = Vow.resolve(myStockPurse);
   const myStockIssuerP = myStockPurseP.e.getIssuer();
   const terms = def({
+    players: ['a', 'b'],
     moneyIssuerP: myMoneyIssuerP,
     stockIssuerP: myStockIssuerP
   });
@@ -62,7 +63,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
     },
 
     tradeWell: function(aliceP, bobLies=false) {
-      const tokensP = contractHostP.e.setup(escrowSrc, 2, terms);
+      const tokensP = contractHostP.e.setup(escrowSrc, terms);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
       let escrowSrcWeTellAlice = escrowSrc;
