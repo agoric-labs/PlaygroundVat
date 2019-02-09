@@ -6,8 +6,8 @@ import { hash58 } from '../src/host';
 function t1_left() {
   exports.default = function(argv) {
     let done;
-    let p2 = Vow.resolve(argv.p1).e.foo('foo');
-    let p3 = p2.e.bar('bar');
+    let p2 = E(argv.p1).foo('foo');
+    let p3 = E(p2).bar('bar');
     p3.then(res => { done = res; });
     return {
       getDone() { return done; },
@@ -128,12 +128,12 @@ test('promise pipelining', async (t) => {
 
 function t2_alice() {
   exports.default = function(argv) {
-    const p1 = Vow.resolve(argv.bob).e.getTarget1();
-    const p2 = p1.e.call('foo');
+    const p1 = E(argv.bob).getTarget1();
+    const p2 = E(p1).call('foo');
     return {
       // send bar manually after we see it get shortened
       sendBar() {
-        p1.e.call('bar');
+        E(p1).call('bar');
       },
     };
   };
@@ -144,8 +144,8 @@ function t2_bob() {
     const carolP = Vow.resolve(argv.carol);
     return {
       getTarget1() {
-        const targetP = carolP.e.getTarget2();
-        targetP.e.call('baz');
+        const targetP = E(carolP).getTarget2();
+        E(targetP).call('baz');
         return targetP;
       },
     };

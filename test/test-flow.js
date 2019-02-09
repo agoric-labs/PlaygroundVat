@@ -1,11 +1,10 @@
 import { test } from 'tape-promise/tape';
+import { E, Flow, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
 
 test('tape works', t => {
   t.equal(1, 1);
   t.end();
 });
-
-import { Flow, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
 
 function delay(fn) {
   Promise.resolve(null).then(fn);
@@ -25,8 +24,8 @@ test('unresolved send queues in order', async (t) => {
   let r1;
   const v1 = f1.makeVow(r => r1 = r);
 
-  //const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
-  const v2 = v1.e.concat(" MORE"); //v1!concat(" MORE")
+  //const v2 = E(v1).concat(" MORE"); //v1 ! concat(" MORE")
+  const v2 = E(v1).concat(" MORE"); //v1!concat(" MORE")
 
   delay(() => r1("some"));
 
@@ -42,7 +41,7 @@ test('resolved send queues in order', async (t) => {
   let r1;
   const v1 = f1.makeVow(r => r1 = r);
   delay(() => r1("some"));
-  const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
+  const v2 = E(v1).concat(" MORE"); //v1 ! concat(" MORE")
   const res = await v2;
   t.equal(res, 'some MORE');
   t.end();
@@ -53,7 +52,7 @@ test('pre-resolved send queues in order', async (t) => {
   let r1;
   const v1 = f1.makeVow(r => r1 = r);
   r1("some");
-  const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
+  const v2 = E(v1).concat(" MORE"); //v1 ! concat(" MORE")
   const res = await v2;
   t.equal(res, 'some MORE');
   t.end();
@@ -65,7 +64,7 @@ test('order across forwarding', async (t) => {
   const f1 = new Flow();
   let r1;
   const v1 = f1.makeVow(r => r1 = r);
-  const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
+  const v2 = E(v1).concat(" MORE"); //v1 ! concat(" MORE")
   console.log(`s ${c++}`);
   let r3;
   const v3 = f1.makeVow(r => r3 = r);
@@ -86,16 +85,16 @@ test('all flow', t => {
   let r2;
   const x1 = f1.makeVow(r => r2 = r);
 
-  const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
+  const v2 = E(v1).concat(" MORE"); //v1 ! concat(" MORE")
   delay(() => r1("some"));
   // console.log(v1);
 
   v1.then(s => console.log(`THE      N1 ${s}`));
   v2.then(s => console.log(`THEN2 ${s}`));
 
-  const x2 = x1.e.concat(" ANOTHER"); //x1 ! concat(" ANOTHER")
+  const x2 = E(x1).concat(" ANOTHER"); //x1 ! concat(" ANOTHER")
 
-  const v3 = v1.e.split();
+  const v3 = E(v1).split();
   //console.log(v3);
 
   v3.then(s => console.log(`THEN3 ${s}`));
@@ -122,7 +121,7 @@ test('remote vow', t => {
     }
   };
   const v1 = makeUnresolvedRemoteVow(serializer, 'vat1', 'swiss1');
-  v1.e.foo('arg1', 'arg2');
+  E(v1).foo('arg1', 'arg2');
 
   t.deepEqual(results, [ { resultSwissbase: 'base1',
                            targetVatID: 'vat1',
@@ -147,7 +146,7 @@ test('simple broken vow', async (t) => {
   const f1 = new Flow();
   let r1;
   const v1 = f1.makeVow(r => r1 = r);
-  const v2 = v1.e.badMessage(" MORE"); //v1!badMessage(" MORE")
+  const v2 = E(v1).badMessage(" MORE"); //v1!badMessage(" MORE")
 
   delay(() => r1("some"));
   let res;
@@ -166,7 +165,7 @@ test('error across forwarding', async (t) => {
   const f1 = new Flow();
   let r1;
   const v1 = f1.makeVow(r => r1 = r);
-  const v2 = v1.e.concat(" MORE"); //v1 ! concat(" MORE")
+  const v2 = E(v1).concat(" MORE"); //v1 ! concat(" MORE")
   console.log(`s ${c++}`);
   let r3;
   const v3 = f1.makeVow(r => r3 = r);

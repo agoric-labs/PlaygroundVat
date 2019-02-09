@@ -149,7 +149,7 @@ If you know that `fooP` is a Vow, you can send a message `bar()` with
 some arguments to its target like this:
 
 ```javascript
-const resultVow = fooP.e.bar(arg1, arg2)
+const resultVow = E(fooP).bar(arg1, arg2)
 ```
 
 If and when `fooP` eventually resolves to some object `foo`, this will
@@ -170,9 +170,9 @@ as the target of another method invocation, without waiting for it to
 resolve:
 
 ```javascript
-const directoryP = fsP.e.getDir('music');
-const fileP = directoryP.e.getFile('never-gonna-give-you-up.mp3');
-playerP.e.play(fileP);
+const directoryP = E(fsP).getDir('music');
+const fileP = E(directoryP).getFile('never-gonna-give-you-up.mp3');
+E(playerP).play(fileP);
 ```
 
 This proxy syntax is not perfect: there is no particular reason to use `e`

@@ -20,15 +20,15 @@
 
 function mintTest(mint) {
   log('starting mintTest');
-  const mP = Vow.resolve(mint).e.makeMint();
-  const alicePurseP = mP.e.mint(1000, 'alice');
-  const mIssuerP = alicePurseP.e.getIssuer();
-  const depositPurseP = mIssuerP.e.makeEmptyPurse('deposit');
-  const v = depositPurseP.e.deposit(50, alicePurseP.fork()); // hack
+  const mP = E(mint).makeMint();
+  const alicePurseP = E(mP).mint(1000, 'alice');
+  const mIssuerP = E(alicePurseP).getIssuer();
+  const depositPurseP = E(mIssuerP).makeEmptyPurse('deposit');
+  const v = E(depositPurseP).deposit(50, alicePurseP.fork()); // hack
   // this ordering should be guaranteed by the fact that this is all in the
   // same Flow
-  const aBal = v.then(_ => alicePurseP.e.getBalance());
-  const dBal = v.then(_ => depositPurseP.e.getBalance());
+  const aBal = v.then(_ => E(alicePurseP).getBalance());
+  const dBal = v.then(_ => E(depositPurseP).getBalance());
   Vow.all([aBal, dBal]).then(bals => {
     log('++ balances:', bals);
     log('++ DONE');
@@ -44,13 +44,13 @@ function trivialContractTest(host) {
   }
   const contractSrc = `${trivContract}`;
 
-  const tokensP = Vow.resolve(contractHostP).e.setup(contractSrc);
+  const tokensP = E(contractHostP).setup(contractSrc);
 
   const whiteTokenP = tokensP.then(tokens => tokens[0]);
-  contractHostP.e.play(whiteTokenP, contractSrc, 0, {});
+  E(contractHostP).play(whiteTokenP, contractSrc, 0, {});
 
   const blackTokenP = tokensP.then(tokens => tokens[1]);
-  const eightP = contractHostP.e.play(blackTokenP, contractSrc, 1, {});
+  const eightP = E(contractHostP).play(blackTokenP, contractSrc, 1, {});
   // check that eightP fulfills with 8.
   // (At the time of this writing, did the right thing under debugger)
   eightP.then(res => {
@@ -65,18 +65,18 @@ function trivialContractTest(host) {
 
 export function betterContractTestAliceFirst(mint, host, alice, bob) {
   const contractHostP = Vow.resolve(host);
-  const moneyMintP = Vow.resolve(mint).e.makeMint();
-  const aliceMoneyPurseP = moneyMintP.e.mint(1000);
-  const bobMoneyPurseP = moneyMintP.e.mint(1001);
+  const moneyMintP = E(mint).makeMint();
+  const aliceMoneyPurseP = E(moneyMintP).mint(1000);
+  const bobMoneyPurseP = E(moneyMintP).mint(1001);
 
-  const stockMintP = Vow.resolve(mint).e.makeMint();
-  const aliceStockPurseP = stockMintP.e.mint(2002);
-  const bobStockPurseP = stockMintP.e.mint(2003);
+  const stockMintP = E(mint).makeMint();
+  const aliceStockPurseP = E(stockMintP).mint(2002);
+  const bobStockPurseP = E(stockMintP).mint(2003);
 
-  const aliceP = Vow.resolve(alice).e.init(aliceMoneyPurseP, aliceStockPurseP);
-  const bobP = Vow.resolve(bob).e.init(bobMoneyPurseP, bobStockPurseP);
+  const aliceP = E(alice).init(aliceMoneyPurseP, aliceStockPurseP);
+  const bobP = E(bob).init(bobMoneyPurseP, bobStockPurseP);
 
-  const ifItFitsP = aliceP.e.payBobWell();
+  const ifItFitsP = E(aliceP).payBobWell();
   ifItFitsP.then(res => {
     log('++ ifItFitsP done:', res);
     log('++ DONE');
@@ -87,26 +87,26 @@ export function betterContractTestAliceFirst(mint, host, alice, bob) {
 
 export function betterContractTestBobFirst(mint, host, alice, bob, bobLies=false) {
   const contractHostP = Vow.resolve(host);
-  const moneyMintP = Vow.resolve(mint).e.makeMint();
-  const aliceMoneyPurseP = moneyMintP.e.mint(1000, 'aliceMainMoney');
-  const bobMoneyPurseP = moneyMintP.e.mint(1001, 'bobMainMoney');
+  const moneyMintP = E(mint).makeMint();
+  const aliceMoneyPurseP = E(moneyMintP).mint(1000, 'aliceMainMoney');
+  const bobMoneyPurseP = E(moneyMintP).mint(1001, 'bobMainMoney');
 
-  const stockMintP = Vow.resolve(mint).e.makeMint();
-  const aliceStockPurseP = stockMintP.e.mint(2002, 'aliceMainStock');
-  const bobStockPurseP = stockMintP.e.mint(2003, 'bobMainStock');
+  const stockMintP = E(mint).makeMint();
+  const aliceStockPurseP = E(stockMintP).mint(2002, 'aliceMainStock');
+  const bobStockPurseP = E(stockMintP).mint(2003, 'bobMainStock');
 
-  const aliceP = Vow.resolve(alice).e.init(aliceMoneyPurseP, aliceStockPurseP);
-  const bobP = Vow.resolve(bob).e.init(bobMoneyPurseP, bobStockPurseP);
+  const aliceP = E(alice).init(aliceMoneyPurseP, aliceStockPurseP);
+  const bobP = E(bob).init(bobMoneyPurseP, bobStockPurseP);
 
-  bobP.e.tradeWell(bobLies).then(
+  E(bobP).tradeWell(bobLies).then(
     res => {
-      log('++ bobP.e.tradeWell done:', res);
+      log('++ E(bobP).tradeWell done:', res);
       log('++ DONE');
     },
     rej => {
-      log('++ bobP.e.tradeWell error:', rej);
+      log('++ E(bobP).tradeWell error:', rej);
     });
-  //  return aliceP.e.tradeWell(bobP);
+  //  return E(aliceP).tradeWell(bobP);
 }
 
 export default function(argv) {

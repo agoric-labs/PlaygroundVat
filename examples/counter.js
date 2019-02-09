@@ -19,7 +19,7 @@ const o = {
 
   doCall() {
     log(`doing call`);
-    ext.e.foo('arg1', 'arg2');
+    E(ext).foo('arg1', 'arg2');
     log(`did call`);
   },
 
@@ -31,7 +31,7 @@ const o = {
   },
 
   send(target) {
-    Vow.resolve(target).e.respond('arg1', 'arg2')
+    E(target).respond('arg1', 'arg2')
       .then(res => log(`send response was ${res}`));
   },
 

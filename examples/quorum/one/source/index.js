@@ -28,6 +28,6 @@ const o = {
 };
 
 export default function(argv) {
-  Vow.resolve(argv.two).e.helloTwo("morning y'all");
+  E(argv.two).helloTwo("morning y'all");
   return o;
 }

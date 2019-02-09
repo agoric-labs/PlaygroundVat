@@ -92,7 +92,7 @@ export function makeContractHost() {
       let resolve;
       const f = new Flow();
       const resultP = f.makeVow((r) => resolve = r);
-      const contract = SES.confineExpr(contractSrc, {Flow, Vow, log});
+      const contract = SES.confineExpr(contractSrc, {Flow, Vow, E, log});
 
       const addParam = function(i, token) {
         tokens[i] = token;

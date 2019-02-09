@@ -3,7 +3,7 @@ import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import { makeVatEndowments } from '../src/host';
 import SES from 'ses';
 import { promisify } from 'util';
-import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
+import { isVow, asVow, E, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../src/flow/flowcomm';
 import { hash58 } from '../src/host';
 
 test('marshal', async (t) => {

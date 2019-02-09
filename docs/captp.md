@@ -190,9 +190,9 @@ resolves:
 
 ```javascript
 function foo(remoteVow) {
-  const x = remoteVow.e.bar(1);
-  const y = x.e.baz(2);
-  return y.e.buz(3);
+  const x = E(remoteVow).bar(1);
+  const y = E(x).baz(2);
+  return E(y).buz(3);
 }
 ```
 

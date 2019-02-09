@@ -40,7 +40,7 @@ function s2() {
       },
 
       send(target) {
-        Vow.resolve(target).e.foo('arg1', 'arg2');
+        E(target).foo('arg1', 'arg2');
       },
 
       wait() {

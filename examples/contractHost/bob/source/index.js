@@ -30,9 +30,9 @@ export default function(argv) {
   function init(myMoneyPurse, myStockPurse) {
     initialized = true;
     myMoneyPurseP = Vow.resolve(myMoneyPurse);
-    myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
+    myMoneyIssuerP = E(myMoneyPurseP).getIssuer();
     myStockPurseP = Vow.resolve(myStockPurse);
-    myStockIssuerP = myStockPurseP.e.getIssuer();
+    myStockIssuerP = E(myStockPurseP).getIssuer();
     return bob;
   }
 
@@ -68,7 +68,7 @@ export default function(argv) {
       }
       }
 
-      return myMoneyPurseP.e.deposit(10, paymentP).then(_ => good);
+      return E(myMoneyPurseP).deposit(10, paymentP).then(_ => good);
     },
 
     tradeWell: function(bobLies=false) {
@@ -76,16 +76,16 @@ export default function(argv) {
       if (!initialized) {
         log('++ ERR: tradeWell called before init()');
       }
-      const tokensP = contractHostP.e.setup(escrowSrc);
+      const tokensP = E(contractHostP).setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
       const bobTokenP   = tokensP.then(tokens => tokens[1]);
       let escrowSrcWeTellAlice = escrowSrc;
       if (bobLies) {
         escrowSrcWeTellAlice += 'NOT';
       }
-      const doneP = Vow.all([aliceP.e.invite(aliceTokenP,
+      const doneP = Vow.all([E(aliceP).invite(aliceTokenP,
                                              escrowSrcWeTellAlice, 0),
-                             Vow.resolve(bob).e.invite(bobTokenP,
+                             E(bob).invite(bobTokenP,
                                                        escrowSrc, 1)]);
       doneP.then(res => log('++ bob.tradeWell done'),
                  rej => log('++ bob.tradeWell reject', rej));
@@ -106,21 +106,21 @@ export default function(argv) {
       log('++ bob.invite passed check');
       let cancel;
       const b = def({
-        stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
-        moneyDstP: myMoneyIssuerP.e.makeEmptyPurse('bobMoneyDst'),
+        stockSrcP: E(myStockIssuerP).makeEmptyPurse('bobStockSrc'),
+        moneyDstP: E(myMoneyIssuerP).makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,
         cancellationP: f.makeVow(function(r) { cancel = r; })
       });
-      const ackP = b.stockSrcP.e.deposit(7, myStockPurseP);
+      const ackP = E(b.stockSrcP).deposit(7, myStockPurseP);
 
       const doneP = ackP.then(_ => {
         log('++ bob.invite ackP');
-        return contractHostP.e.play(tokenP, allegedSrc, allegedSide, b);
+        return E(contractHostP).play(tokenP, allegedSrc, allegedSide, b);
       });
       return doneP.then(
         _ => {
           log('++ bob.invite doneP');
-          return b.moneyDstP.e.getBalance();
+          return E(b.moneyDstP).getBalance();
         },
         rej => {
           log('++ bob.invite doneP reject', rej);

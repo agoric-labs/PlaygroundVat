@@ -6,7 +6,7 @@ import { hash58 } from '../src/host';
 function t1_sender() {
   exports.default = function(argv) {
     let answer = 'unanswered';
-    Vow.resolve(argv.target).e.pleaseRespond('marco')
+    E(argv.target).pleaseRespond('marco')
       .then(res => {
         log(`got answer: ${res}`);
         answer = res;
@@ -107,7 +107,7 @@ function t2_sender() {
   exports.default = function(argv) {
     let r1;
     const v1 = new Flow().makeVow(res => r1 = res);
-    Vow.resolve(argv.target).e.pleaseWait(v1);
+    E(argv.target).pleaseWait(v1);
     return {
       fire(arg) { r1(arg); },
     };
@@ -239,8 +239,8 @@ test('sending unresolved local Vow', async (t) => {
 
 function t3_one() {
   exports.default = function(argv) {
-    const two = Vow.resolve(argv.target2).e.getVow();
-    const three = Vow.resolve(argv.target3).e.pleaseWait(two);
+    const two = E(argv.target2).getVow();
+    const three = E(argv.target3).pleaseWait(two);
   };
 }
 
@@ -415,8 +415,8 @@ test('sending third-party Vow', async (t) => {
 
 function t4_one() {
   exports.default = function(argv) {
-    const two = Vow.resolve(argv.target2).e.getVow();
-    const three = Vow.resolve(argv.target3).e.pleaseWait(two);
+    const two = E(argv.target2).getVow();
+    const three = E(argv.target3).pleaseWait(two);
   };
 }
 
@@ -596,7 +596,7 @@ function t5_alice() {
     let aliceDone = false;
     const v1 = new Flow().makeVow(_ => null);
     log('alice sends to bob');
-    Vow.resolve(argv.bob).e.send1(v1); // got1
+    E(argv.bob).send1(v1); // got1
     log('alice sent to bob');
   };
 }
@@ -607,7 +607,7 @@ function t5_bob() {
     return {
       send1(v1) { // invoked by got1, then got2 subscribes to hear about v1
         bobStart = true;
-        Vow.resolve(argv.carol).e.send2(v1); // got3
+        E(argv.carol).send2(v1); // got3
         return 'send1 done';
       },
       getBobStart() { return bobStart; },

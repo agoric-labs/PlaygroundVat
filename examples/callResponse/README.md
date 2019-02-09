@@ -21,7 +21,7 @@ send a `pleaseRespond` message to the right side when it wakes up:
 ```javascript
 export default function(argv) {
   log(`sending '${argv.value}'`);
-  Vow.resolve(argv.target).e.pleaseRespond(argv.value)
+  E(argv.target).pleaseRespond(argv.value)
     .then(res => log(`response was '${res}'`));
   return undefined; // nothing registered as root-sturdyref
 }
@@ -33,7 +33,7 @@ be wrapped in a Vow by using `Vow.resolve(target)`.
 
 We can send message to a Vow by using their `.e` property, which is a special
 proxy that converts property lookups into queued remote method calls. So
-using `anyvow.e.pleaseRespond(stuff)` means "send the `pleaseRespond`
+using `E(anyvow).pleaseRespond(stuff)` means "send the `pleaseRespond`
 message, with arguments `[stuff]`, to the remote object that is wrapped by
 `anyvow`".
 

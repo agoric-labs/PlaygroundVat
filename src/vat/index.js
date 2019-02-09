@@ -3,7 +3,7 @@
 // console.log). Both of these come from the primal realm, so they must not
 // be exposed to guest code.
 
-import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
+import { isVow, asVow, E, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
 import { makeEngine } from './executionEngine';
@@ -32,7 +32,7 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
   // it shared among all peer Vats.
 
   // A FarVow (specifically a Vow in the 'far' state) can be used to send
-  // remote messages: v.e.foo(1,2) will queue an invocation of
+  // remote messages: E(v).foo(1,2) will queue an invocation of
   // target.foo(1,2) on whatever target object the vow eventually resolves
   // to. Each Vow (including FarVows) have their own identity: creating two
   // (resolved) Vows from the same object will yield entirely different Vows.
@@ -171,7 +171,7 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
       //endowments.writeOutput(`load: ${initialSourceHash}`);
       // the top-level code executes now, during evaluation
       const e = confineGuestSource(initialSource,
-                                   { isVow, asVow, Flow, Vow,
+                                   { isVow, asVow, Flow, Vow, E, 
                                      ext: engine.ext,
                                    }).default;
       // then we execute whatever was exported as the 'default'

@@ -576,6 +576,9 @@ class Vow {
 def(Vow);
 
 const asVow = Vow.resolve;
+function E(target) {
+  return asVow(target).e;
+}
 
-export { Flow, Vow, makeResolver, asVow };
+export { E, Flow, Vow, makeResolver, asVow };
 export default Flow;

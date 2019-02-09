@@ -4,7 +4,7 @@ export default function(argv) {
   return {
     helloThree(msg) {
       log('++ helloThree', msg);
-      one.e.forwardedFromThree('we forward');
+      E(one).forwardedFromThree('we forward');
     },
   };
 }

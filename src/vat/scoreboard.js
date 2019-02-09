@@ -111,7 +111,7 @@ function makeConsensusLeader(decidedQs) {
 
   function deliverMsg(compositeID, msg) {
     for (const decidedQP of decidedQs) {
-      decidedQP.e.deliverMsg(compositeID, msg);
+      E(decidedQP).deliverMsg(compositeID, msg);
     }
   }
   
@@ -151,7 +151,7 @@ export function makeConsensusFollower(leaderP) {
       // BOGUS Vulnerable HACK! Must forward signed message
       // itself. The receiver must be the one that takes it apart and
       // authenticates that the component is within the composite.
-      leaderP.e.acceptProtoMsg(compositeID, componentID, seqNum, msgID, msg);
+      E(leaderP).acceptProtoMsg(compositeID, componentID, seqNum, msgID, msg);
     }
   });
 }
