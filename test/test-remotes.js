@@ -41,7 +41,7 @@ function logConflict(text, componentID, seqNum, msgID, msg, seqMap) {
 
 
 test('vatRemote seqnum', (t) => {
-  const r = makeRemoteForVatID('vat1', shallowDef, console.log, logConflict);
+  const r = makeRemoteForVatID('vat1', shallowDef, logConflict);
   t.equal(r.nextOutboundSeqnum(), 0);
   t.equal(r.nextOutboundSeqnum(), 1);
   t.equal(r.getReadyMessage(), undefined);
@@ -64,7 +64,7 @@ test('vatRemote inbound solo', (t) => {
   // I am vat1, upstream is vat2. Deliver messages from an upstream solo vat,
   // out of order, and examine how getReadyMessage() makes them available for
   // delivery.
-  const r = makeRemoteForVatID('vat2', shallowDef, console.log, logConflict);
+  const r = makeRemoteForVatID('vat2', shallowDef, logConflict);
 
   function got(hm, host) {
     return r.gotHostMessage({ fromHostID: host }, hm.id,
@@ -117,7 +117,7 @@ test('vatRemote inbound quorum', (t) => {
   function logConflict(...args) {
     conflicts.push(args);
   }
-  const r = makeRemoteForVatID(fromVatID, shallowDef, console.log, logConflict);
+  const r = makeRemoteForVatID(fromVatID, shallowDef, logConflict);
   function got(hm, host, msgID=null) {
     msgID = msgID || hm.id;
     return r.gotHostMessage({ fromHostID: host }, msgID,
@@ -219,7 +219,7 @@ test('decisionList solo', (t) => {
   const sendDecisionTo = (toHostID, msg) =>
         decisionMessages.push({ toHostID, msg });
 
-  const dl = makeDecisionList(console.log, 'q2-vat1a-vat1b-vat1c', true, [],
+  const dl = makeDecisionList('q2-vat1a-vat1b-vat1c', true, [],
                               () => ready, deliver, sendDecisionTo);
   t.equal(dl.debug_getNextDeliverySeqnum(), 0);
 
@@ -257,7 +257,7 @@ test('decisionList follower', (t) => {
   const sendDecisionTo = (toHostID, msg) =>
         decisionMessages.push({ toHostID, msg });
 
-  const dl = makeDecisionList(console.log, 'q2-vat1a-vat1b-vat1c', false,
+  const dl = makeDecisionList('q2-vat1a-vat1b-vat1c', false,
                               ['vat1b', 'vat1c'],
                               getReadyMessages, deliver, sendDecisionTo);
   t.equal(dl.debug_getNextDeliverySeqnum(), 0);
@@ -337,7 +337,7 @@ test('decisionList leader', (t) => {
   const sendDecisionTo = (toHostID, msg) =>
         decisionMessages.push({ toHostID, msg });
 
-  const dl = makeDecisionList(console.log, 'q2-vat1a-vat1b-vat1c', true,
+  const dl = makeDecisionList('q2-vat1a-vat1b-vat1c', true,
                               ['vat1b', 'vat1c'],
                               getReadyMessages, deliver, sendDecisionTo);
   t.equal(dl.debug_getNextDeliverySeqnum(), 0);
@@ -384,7 +384,7 @@ test('connections', (t) => {
 
   const rm = makeRemoteManager('vat1', 'vat1', comms,
                                managerWriteInput, managerWriteOutput,
-                               def, console.log, logConflict, hash58);
+                               def, logConflict, hash58);
   const fakeEngine = {};
   rm.setEngine(fakeEngine);
   rm.sendTo('vat2', {op: 'whatever'});

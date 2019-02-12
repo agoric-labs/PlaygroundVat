@@ -10,7 +10,7 @@ function buildAck(ackSeqnum) {
 const OP = 'op ';
 const DECIDE = 'decide ';
 
-export function makeRemoteForVatID(vatID, def, log, logConflict) {
+export function makeRemoteForVatID(vatID, def, logConflict) {
   let nextOutboundSeqnum = 0;
 
   // inbound management
@@ -76,7 +76,7 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
   };
 }
 
-export function makeDecisionList(log, myVatID, isLeader, followers,
+export function makeDecisionList(myVatID, isLeader, followers,
                                  getReadyMessages, deliver, sendDecisionTo) {
   let nextLeaderSeqnum = 0;
   let nextDeliverySeqnum = 0;
@@ -196,7 +196,7 @@ export function makeDecisionList(log, myVatID, isLeader, followers,
 
 export function makeRemoteManager(myVatID, myHostID, comms,
                                   managerWriteInput, managerWriteOutput,
-                                  def, log, logConflict, hash58) {
+                                  def, logConflict, hash58) {
   const vatRemotes = new Map();
   const hostRemotes = new Map();
   let engine;
@@ -218,7 +218,7 @@ export function makeRemoteManager(myVatID, myHostID, comms,
 
   function getVatRemote(vatID) {
     if (!vatRemotes.has(vatID)) {
-      vatRemotes.set(vatID, makeRemoteForVatID(vatID, def, log, logConflict));
+      vatRemotes.set(vatID, makeRemoteForVatID(vatID, def, logConflict));
     }
     return vatRemotes.get(vatID);
   }
@@ -239,7 +239,7 @@ export function makeRemoteManager(myVatID, myHostID, comms,
     getHostRemote(toHostID).sendHostMessage(wireMessage);
   }
 
-  const dl = makeDecisionList(log, myVatID, isLeader, followers,
+  const dl = makeDecisionList(myVatID, isLeader, followers,
                               getReadyMessages, deliver, sendDecisionTo);
 
   function deliver(fromVatID, hostMessage, wireMessage) {

@@ -41,7 +41,7 @@ export function makeEngine(def, hash58,
     opSend, opWhen,
     allocateSwissStuff, registerRemoteVow,
   };
-  const marshal = makeWebkeyMarshal(log, hash58,
+  const marshal = makeWebkeyMarshal(hash58,
                                     Vow, isVow, Flow,
                                     makePresence, makeUnresolvedRemoteVow,
                                     myVatID, myVatSecret, serializer);

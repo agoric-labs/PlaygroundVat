@@ -74,7 +74,7 @@ function mustPassByPresence(val) { // throws exception if cannot
 // decoding.
 const QCLASS = '@qclass';
 
-export function makeWebkeyMarshal(log, hash58,
+export function makeWebkeyMarshal(hash58,
                                   Vow, isVow, Flow,
                                   makePresence, makeUnresolvedRemoteVow,
                                   myVatID, myVatSecret, serializer) {

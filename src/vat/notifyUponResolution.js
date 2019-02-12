@@ -1,5 +1,5 @@
 
-export function makeResolutionNotifier(log, myVatID, opResolve) {
+export function makeResolutionNotifier(myVatID, opResolve) {
   const resolutionNotifiers = new WeakMap(); // vow -> { swissnum, Set(vatID) }
 
   let nurCount = 60;
