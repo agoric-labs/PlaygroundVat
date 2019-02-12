@@ -17,7 +17,7 @@ function confineGuestSource(source, endowments) {
   function guestLog(...args) {
     log(...args);
   }
-  const endow = { module, exports, log: guestLog };
+  const endow = { module, exports, log: guestLog, console };
   if (endowments) {
     Object.defineProperties(endow,
                             Object.getOwnPropertyDescriptors(endowments));
