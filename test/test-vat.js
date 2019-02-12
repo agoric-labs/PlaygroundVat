@@ -13,12 +13,12 @@ function s1() {
     return {
       increment() {
         count += 1;
-        log(`count is now ${count}`);
+        console.log(`count is now ${count}`);
         return count;
       },
       decrement() {
         count -= 1;
-        log(`count is now ${count}`);
+        console.log(`count is now ${count}`);
         return count;
       },
     };
@@ -44,23 +44,24 @@ function s2() {
       },
 
       wait() {
-        //log('in wait');
+        //console.log('in wait');
         return p1;
       },
 
       fire(arg) {
-        //log('in fire');
+        //console.log('in fire');
         resolver1(arg);
-        //log(' ran resolver');
+        //console.log(' ran resolver');
       },
     };
   };
 }
 
 test('confineVatSource', (t) => {
+  console.log(`SOURCE: ${s1}`);
   const s = SES.makeSESRootRealm();
   const s1code = funcToSource(s1);
-  //console.log(`source: ${s1code}`);
+  console.log(`source: ${s1code}`);
   const e = confineVatSource(s, `${s1code}`).default();
   t.equal(e.increment(), 1);
   t.equal(e.increment(), 2);
