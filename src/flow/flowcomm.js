@@ -3,7 +3,7 @@
 
 import { insist, insistFn } from '../insist';
 
-//const debugLog = typeof log === 'undefined' ? console.log : log;
+//const debugLog = console.log;
 function debugLog() {} // disabled
 
 const scheduleHack = Promise.resolve(null);
@@ -85,7 +85,7 @@ class PendingDelivery {
       handler.resolve(frozenRejection(reason));
     };
 
-    //log(`PendingDelivery[${which}] ${op}, ${args}`);
+    //console.log(`PendingDelivery[${which}] ${op}, ${args}`);
   }
 
   get isMessageSend() { return true; }
@@ -295,23 +295,23 @@ class InnerFlow {
   // add a message to the end of the flow
   // todo shorten and clean up shorten
   enqueue(innerVow, todo) {
-    //log('enqueue entering');
+    //console.log('enqueue entering');
     const firstR = innerVow.resolver;
     const shortTarget = shortenForwards(firstR, innerVow);
     if (this.pending.length === 0) {
-      //log(`InnerFlow.enqueue found an empty queue`);
+      //console.log(`InnerFlow.enqueue found an empty queue`);
       // This will be the first pending action, so it's either ready to schedule or
       // is what this flow will be waiting on
       const processed = shortTarget.processSingle(todo, this);
       if (processed) {
         // fastpath; the action was scheduled immediately since it was ready and the flow was empty
-        //log(`InnerFlow.enqueue exiting on fast path`);
+        //console.log(`InnerFlow.enqueue exiting on fast path`);
         return;
       }
     }
     this.pending.push([shortTarget, todo]);
-    //log(`InnerFlow.enqueue exiting with ${this.pending.length} entries`);
-    //log(`  e[0] is ${whichTodo.get(this.pending[0][1])}`);
+    //console.log(`InnerFlow.enqueue exiting with ${this.pending.length} entries`);
+    //console.log(`  e[0] is ${whichTodo.get(this.pending[0][1])}`);
   }
 
   // The blocking resolver has been resolved. Schedule all unlocked pending flows, in order

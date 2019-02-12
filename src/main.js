@@ -21,13 +21,13 @@ export function confineVatSource(s, source) {
   function log(...args) {
     console.log(...args);
   }
-  const endow = { exports, log };
+  const endow = { exports, log, console };
   s.evaluate(source, endow);
   return exports;
 }
 
 export function makeRealm() {
-  const s = SES.makeSESRootRealm();
+  const s = SES.makeSESRootRealm({consoleMode: 'allow'});
   return s;
 }
 

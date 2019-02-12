@@ -19,7 +19,7 @@
  */
 
 function mintTest(mint) {
-  log('starting mintTest');
+  console.log('starting mintTest');
   const mP = Vow.resolve(mint).e.makeMint();
   const alicePurseP = mP.e.mint(1000, 'alice');
   const mIssuerP = alicePurseP.e.getIssuer();
@@ -30,13 +30,13 @@ function mintTest(mint) {
   const aBal = v.then(_ => alicePurseP.e.getBalance());
   const dBal = v.then(_ => depositPurseP.e.getBalance());
   Vow.all([aBal, dBal]).then(bals => {
-    log('++ balances:', bals);
-    log('++ DONE');
+    console.log('++ balances:', bals);
+    console.log('++ DONE');
   });
 }
 
 function trivialContractTest(host) {
-  log('starting trivialContractTest');
+  console.log('starting trivialContractTest');
   const contractHostP = Vow.resolve(host);
 
   function trivContract(whiteP, blackP) {
@@ -54,11 +54,11 @@ function trivialContractTest(host) {
   // check that eightP fulfills with 8.
   // (At the time of this writing, did the right thing under debugger)
   eightP.then(res => {
-    log('++ eightP resolved to', res, '(should be 8)');
+    console.log('++ eightP resolved to', res, '(should be 8)');
     if (res !== 8) {
       throw new Error(`eightP resolved to ${res}, not 8`);
     };
-    log('++ DONE');
+    console.log('++ DONE');
   });
   return eightP;
 }
@@ -78,10 +78,10 @@ export function betterContractTestAliceFirst(mint, host, alice, bob) {
 
   const ifItFitsP = aliceP.e.payBobWell();
   ifItFitsP.then(res => {
-    log('++ ifItFitsP done:', res);
-    log('++ DONE');
+    console.log('++ ifItFitsP done:', res);
+    console.log('++ DONE');
   },
-                 rej => log('++ ifItFitsP failed', rej));
+                 rej => console.log('++ ifItFitsP failed', rej));
   return ifItFitsP;
 }
 
@@ -100,11 +100,11 @@ export function betterContractTestBobFirst(mint, host, alice, bob, bobLies=false
 
   bobP.e.tradeWell(bobLies).then(
     res => {
-      log('++ bobP.e.tradeWell done:', res);
-      log('++ DONE');
+      console.log('++ bobP.e.tradeWell done:', res);
+      console.log('++ DONE');
     },
     rej => {
-      log('++ bobP.e.tradeWell error:', rej);
+      console.log('++ bobP.e.tradeWell error:', rej);
     });
   //  return aliceP.e.tradeWell(bobP);
 }

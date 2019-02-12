@@ -1,4 +1,4 @@
-/*global SES Vow Flow def log*/
+/*global SES Vow Flow def */
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -92,7 +92,7 @@ export default function(argv) {
       let resolve;
       const f = new Flow();
       const resultP = f.makeVow((r) => resolve = r);
-      const contract = SES.confineExpr(contractSrc, {Flow, Vow, log});
+      const contract = SES.confineExpr(contractSrc, {Flow, Vow, console});
 
       const addParam = function(i, token) {
         tokens[i] = token;

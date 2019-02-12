@@ -41,7 +41,7 @@ export function makeEngine(def, hash58,
     opSend, opWhen,
     allocateSwissStuff, registerRemoteVow,
   };
-  const marshal = makeWebkeyMarshal(log, hash58,
+  const marshal = makeWebkeyMarshal(hash58,
                                     Vow, isVow, Flow,
                                     makePresence, makeUnresolvedRemoteVow,
                                     myVatID, myVatSecret, serializer);
@@ -90,7 +90,7 @@ export function makeEngine(def, hash58,
     // sent messages are assigned a seqnum by the manager
     //txMessage(recipientVatID, message)
 
-    //log(`op ${opMsg.op}`);
+    //console.log(`op ${opMsg.op}`);
     let done;
     if (opMsg.op === 'send') {
       const res = doSendInternal(opMsg);
@@ -103,7 +103,7 @@ export function makeEngine(def, hash58,
         // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
       } else {
         // else it was really a sendOnly
-        log(`commsReceived got sendOnly, dropping result`);
+        console.log(`commsReceived got sendOnly, dropping result`);
       }
       done = res; // for testing
     } else if (opMsg.op === 'when') {
@@ -115,23 +115,23 @@ export function makeEngine(def, hash58,
                                            res));
       // todo: rejection
     } else if (opMsg.op === 'resolve') {
-      //log('-- got op resolve');
-      //log(' senderVatID', senderVatID);
-      //log(' valueS', opMsg.valueS);
+      //console.log('-- got op resolve');
+      //console.log(' senderVatID', senderVatID);
+      //console.log(' valueS', opMsg.valueS);
       const h = marshal.getOutboundResolver(senderVatID, opMsg.targetSwissnum, handlerOf);
-      //log(`h: ${h}`);
-      //log('found target');
+      //console.log(`h: ${h}`);
+      //console.log('found target');
       let value;
       try {
         value = marshal.unserialize(opMsg.valueS);
       } catch (ex) {
-        log('exception in unserialize of:', opMsg.valueS);
-        log(ex);
+        console.log('exception in unserialize of:', opMsg.valueS);
+        console.log(ex);
         throw ex;
       }
-      //log('found value', value);
+      //console.log('found value', value);
       h.resolve(value);
-      //log('did h.resolve');
+      //console.log('did h.resolve');
     }
     return done; // for testing, to wait until things are done
   }

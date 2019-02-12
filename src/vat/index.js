@@ -17,7 +17,7 @@ function confineGuestSource(source, endowments) {
   function guestLog(...args) {
     log(...args);
   }
-  const endow = { module, exports, log: guestLog };
+  const endow = { module, exports, log: guestLog, console };
   if (endowments) {
     Object.defineProperties(endow,
                             Object.getOwnPropertyDescriptors(endowments));
@@ -123,11 +123,11 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
   }
 
   function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {
-    log(issue, `${seqMap.size} msgIDs, from hostID ${componentID} [${seqNum}]`);
+    console.log(issue, `${seqMap.size} msgIDs, from hostID ${componentID} [${seqNum}]`);
   }
   const manager = makeRemoteManager(myVatID, myHostID, endowments.comms,
                                     managerWriteInput, managerWriteOutput,
-                                    def, log, logConflict, endowments.hash58);
+                                    def, logConflict, endowments.hash58);
 
   const engine = makeEngine(def, endowments.hash58,
                             Vow, isVow, Flow,
@@ -150,7 +150,7 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
 
   return {
     check() {
-      log('yes check');
+      console.log('yes check');
     },
 
     makeEmptyObject() {
@@ -206,9 +206,9 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
     },
 
     executeTranscriptLine(line) {
-      log(`executeTranscriptLine '${line}'`);
+      console.log(`executeTranscriptLine '${line}'`);
       if (line === '') {
-        //log(`empty line`);
+        //console.log(`empty line`);
         return;
       }
       if (line.startsWith('load: ')) {
@@ -216,16 +216,16 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
         //      if (arg !== initialSourceHash) {
         //        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
         //      }
-        log(`load matches, good`);
+        console.log(`load matches, good`);
       } else if (line.startsWith('input: ')) {
         const msgre = /^input: (\w+) (.*)$/; // input: fromVatID op {msg}
         const m = msgre.exec(line);
         const fromVat = m[1];
         const wireMessage = m[2];
-        log(`transcript input ${fromVat} ${wireMessage}`);
+        console.log(`transcript input ${fromVat} ${wireMessage}`);
         manager.commsReceived(fromVat, wireMessage);
       } else {
-        log(`unknown line: ${line}`);
+        console.log(`unknown line: ${line}`);
       }
     },
 
@@ -236,7 +236,7 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
     /*
     sendReceived(op, sourceVatID, resultSwissbase) {
       // returns a promise
-      log(`sendReceived ${op}`);
+      console.log(`sendReceived ${op}`);
       const result = processOp(op);
       Vow.resolve(result).then(r => serializer.sendResolve(sourceVatID, resultSwissnum, marshal.serialize(r)));
       let resolver;

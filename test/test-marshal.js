@@ -37,7 +37,7 @@ test('marshal', async (t) => {
     return s.evaluate(`def(${template[0]})`);
   }
   const myVatSecret = 'v1 secret';
-  const m = e.makeWebkeyMarshal(console.log, hash58,
+  const m = e.makeWebkeyMarshal(hash58,
                                 Vow, isVow, Flow,
                                 makePresence, makeUnresolvedRemoteVow,
                                 'v1', myVatSecret, h.serializer);

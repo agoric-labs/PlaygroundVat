@@ -31,9 +31,9 @@ function makeMint() {
         amount = Nat(amount);
         counter += 1;
         const c = counter;
-        //log(`deposit[${name}]#${c}: bal=${ledger.get(purse)} amt=${amount}`);
+        //console.log(`deposit[${name}]#${c}: bal=${ledger.get(purse)} amt=${amount}`);
         return Vow.resolve(srcP).then(src => {
-          //log(` dep[${name}]#${c} (post-P): bal=${
+          //console.log(` dep[${name}]#${c} (post-P): bal=${
           // ledger.get(purse)} amt=${amount}`);
           const myOldBal = Nat(ledger.get(purse));
           const srcOldBal = Nat(ledger.get(src));

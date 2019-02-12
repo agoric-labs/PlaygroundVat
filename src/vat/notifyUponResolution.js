@@ -1,22 +1,22 @@
 
-export function makeResolutionNotifier(log, myVatID, opResolve) {
+export function makeResolutionNotifier(myVatID, opResolve) {
   const resolutionNotifiers = new WeakMap(); // vow -> { swissnum, Set(vatID) }
 
   let nurCount = 60;
   function notifyUponResolution(value, targetVatID, swissnum) {
-    //log(`notifyUponResolution for my ${myVatID} ${swissnum} to ${targetVatID}`);
+    //console.log(`notifyUponResolution for my ${myVatID} ${swissnum} to ${targetVatID}`);
     if (targetVatID === null) {
       return;
     }
 
     function notify(id, swissnum, result) {
-      //log('  to', id, swissnum);
+      //console.log('  to', id, swissnum);
       opResolve(id, swissnum, result);
     }
 
     if (!resolutionNotifiers.has(value)) {
       //let c = `${myVatID}-${nurCount++}`;
-      //log(' nUR adding', c);
+      //console.log(' nUR adding', c);
       const rec = { followers: new Set(),
                     resolved: false,
                     //c,

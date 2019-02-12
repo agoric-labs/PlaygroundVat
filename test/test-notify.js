@@ -11,7 +11,7 @@ function make() {
 test('notify unresolved', async (t) => {
   const resolves = [];
   function opResolve(...args) { resolves.push(args); }
-  const n = makeResolutionNotifier(console.log, 'myVat', opResolve);
+  const n = makeResolutionNotifier('myVat', opResolve);
   // unresolved Vow: register for notification later
   const v1 = make();
   n(v1.v, 'target1', 'swiss1');
@@ -38,7 +38,7 @@ test('notify unresolved', async (t) => {
 test('notify already resolved', async (t) => {
   const resolves = [];
   function opResolve(...args) { resolves.push(args); }
-  const n = makeResolutionNotifier(console.log, 'myVat', opResolve);
+  const n = makeResolutionNotifier('myVat', opResolve);
   // unresolved Vow: register for notification later
   const v1 = make();
   v1.r('result1');
@@ -64,7 +64,7 @@ test('notify already resolved', async (t) => {
 test('notify two followers', async (t) => {
   const resolves = [];
   function opResolve(...args) { resolves.push(args); }
-  const n = makeResolutionNotifier(console.log, 'myVat', opResolve);
+  const n = makeResolutionNotifier('myVat', opResolve);
   // unresolved Vow: register for notification later
   const v1 = make();
   n(v1.v, 'target1', 'swiss1');
