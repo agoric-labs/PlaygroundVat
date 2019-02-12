@@ -139,7 +139,7 @@ export function makeWebkeyMarshal(log, hash58,
                         swissnum: swissnum
                       }
                     });
-    //log(`assigning rec ${JSON.stringify(rec)}`);
+    //console.log(`assigning rec ${JSON.stringify(rec)}`);
     val2Record.set(val, rec);
     const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
     webkey2Record.set(key, rec);
@@ -159,7 +159,7 @@ export function makeWebkeyMarshal(log, hash58,
             return null;
           }
           if (!Object.isFrozen(val)) {
-            log('asked to serialize', val, typeof val, Object.isFrozen(val));
+            console.log('asked to serialize', val, typeof val, Object.isFrozen(val));
             throw new Error(`non-frozen objects like ${val} are disabled for now`);
           }
           break;
@@ -247,13 +247,13 @@ export function makeWebkeyMarshal(log, hash58,
 
       // todo: handle this properly, by constructing a @qclass: error
       if (val instanceof Error) {
-        log('cannot yet serialize Errors correctly', val);
-        log('stack was:', val);
+        console.log('cannot yet serialize Errors correctly', val);
+        console.log('stack was:', val);
         throw new Error('cannot yet serialize Errors correctly');
       }
 
       if (canPassByCopy(val)) {
-        //log(`canPassByCopy: ${val}`);
+        //console.log(`canPassByCopy: ${val}`);
         // Purposely in-band for readability, but creates need for
         // Hilbert hotel.
         return val;
@@ -266,7 +266,7 @@ export function makeWebkeyMarshal(log, hash58,
       // identity.
 
       mustPassByPresence(val);
-      //log(`mustPassByPresence: ${val}`);
+      //console.log(`mustPassByPresence: ${val}`);
 
       // todo: we might have redundantly done an isFrozen test above, but
       // it's safer than forgetting to do it for the other cases.
@@ -300,15 +300,15 @@ export function makeWebkeyMarshal(log, hash58,
   }
 
   function unserializePresence(data) {
-    //log(`unserializePresence ${JSON.stringify(data)}`);
+    //console.log(`unserializePresence ${JSON.stringify(data)}`);
     const key = makeWebkey(data);
     if (webkey2Record.has(key)) {
-      //log(` found previous`);
+      //console.log(` found previous`);
       return webkey2Record.get(key).value;
     }
-    //log(` did not find previous`);
+    //console.log(` did not find previous`);
     for (let k of webkey2Record.keys()) {
-      //log(` had: ${k}`);
+      //console.log(` had: ${k}`);
     }
 
     // todo: maybe pre-generate the FarVow and stash it for quick access
@@ -404,15 +404,15 @@ export function makeWebkeyMarshal(log, hash58,
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
-    //log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
+    //console.log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
     const key = makeWebkey({vatID, swissnum});
-    //log(` with key ${key}`);
+    //console.log(` with key ${key}`);
     const rec = webkey2Record.get(key);
     if (rec) {
-      //log(` found record`);
+      //console.log(` found record`);
       return handlerOf(rec.value);
     }
-    //log(` did not find record`);
+    //console.log(` did not find record`);
     return undefined;
   }
 
@@ -426,7 +426,7 @@ export function makeWebkeyMarshal(log, hash58,
   }
 
   function registerRemoteVow(targetVatID, swissnum, val) {
-    //log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
+    //console.log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
     const rec = def({ value: val,
                       vatID: targetVatID,
                       swissnum: swissnum,
@@ -438,7 +438,7 @@ export function makeWebkeyMarshal(log, hash58,
                     });
     val2Record.set(val, rec);
     const key = JSON.stringify({vatID: targetVatID, swissnum: swissnum});
-    //log(` with key ${key}`);
+    //console.log(` with key ${key}`);
     webkey2Record.set(key, rec);
     serializer.opWhen(targetVatID, swissnum);
   }

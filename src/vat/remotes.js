@@ -49,7 +49,7 @@ export function makeRemoteForVatID(vatID, def, log, logConflict) {
 
     // evidence check: does this message come from a real member host?
     if (!members.has(evidence.fromHostID)) {
-      log(`not a member`, Array.from(members.values()), evidence.fromHostID);
+      console.log(`not a member`, Array.from(members.values()), evidence.fromHostID);
       return undefined; // todo: sulk a bit, maybe drop the connection
     }
     const fromHostID = evidence.fromHostID;
@@ -149,12 +149,12 @@ export function makeDecisionList(log, myVatID, isLeader, followers,
 
     // add to the queue if not already there, sort, checkDelivery
     if (isLeader) {
-      log(`I am the leader, don't tell me what to do`);
+      console.log(`I am the leader, don't tell me what to do`);
       return;
     }
 
     if (dm.toVatID !== myVatID) {
-      log(`Leader is talking to the wrong vat: I am ${myVatID}, to=${dm.toVatID}`);
+      console.log(`Leader is talking to the wrong vat: I am ${myVatID}, to=${dm.toVatID}`);
       return;
     }
 
@@ -166,7 +166,7 @@ export function makeDecisionList(log, myVatID, isLeader, followers,
     for (let d in decisionList) {
       if (d.decisionSeqnum === dm.decisionSeqnum) {
         if (d.vatMessageID !== dm.vatMessageID) {
-          log(`leader equivocated, says ${JSON.stringify(dm)} but previously said ${JSON.stringify(d)}`);
+          console.log(`leader equivocated, says ${JSON.stringify(dm)} but previously said ${JSON.stringify(d)}`);
           return;
         }
         // otherwise it is a duplicate, so ignore it
@@ -259,7 +259,7 @@ export function makeRemoteManager(myVatID, myHostID, comms,
         copy.opMsg.value = JSON.parse(copy.opMsg.valueS);
         delete copy.opMsg.valueS;
       }
-      log('DELIVER', fromVatID, JSON.stringify(copy, null, 2));
+      console.log('DELIVER', fromVatID, JSON.stringify(copy, null, 2));
     }
 
     managerWriteInput(fromVatID, wireMessage);
@@ -268,7 +268,7 @@ export function makeRemoteManager(myVatID, myHostID, comms,
   }
 
   function commsReceived(fromHostID, wireMessage) {
-    //log(`commsReceived ${fromHostID}, ${wireMessage}`);
+    //console.log(`commsReceived ${fromHostID}, ${wireMessage}`);
     const hr = getHostRemote(fromHostID);
     // 'wireMessage' is one of:
     // * op JSON(vatMessage)
@@ -292,14 +292,14 @@ export function makeRemoteManager(myVatID, myHostID, comms,
       // ready, so receipt of this host message cannot trigger any deliveries
     } else if (wireMessage.startsWith(DECIDE)) {
       if (fromHostID !== leaderHostID) {
-        log(`got DECIDE from ${fromHostID} but my leader is ${leaderHostID}, ignoring`);
+        console.log(`got DECIDE from ${fromHostID} but my leader is ${leaderHostID}, ignoring`);
         // todo: drop connection
         return;
       }
       const decisionMessage = JSON.parse(wireMessage.slice(DECIDE.length));
       dl.addDecision(decisionMessage);
     } else {
-      log(`unrecognized wireMessage: ${wireMessage}`);
+      console.log(`unrecognized wireMessage: ${wireMessage}`);
       // todo: drop this connection
       return;
     }
@@ -338,9 +338,9 @@ export function makeRemoteManager(myVatID, myHostID, comms,
         copy.opMsg.value = JSON.parse(copy.opMsg.valueS);
         delete copy.opMsg.valueS;
       }
-      log('SEND', JSON.stringify(copy, null, 2));
+      console.log('SEND', JSON.stringify(copy, null, 2));
     }
-    //log(`sendTo ${vatID} [${seqnum}] ${wireMessage}`);
+    //console.log(`sendTo ${vatID} [${seqnum}] ${wireMessage}`);
     managerWriteOutput(wireMessage);
 
     for (let hostID of vatRemote.hostIDs) {
