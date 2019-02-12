@@ -7,24 +7,24 @@ const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
 const o = {
   increment() {
     count += 1;
-    log(`count is now ${count}`);
+    console.log(`count is now ${count}`);
     return count;
   },
 
   decrement() {
     count -= 1;
-    log(`count is now ${count}`);
+    console.log(`count is now ${count}`);
     return count;
   },
 
   doCall() {
-    log(`doing call`);
+    console.log(`doing call`);
     ext.e.foo('arg1', 'arg2');
-    log(`did call`);
+    console.log(`did call`);
   },
 
-  //log('i am here');
-  //log('i got here');
+  //console.log('i am here');
+  //console.log('i got here');
 
   returnValue(value) {
     return value;
@@ -32,23 +32,23 @@ const o = {
 
   send(target) {
     Vow.resolve(target).e.respond('arg1', 'arg2')
-      .then(res => log(`send response was ${res}`));
+      .then(res => console.log(`send response was ${res}`));
   },
 
   respond(...args) {
-    log(`responding, ${args}`);
+    console.log(`responding, ${args}`);
     return 'my response';
   },
 
   wait() {
-    //log('in wait');
+    //console.log('in wait');
     return p1;
   },
 
   fire(arg) {
-    //log('in fire');
+    //console.log('in fire');
     resolver1(arg);
-    //log(' ran resolver');
+    //console.log(' ran resolver');
   },
 };
 

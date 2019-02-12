@@ -1,4 +1,4 @@
-/*global log Vow Flow def Nat*/
+/*global Vow Flow def Nat*/
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -28,7 +28,7 @@ export default function(argv) {
     const mint = function(initialBalance, name) {
       const purse = def({
         getBalance: function() { 
-          log(`getBalance`, ledger.get(purse));
+          console.log(`getBalance`, ledger.get(purse));
           return ledger.get(purse);
         },
         getIssuer() { return issuer; },
@@ -36,9 +36,9 @@ export default function(argv) {
           amount = Nat(amount);
           debugCounter += 1;
           const c = debugCounter;
-          log(`deposit[${name}]#${c}: bal=${ledger.get(purse)} amt=${amount}`);
+          console.log(`deposit[${name}]#${c}: bal=${ledger.get(purse)} amt=${amount}`);
           return Vow.resolve(srcP).then(src => {
-            log(` dep[${name}]#${c} (post-P): bal=${ledger.get(purse)} amt=${amount}`);
+            console.log(` dep[${name}]#${c} (post-P): bal=${ledger.get(purse)} amt=${amount}`);
             const myOldBal = Nat(ledger.get(purse));
             const srcOldBal = Nat(ledger.get(src));
             Nat(myOldBal + amount);

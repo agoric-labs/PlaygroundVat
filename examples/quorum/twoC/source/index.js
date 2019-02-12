@@ -5,7 +5,7 @@ export default function(argv) {
   Vow.resolve(argv.three).e.helloThree("we say hi y'all");
   return {
     helloTwo(msg) {
-      log('++ helloTwo', msg);
+      console.log('++ helloTwo', msg);
       one.e.responseFromTwo('we respond');
     },
   };

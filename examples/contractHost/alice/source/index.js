@@ -46,7 +46,7 @@ export default function(argv) {
     init,
     payBobWell: function() {
       if (!initialized) {
-        log('++ ERR: payBobWell called before init()');
+        console.log('++ ERR: payBobWell called before init()');
       }
       const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
       const ackP = paymentP.e.deposit(10, myMoneyPurseP);
@@ -54,14 +54,14 @@ export default function(argv) {
     },
     payBobBadly1: function() {
       if (!initialized) {
-        log('++ ERR: payBobBadly1 called before init()');
+        console.log('++ ERR: payBobBadly1 called before init()');
       }
       const payment = def({ deposit: function(amount, src) {} });
       return bobP.e.buy('shoe', payment);
     },
     payBobBadly2: function() {
       if (!initialized) {
-        log('++ ERR: payBobBadly2 called before init()');
+        console.log('++ ERR: payBobBadly2 called before init()');
       }
       const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
       const ackP = paymentP.e.deposit(5, myMoneyPurseP);
@@ -70,7 +70,7 @@ export default function(argv) {
 
     tradeWell: function() {
       if (!initialized) {
-        log('++ ERR: tradeWell called before init()');
+        console.log('++ ERR: tradeWell called before init()');
       }
       const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
@@ -81,7 +81,7 @@ export default function(argv) {
 
     invite: function(tokenP, allegedSrc, allegedSide) {
       if (!initialized) {
-        log('++ ERR: invite called before init()');
+        console.log('++ ERR: invite called before init()');
       }
 
       check(allegedSrc, allegedSide);

@@ -52,7 +52,7 @@ export default function(argv) {
      */
     buy: function(desc, paymentP) {
       if (!initialized) {
-        log('++ ERR: buy called before init()');
+        console.log('++ ERR: buy called before init()');
       }
       let amount;
       let good;
@@ -72,9 +72,9 @@ export default function(argv) {
     },
 
     tradeWell: function(bobLies=false) {
-      log('++ bob.tradeWell starting');
+      console.log('++ bob.tradeWell starting');
       if (!initialized) {
-        log('++ ERR: tradeWell called before init()');
+        console.log('++ ERR: tradeWell called before init()');
       }
       const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
@@ -87,8 +87,8 @@ export default function(argv) {
                                              escrowSrcWeTellAlice, 0),
                              Vow.resolve(bob).e.invite(bobTokenP,
                                                        escrowSrc, 1)]);
-      doneP.then(res => log('++ bob.tradeWell done'),
-                 rej => log('++ bob.tradeWell reject', rej));
+      doneP.then(res => console.log('++ bob.tradeWell done'),
+                 rej => console.log('++ bob.tradeWell reject', rej));
       return doneP;
     },
 
@@ -99,11 +99,11 @@ export default function(argv) {
      */
     invite: function(tokenP, allegedSrc, allegedSide) {
       if (!initialized) {
-        log('++ ERR: invite called before init()');
+        console.log('++ ERR: invite called before init()');
       }
-      log('++ bob.invite start');
+      console.log('++ bob.invite start');
       check(allegedSrc, allegedSide);
-      log('++ bob.invite passed check');
+      console.log('++ bob.invite passed check');
       let cancel;
       const b = def({
         stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
@@ -114,16 +114,16 @@ export default function(argv) {
       const ackP = b.stockSrcP.e.deposit(7, myStockPurseP);
 
       const doneP = ackP.then(_ => {
-        log('++ bob.invite ackP');
+        console.log('++ bob.invite ackP');
         return contractHostP.e.play(tokenP, allegedSrc, allegedSide, b);
       });
       return doneP.then(
         _ => {
-          log('++ bob.invite doneP');
+          console.log('++ bob.invite doneP');
           return b.moneyDstP.e.getBalance();
         },
         rej => {
-          log('++ bob.invite doneP reject', rej);
+          console.log('++ bob.invite doneP reject', rej);
         });
     }
   });
