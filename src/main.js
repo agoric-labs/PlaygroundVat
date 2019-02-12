@@ -33,9 +33,17 @@ export function makeRealm() {
 
 export async function bundleCode(filename, appendSourcemap) {
   const guestBundle = await rollup({ input: filename, treeshake: false });
-  let { code: source, map: sourceMap } = await guestBundle.generate({ format: 'cjs',
-                                                                      sourcemap: appendSourcemap,
-                                                                      exports: 'named'});
+  let { output } = await guestBundle.generate({ format: 'cjs',
+                                                sourcemap: appendSourcemap,
+                                                exports: 'named'});
+  // TODO: assert that output.length == 1, we aren't prepared to handle
+  // multiple chunks/assets yet
+  //for (const chunkOrAsset of output) {
+  if (output[0].isAsset) {
+    throw Error(`not expecting an asset: ${output[0].fileName}`);
+  }
+  let { code: source, map: sourceMap } = output[0];
+
   // Rollup will generate inline sourceMappingURLs for you, but only if you
   // write the output to a file. We do it manually to avoid using a tempfile.
   //await guestBundle.write({format: 'cjs', file: 'foof', sourcemap: 'inline'});
