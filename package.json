@@ -11,7 +11,7 @@
     "vat": "bin/vat"
   },
   "scripts": {
-    "test": "tape -r esm test/**/test*.js"
+    "test": "tape -r esm test/test-node-version.js && tape -r esm test/**/test*.js"
   },
   "devDependencies": {
     "esm": "^3.2.4",
