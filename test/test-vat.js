@@ -13,12 +13,12 @@ function s1() {
     return {
       increment() {
         count += 1;
-        log(`count is now ${count}`);
+        console.log(`count is now ${count}`);
         return count;
       },
       decrement() {
         count -= 1;
-        log(`count is now ${count}`);
+        console.log(`count is now ${count}`);
         return count;
       },
     };
@@ -44,14 +44,14 @@ function s2() {
       },
 
       wait() {
-        //log('in wait');
+        //console.log('in wait');
         return p1;
       },
 
       fire(arg) {
-        //log('in fire');
+        //console.log('in fire');
         resolver1(arg);
-        //log(' ran resolver');
+        //console.log(' ran resolver');
       },
     };
   };

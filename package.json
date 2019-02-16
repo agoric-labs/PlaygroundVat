@@ -14,7 +14,7 @@
     "test": "tape -r esm test/test-node-version.js && tape -r esm test/**/test*.js"
   },
   "devDependencies": {
-    "esm": "^3.2.4",
+    "esm": "^3.2.5",
     "rollup-plugin-node-resolve": "^4.0.0",
     "tape": "^4.10.0",
     "tape-promise": "^4.0.0"
