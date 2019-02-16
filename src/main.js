@@ -18,10 +18,7 @@ import { makeSwissnum } from './vat/swissCrypto';
 
 export function confineVatSource(s, source) {
   const exports = {};
-  function log(...args) {
-    console.log(...args);
-  }
-  const endow = { exports, log, console };
+  const endow = { exports, console };
   s.evaluate(source, endow);
   return exports;
 }

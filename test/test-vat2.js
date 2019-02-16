@@ -8,7 +8,7 @@ function t1_sender() {
     let answer = 'unanswered';
     Vow.resolve(argv.target).e.pleaseRespond('marco')
       .then(res => {
-        log(`got answer: ${res}`);
+        console.log(`got answer: ${res}`);
         answer = res;
       });
     return {
@@ -23,7 +23,7 @@ function t1_responder() {
     return {
       pleaseRespond(arg) {
         called = true;
-        log(`pleaseRespond called with ${arg}`);
+        console.log(`pleaseRespond called with ${arg}`);
         return `${arg}-polo`;
       },
       getCalled() { return called; },
@@ -120,10 +120,10 @@ function t2_responder() {
     let answer = 'not yet';
     return {
       pleaseWait(arg) {
-        log(`pleaseWait called with ${arg}`);
+        console.log(`pleaseWait called with ${arg}`);
         called = true;
         Vow.resolve(arg).then(res => {
-          log(`resolved`);
+          console.log(`resolved`);
           answer = res;
         });
       },
@@ -249,7 +249,7 @@ function t3_two() {
     let r;
     const vtwo = new Flow().makeVow(res => r = res);
     return {
-      getVow(arg) { log('getVow'); return vtwo; },
+      getVow(arg) { console.log('getVow'); return vtwo; },
       fire(arg) { r(arg); },
     };
   };
@@ -426,7 +426,7 @@ function t4_two() {
     const vtwo = new Flow().makeVow(res => r = res);
     const presence = {};
     return {
-      getVow(arg) { log('getVow'); return vtwo; },
+      getVow(arg) { console.log('getVow'); return vtwo; },
       getPresence() { return presence; },
       fire(arg) { r(arg); },
     };
@@ -595,9 +595,9 @@ function t5_alice() {
   exports.default = function(argv) {
     let aliceDone = false;
     const v1 = new Flow().makeVow(_ => null);
-    log('alice sends to bob');
+    console.log('alice sends to bob');
     Vow.resolve(argv.bob).e.send1(v1); // got1
-    log('alice sent to bob');
+    console.log('alice sent to bob');
   };
 }
 

@@ -15,7 +15,7 @@ test('marshal', async (t) => {
 
   function helpers() {
     function serializer(x) {
-      log(x);
+      console.log(x);
     }
     const ref1 = { a() { return 1; } };
     const val = {

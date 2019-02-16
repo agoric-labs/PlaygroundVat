@@ -1,7 +1,7 @@
-// this file is evaluated in the SES realm and defines the Vat. It gets two
-// endowments: 'module' (used to export everything) and 'log' (which wraps
-// console.log). Both of these come from the primal realm, so they must not
-// be exposed to guest code.
+// this file is evaluated in the SES realm and defines the Vat. It gets one
+// endowments: 'module' (used to export everything). This comes from the
+// primal realm, so it must not be exposed to guest code.
+// TODO: I'm not sure that comment is correct anymore -warner
 
 import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
@@ -14,10 +14,7 @@ function confineGuestSource(source, endowments) {
   endowments = endowments || {};
   const exports = {};
   const module = { exports };
-  function guestLog(...args) {
-    log(...args);
-  }
-  const endow = { module, exports, log: guestLog, console };
+  const endow = { module, exports };
   if (endowments) {
     Object.defineProperties(endow,
                             Object.getOwnPropertyDescriptors(endowments));
