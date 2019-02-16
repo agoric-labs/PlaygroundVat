@@ -8,4 +8,4 @@ RUN npm install
 
 WORKDIR /usr/src/app/examples/quorum/
 
-# CMD [ "/usr/src/app/examples/quorum/start.sh" ]
+ENV PATH=/usr/src/app/bin:$PATH
