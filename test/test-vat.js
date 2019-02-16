@@ -58,10 +58,9 @@ function s2() {
 }
 
 test('confineVatSource', (t) => {
-  console.log(`SOURCE: ${s1}`);
   const s = SES.makeSESRootRealm();
   const s1code = funcToSource(s1);
-  console.log(`source: ${s1code}`);
+  //console.log(`source: ${s1code}`);
   const e = confineVatSource(s, `${s1code}`).default();
   t.equal(e.increment(), 1);
   t.equal(e.increment(), 2);
