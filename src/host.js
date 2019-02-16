@@ -41,7 +41,7 @@ export function makeVatEndowments(s, output, comms) {
     },
   };
 
-  function build(power, log) {
+  function build(power) {
     function eventually(f) {
       Promise.resolve().then(_ => f());
     }
@@ -96,10 +96,7 @@ export function makeVatEndowments(s, output, comms) {
     });
   }
 
-  function log(...args) {
-    console.log(...args);
-  }
-  return s.evaluate(`(${build})`)(power, log);
+  return s.evaluate(`(${build})`)(power);
 }
 
 export function readAndHashFile(fn) {
