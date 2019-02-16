@@ -1,6 +1,6 @@
 #!/bin/sh
 
-export VAT=../../bin/vat
+export VAT="${VAT:-../../bin/vat}"
 # todo: only mkdir this if it doesn't exist yet
 mkdir out
 
