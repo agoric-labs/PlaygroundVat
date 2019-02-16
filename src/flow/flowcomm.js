@@ -1,4 +1,4 @@
-// A simple comm systme using Flows for ordering
+// A simple comm system using Flows for ordering
 'use strict';
 
 import { insist, insistFn } from '../insist';
