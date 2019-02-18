@@ -1,33 +1,33 @@
-
 export function makeResolutionNotifier(myVatID, opResolve) {
   const resolutionNotifiers = new WeakMap(); // vow -> { swissnum, Set(vatID) }
 
-  let nurCount = 60;
+  const nurCount = 60;
   function notifyUponResolution(value, targetVatID, swissnum) {
-    //console.log(`notifyUponResolution for my ${myVatID} ${swissnum} to ${targetVatID}`);
+    // console.log(`notifyUponResolution for my ${myVatID} ${swissnum} to ${targetVatID}`);
     if (targetVatID === null) {
       return;
     }
 
     function notify(id, swissnum, result) {
-      //console.log('  to', id, swissnum);
+      // console.log('  to', id, swissnum);
       opResolve(id, swissnum, result);
     }
 
     if (!resolutionNotifiers.has(value)) {
-      //let c = `${myVatID}-${nurCount++}`;
-      //console.log(' nUR adding', c);
-      const rec = { followers: new Set(),
-                    resolved: false,
-                    //c,
-                  };
+      // let c = `${myVatID}-${nurCount++}`;
+      // console.log(' nUR adding', c);
+      const rec = {
+        followers: new Set(),
+        resolved: false,
+        // c,
+      };
       resolutionNotifiers.set(value, rec);
       function done(result) {
         rec.resolved = true;
         // todo: there's probably a race here, if somehow opResolve reenters
         // into notifyUponResolution and adds a new follower. Unlikely but
         // untidy.
-        for (let id of rec.followers) {
+        for (const id of rec.followers) {
           // TODO: notification order depends upon Set iteration, will this
           // cause nondeterminism? OTOH, these messages are strictly sent to
           // different vats, so it isn't observable by a single outside vat

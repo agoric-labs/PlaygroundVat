@@ -28,7 +28,7 @@ function canPassByCopy(val) {
     return false;
   }
   const names = Object.getOwnPropertyNames(val);
-  for (let name of names) {
+  for (const name of names) {
     if (typeof val[name] === 'function') {
       return false;
     }
@@ -45,20 +45,23 @@ function canPassByCopy(val) {
   return true;
 }
 
-function mustPassByPresence(val) { // throws exception if cannot
+function mustPassByPresence(val) {
+  // throws exception if cannot
   if (!Object.isFrozen(val)) {
     throw new Error(`cannot serialize non-frozen objects like ${val}`);
   }
   if (typeof val !== 'object') {
     throw new Error(`cannot serialize non-objects like ${val}`);
   }
-  for (let name of Object.getOwnPropertyNames(val)) {
+  for (const name of Object.getOwnPropertyNames(val)) {
     if (name === 'e') {
       // hack to allow Vows to pass-by-presence
       continue;
     }
     if (typeof val[name] !== 'function') {
-      throw new Error(`cannot serialize objects with non-methods like the .${name} in ${val}`);
+      throw new Error(
+        `cannot serialize objects with non-methods like the .${name} in ${val}`,
+      );
       return false;
     }
   }
@@ -69,16 +72,21 @@ function mustPassByPresence(val) { // throws exception if cannot
   // ok!
 }
 
-
 // Special property name that indicates an encoding that needs special
 // decoding.
 const QCLASS = '@qclass';
 
-export function makeWebkeyMarshal(hash58,
-                                  Vow, isVow, Flow,
-                                  makePresence, makeUnresolvedRemoteVow,
-                                  myVatID, myVatSecret, serializer) {
-
+export function makeWebkeyMarshal(
+  hash58,
+  Vow,
+  isVow,
+  Flow,
+  makePresence,
+  makeUnresolvedRemoteVow,
+  myVatID,
+  myVatSecret,
+  serializer,
+) {
   // val might be a primitive, a pass by (shallow) copy object, a
   // remote reference, or other.  We treat all other as a local object
   // to be exported as a local webkey.
@@ -92,7 +100,7 @@ export function makeWebkeyMarshal(hash58,
 
   function makeWebkey(data) {
     // todo: use a cheaper (but still safe/reversible) combiner
-    return JSON.stringify({vatID: data.vatID, swissnum: data.swissnum});
+    return JSON.stringify({ vatID: data.vatID, swissnum: data.swissnum });
   }
 
   // Record: { value, vatID, swissnum, serialized }
@@ -111,7 +119,7 @@ export function makeWebkeyMarshal(hash58,
     return makeSwissbase(myVatSecret, swissCounter, hash58);
   }
 
-  function serializePassByPresence(val, resolutionOf, swissnum=undefined) {
+  function serializePassByPresence(val, resolutionOf, swissnum = undefined) {
     // we are responsible for new serialization of pass-by-presence objects
 
     let type;
@@ -130,18 +138,19 @@ export function makeWebkeyMarshal(hash58,
       swissnum = allocateSwissnum();
     }
 
-    const rec = def({ value: val,
-                      vatID: myVatID,
-                      swissnum: swissnum,
-                      serialized: {
-                        [QCLASS]: type,
-                        vatID: myVatID,
-                        swissnum: swissnum
-                      }
-                    });
-    //console.log(`assigning rec ${JSON.stringify(rec)}`);
+    const rec = def({
+      value: val,
+      vatID: myVatID,
+      swissnum,
+      serialized: {
+        [QCLASS]: type,
+        vatID: myVatID,
+        swissnum,
+      },
+    });
+    // console.log(`assigning rec ${JSON.stringify(rec)}`);
     val2Record.set(val, rec);
-    const key = JSON.stringify({vatID: myVatID, swissnum: swissnum});
+    const key = JSON.stringify({ vatID: myVatID, swissnum });
     webkey2Record.set(key, rec);
     return rec;
   }
@@ -159,8 +168,15 @@ export function makeWebkeyMarshal(hash58,
             return null;
           }
           if (!Object.isFrozen(val)) {
-            console.log('asked to serialize', val, typeof val, Object.isFrozen(val));
-            throw new Error(`non-frozen objects like ${val} are disabled for now`);
+            console.log(
+              'asked to serialize',
+              val,
+              typeof val,
+              Object.isFrozen(val),
+            );
+            throw new Error(
+              `non-frozen objects like ${val} are disabled for now`,
+            );
           }
           break;
         }
@@ -168,7 +184,7 @@ export function makeWebkeyMarshal(hash58,
           throw new Error(`bare functions like ${val} are disabled for now`);
         }
         case 'undefined': {
-          return def({[QCLASS]: 'undefined'});
+          return def({ [QCLASS]: 'undefined' });
         }
         case 'string':
         case 'boolean': {
@@ -176,16 +192,16 @@ export function makeWebkeyMarshal(hash58,
         }
         case 'number': {
           if (Number.isNaN(val)) {
-            return def({[QCLASS]: 'NaN'});
+            return def({ [QCLASS]: 'NaN' });
           }
           if (Object.is(val, -0)) {
-            return def({[QCLASS]: '-0'});
+            return def({ [QCLASS]: '-0' });
           }
           if (val === Infinity) {
-            return def({[QCLASS]: 'Infinity'});
+            return def({ [QCLASS]: 'Infinity' });
           }
           if (val === -Infinity) {
-            return def({[QCLASS]: '-Infinity'});
+            return def({ [QCLASS]: '-Infinity' });
           }
           return val;
         }
@@ -197,13 +213,13 @@ export function makeWebkeyMarshal(hash58,
           }
           return def({
             [QCLASS]: 'symbol',
-            key: opt_key
+            key: opt_key,
           });
         }
         case 'bigint': {
           return def({
             [QCLASS]: 'bigint',
-            digits: String(val)
+            digits: String(val),
           });
         }
         default: {
@@ -229,7 +245,7 @@ export function makeWebkeyMarshal(hash58,
         // Backreference to prior occurrence
         return def({
           [QCLASS]: 'ibid',
-          index: ibidMap.get(val)
+          index: ibidMap.get(val),
         });
       }
       ibidMap.set(val, ibidCount);
@@ -253,7 +269,7 @@ export function makeWebkeyMarshal(hash58,
       }
 
       if (canPassByCopy(val)) {
-        //console.log(`canPassByCopy: ${val}`);
+        // console.log(`canPassByCopy: ${val}`);
         // Purposely in-band for readability, but creates need for
         // Hilbert hotel.
         return val;
@@ -266,7 +282,7 @@ export function makeWebkeyMarshal(hash58,
       // identity.
 
       mustPassByPresence(val);
-      //console.log(`mustPassByPresence: ${val}`);
+      // console.log(`mustPassByPresence: ${val}`);
 
       // todo: we might have redundantly done an isFrozen test above, but
       // it's safer than forgetting to do it for the other cases.
@@ -282,8 +298,7 @@ export function makeWebkeyMarshal(hash58,
 
   function parseSturdyref(sturdyref) {
     const parts = sturdyref.split('/');
-    return { vatID: parts[0],
-             swissnum: parts[1] };
+    return { vatID: parts[0], swissnum: parts[1] };
   }
 
   function createPresence(sturdyref) {
@@ -291,8 +306,8 @@ export function makeWebkeyMarshal(hash58,
     const { vatID, swissnum } = parseSturdyref(sturdyref);
     const serialized = {
       [QCLASS]: 'presence',
-      vatID: vatID,
-      swissnum: swissnum
+      vatID,
+      swissnum,
     };
     // this creates the Presence, and also stores it into the tables, so we
     // can send it back out again later
@@ -300,23 +315,25 @@ export function makeWebkeyMarshal(hash58,
   }
 
   function unserializePresence(data) {
-    //console.log(`unserializePresence ${JSON.stringify(data)}`);
+    // console.log(`unserializePresence ${JSON.stringify(data)}`);
     const key = makeWebkey(data);
     if (webkey2Record.has(key)) {
-      //console.log(` found previous`);
+      // console.log(` found previous`);
       return webkey2Record.get(key).value;
     }
-    //console.log(` did not find previous`);
-    for (let k of webkey2Record.keys()) {
-      //console.log(` had: ${k}`);
+    // console.log(` did not find previous`);
+    for (const k of webkey2Record.keys()) {
+      // console.log(` had: ${k}`);
     }
 
     // todo: maybe pre-generate the FarVow and stash it for quick access
     const p = makePresence(serializer, data.vatID, data.swissnum);
-    const rec = def({ value: p,
-                      vatID: data.vatID,
-                      swissnum: data.swissnum,
-                      serialized: data });
+    const rec = def({
+      value: p,
+      vatID: data.vatID,
+      swissnum: data.swissnum,
+      serialized: data,
+    });
     val2Record.set(p, rec);
     webkey2Record.set(key, rec);
     return p;
@@ -328,10 +345,12 @@ export function makeWebkeyMarshal(hash58,
       return webkey2Record.get(key).value;
     }
     const v = makeUnresolvedRemoteVow(serializer, data.vatID, data.swissnum);
-    const rec = def({ value: v,
-                      vatID: data.vatID,
-                      swissnum: data.swissnum,
-                      serialized: data });
+    const rec = def({
+      value: v,
+      vatID: data.vatID,
+      swissnum: data.swissnum,
+      serialized: data,
+    });
     val2Record.set(v, rec);
     webkey2Record.set(key, rec);
     serializer.opWhen(data.vatID, data.swissnum);
@@ -350,13 +369,27 @@ export function makeWebkeyMarshal(hash58,
         const qclass = `${data[QCLASS]}`;
         switch (qclass) {
           // Encoding of primitives not handled by JSON
-          case 'undefined': { return undefined; }
-          case '-0': { return -0; }
-          case 'NaN': { return NaN; }
-          case 'Infinity': { return Infinity; }
-          case '-Infinity': { return -Infinity; }
-          case 'symbol': { return Symbol.for(data.key); }
-          case 'bigint': { return BigInt(data.digits); }
+          case 'undefined': {
+            return undefined;
+          }
+          case '-0': {
+            return -0;
+          }
+          case 'NaN': {
+            return NaN;
+          }
+          case 'Infinity': {
+            return Infinity;
+          }
+          case '-Infinity': {
+            return -Infinity;
+          }
+          case 'symbol': {
+            return Symbol.for(data.key);
+          }
+          case 'bigint': {
+            return BigInt(data.digits);
+          }
 
           case 'ibid': {
             throw new Error('ibid disabled for now');
@@ -384,7 +417,6 @@ export function makeWebkeyMarshal(hash58,
       } else {
         // The unserialized copy also becomes pass-by-copy, but we don't need
         // to mark it specially
-
         // todo: what if the unserializer is given "{}"?
       }
       // The ibids case returned early to avoid this.
@@ -404,20 +436,20 @@ export function makeWebkeyMarshal(hash58,
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
-    //console.log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
-    const key = makeWebkey({vatID, swissnum});
-    //console.log(` with key ${key}`);
+    // console.log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
+    const key = makeWebkey({ vatID, swissnum });
+    // console.log(` with key ${key}`);
     const rec = webkey2Record.get(key);
     if (rec) {
-      //console.log(` found record`);
+      // console.log(` found record`);
       return handlerOf(rec.value);
     }
-    //console.log(` did not find record`);
+    // console.log(` did not find record`);
     return undefined;
   }
 
   function getMyTargetBySwissnum(swissnum) {
-    const key = makeWebkey({vatID: myVatID, swissnum});
+    const key = makeWebkey({ vatID: myVatID, swissnum });
     const rec = webkey2Record.get(key);
     if (rec) {
       return rec.value;
@@ -426,24 +458,32 @@ export function makeWebkeyMarshal(hash58,
   }
 
   function registerRemoteVow(targetVatID, swissnum, val) {
-    //console.log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
-    const rec = def({ value: val,
-                      vatID: targetVatID,
-                      swissnum: swissnum,
-                      serialized: {
-                        [QCLASS]: 'vow',
-                        vatID: targetVatID,
-                        swissnum: swissnum
-                      }
-                    });
+    // console.log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
+    const rec = def({
+      value: val,
+      vatID: targetVatID,
+      swissnum,
+      serialized: {
+        [QCLASS]: 'vow',
+        vatID: targetVatID,
+        swissnum,
+      },
+    });
     val2Record.set(val, rec);
-    const key = JSON.stringify({vatID: targetVatID, swissnum: swissnum});
-    //console.log(` with key ${key}`);
+    const key = JSON.stringify({ vatID: targetVatID, swissnum });
+    // console.log(` with key ${key}`);
     webkey2Record.set(key, rec);
     serializer.opWhen(targetVatID, swissnum);
   }
 
-  return def({serialize, unserialize,
-              allocateSwissStuff, registerRemoteVow, getMyTargetBySwissnum,
-              registerTarget, getOutboundResolver, createPresence});
+  return def({
+    serialize,
+    unserialize,
+    allocateSwissStuff,
+    registerRemoteVow,
+    getMyTargetBySwissnum,
+    registerTarget,
+    getOutboundResolver,
+    createPresence,
+  });
 }

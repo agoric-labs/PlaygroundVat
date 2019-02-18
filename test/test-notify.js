@@ -4,13 +4,15 @@ import { makeResolutionNotifier } from '../src/vat/notifyUponResolution';
 
 function make() {
   let r;
-  const v = new Flow().makeVow((res,rej) => r= res);
+  const v = new Flow().makeVow((res, rej) => (r = res));
   return { v, r };
 }
 
-test('notify unresolved', async (t) => {
+test('notify unresolved', async t => {
   const resolves = [];
-  function opResolve(...args) { resolves.push(args); }
+  function opResolve(...args) {
+    resolves.push(args);
+  }
   const n = makeResolutionNotifier('myVat', opResolve);
   // unresolved Vow: register for notification later
   const v1 = make();
@@ -35,9 +37,11 @@ test('notify unresolved', async (t) => {
   t.end();
 });
 
-test('notify already resolved', async (t) => {
+test('notify already resolved', async t => {
   const resolves = [];
-  function opResolve(...args) { resolves.push(args); }
+  function opResolve(...args) {
+    resolves.push(args);
+  }
   const n = makeResolutionNotifier('myVat', opResolve);
   // unresolved Vow: register for notification later
   const v1 = make();
@@ -61,9 +65,11 @@ test('notify already resolved', async (t) => {
   t.end();
 });
 
-test('notify two followers', async (t) => {
+test('notify two followers', async t => {
   const resolves = [];
-  function opResolve(...args) { resolves.push(args); }
+  function opResolve(...args) {
+    resolves.push(args);
+  }
   const n = makeResolutionNotifier('myVat', opResolve);
   // unresolved Vow: register for notification later
   const v1 = make();
@@ -81,10 +87,12 @@ test('notify two followers', async (t) => {
     if (a > b) return 1;
     return 0;
   }
-  resolves.sort((a,b) => cmp(a[0], b[0]));
+  resolves.sort((a, b) => cmp(a[0], b[0]));
 
-  t.deepEqual(resolves, [['target1', 'swiss1', 'result1'],
-                         ['target2', 'swiss1', 'result1']]);
+  t.deepEqual(resolves, [
+    ['target1', 'swiss1', 'result1'],
+    ['target2', 'swiss1', 'result1'],
+  ]);
 
   t.end();
 });

@@ -24,18 +24,20 @@ export function confineVatSource(s, source) {
 }
 
 export function makeRealm() {
-  const s = SES.makeSESRootRealm({consoleMode: 'allow'});
+  const s = SES.makeSESRootRealm({ consoleMode: 'allow' });
   return s;
 }
 
 export async function bundleCode(filename, appendSourcemap) {
   const guestBundle = await rollup({ input: filename, treeshake: false });
-  let { output } = await guestBundle.generate({ format: 'cjs',
-                                                sourcemap: appendSourcemap,
-                                                exports: 'named'});
+  const { output } = await guestBundle.generate({
+    format: 'cjs',
+    sourcemap: appendSourcemap,
+    exports: 'named',
+  });
   // TODO: assert that output.length == 1, we aren't prepared to handle
   // multiple chunks/assets yet
-  //for (const chunkOrAsset of output) {
+  // for (const chunkOrAsset of output) {
   if (output[0].isAsset) {
     throw Error(`not expecting an asset: ${output[0].fileName}`);
   }
@@ -43,19 +45,25 @@ export async function bundleCode(filename, appendSourcemap) {
 
   // Rollup will generate inline sourceMappingURLs for you, but only if you
   // write the output to a file. We do it manually to avoid using a tempfile.
-  //await guestBundle.write({format: 'cjs', file: 'foof', sourcemap: 'inline'});
+  // await guestBundle.write({format: 'cjs', file: 'foof', sourcemap: 'inline'});
   if (appendSourcemap) {
-    //console.log(`sourceMap is: ${JSON.stringify(sourceMap, undefined, ' ')}`);
-    //console.log(`typeof sourceMap is: ${typeof sourceMap}`);
+    // console.log(`sourceMap is: ${JSON.stringify(sourceMap, undefined, ' ')}`);
+    // console.log(`typeof sourceMap is: ${typeof sourceMap}`);
     const body = Buffer.from(JSON.stringify(sourceMap)).toString('base64');
     const dataURL = `data:application/json;charset=utf-8;base64,${body}`;
-    source += '\n//# sourceMappingURL=' + dataURL + '\n';
+    source += `\n//# sourceMappingURL=${dataURL}\n`;
   }
   return source;
 }
 
-export async function buildVat(s, myVatID, myVatSecret, myHostID, vatEndowments, guestSource) {
-
+export async function buildVat(
+  s,
+  myVatID,
+  myVatSecret,
+  myHostID,
+  vatEndowments,
+  guestSource,
+) {
   // This needs to read the contents of vat.js, as a string. SES manages this
   // by putting all the code (as ES6 modules) in a directory named bundle/ ,
   // then the build process uses 'rollup' and some small editing to merge it
@@ -67,9 +75,9 @@ export async function buildVat(s, myVatID, myVatSecret, myHostID, vatEndowments,
   // ugly.
 
   const vatSource = await bundleCode(require.resolve('./vat'));
-  //console.log(`vatSource: ${vatSource}`);
+  // console.log(`vatSource: ${vatSource}`);
 
-  //const vatSource = fs.readFileSync(require.resolve('./vat.js'));
+  // const vatSource = fs.readFileSync(require.resolve('./vat.js'));
   const { makeVat } = confineVatSource(s, vatSource);
 
   return makeVat(vatEndowments, myVatID, myVatSecret, myHostID, guestSource);
@@ -87,7 +95,7 @@ async function create(argv) {
 
   // generate a random vatSecret, unrelated to the per-host privateID
   // quorum vats must share a vatSecret
-  const myVatSecret = hash58(crypto.randomBytes(128/8));
+  const myVatSecret = hash58(crypto.randomBytes(128 / 8));
   f = await fs.promises.open(path.join(basedir, 'vat-secret'), 'w');
   await f.appendFile(`${myVatSecret}\n`);
   await f.close();
@@ -146,11 +154,16 @@ export async function convertToQuorum(argv) {
     throw new Error(`this is a solo vat id, not quorum: ${quorumVatID}`);
   }
   if (p.threshold > p.members.size) {
-    throw new Error(`unachievable quorum: threshold is ${p.threshold} but there are only ${p.members.size} members`);
+    throw new Error(
+      `unachievable quorum: threshold is ${p.threshold} but there are only ${
+        p.members.size
+      } members`,
+    );
   }
   async function readBaseLine(fn) {
-    const c = await fs.promises.readFile(path.join(basedir, fn),
-                                         { encoding: 'utf-8' });
+    const c = await fs.promises.readFile(path.join(basedir, fn), {
+      encoding: 'utf-8',
+    });
     return c.slice(0, c.indexOf('\n'));
   }
   const myVatID = await readBaseLine('id');
@@ -159,7 +172,9 @@ export async function convertToQuorum(argv) {
     throw new Error(`I am already a member of a quorum vat (${myVatID})`);
   }
   if (!p.members.has(myHostID)) {
-    throw new Error(`I am not a member of the new quorum vat (I am ${myHostID}, quorum vat id is ${quorumVatID})`);
+    throw new Error(
+      `I am not a member of the new quorum vat (I am ${myHostID}, quorum vat id is ${quorumVatID})`,
+    );
   }
   // todo: assert lack of input-transcript, as it will have messages for the
   // wrong vat
@@ -193,7 +208,7 @@ export async function convertToQuorum(argv) {
 export async function buildArgv(vat, argvJSON, readBaseFile, vatEndowments) {
   const argv = vat.makeEmptyObject(); // realm-side object
   const descs = JSON.parse(argvJSON);
-  for (let name of Object.getOwnPropertyNames(descs)) {
+  for (const name of Object.getOwnPropertyNames(descs)) {
     const v = descs[name];
     if ('string' in v) {
       argv[name] = v.string;
@@ -212,12 +227,19 @@ export async function buildArgv(vat, argvJSON, readBaseFile, vatEndowments) {
   return argv;
 }
 
-async function buildComms(myVatSecret, readBaseFile, readBaseLines, locatordir) {
+async function buildComms(
+  myVatSecret,
+  readBaseFile,
+  readBaseLines,
+  locatordir,
+) {
   const myPeerID_s = await readBaseFile('private-id');
-  const myPeerID = await promisify(PeerId.createFromJSON)(JSON.parse(myPeerID_s));
+  const myPeerID = await promisify(PeerId.createFromJSON)(
+    JSON.parse(myPeerID_s),
+  );
   const myPeerInfo = new PeerInfo(myPeerID);
   const ports = await readBaseLines('listen-ports');
-  for (let port of ports) {
+  for (const port of ports) {
     if (port) {
       myPeerInfo.multiaddrs.add(port);
     }
@@ -225,7 +247,7 @@ async function buildComms(myVatSecret, readBaseFile, readBaseLines, locatordir) 
 
   async function getAddressesForHostID(hostID) {
     const dirs = await fs.promises.readdir(locatordir);
-    for (let d of dirs) {
+    for (const d of dirs) {
       const idFile = path.join(locatordir, d, 'host-id');
       let f;
       try {
@@ -237,8 +259,7 @@ async function buildComms(myVatSecret, readBaseFile, readBaseLines, locatordir) 
         continue;
       }
       const id = f.split('\n')[0];
-      if (id !== hostID)
-        continue;
+      if (id !== hostID) continue;
       const portsFile = path.join(locatordir, d, 'addresses'); // todo: fake symlink
       const data = await fs.promises.readFile(portsFile, { encoding: 'utf-8' });
       const addresses = data.split('\n').filter(address => address); // remove blank lines
@@ -251,7 +272,6 @@ async function buildComms(myVatSecret, readBaseFile, readBaseLines, locatordir) 
   return await createComms(myPeerInfo, getAddressesForHostID);
 }
 
-
 async function run(argv) {
   let basedir = '.';
   if (argv.basedir) {
@@ -259,24 +279,29 @@ async function run(argv) {
     // else we must be run from a vat basedir
   }
   async function readBaseLine(fn) {
-    const c = await fs.promises.readFile(path.join(basedir, fn),
-                                         { encoding: 'utf-8' });
+    const c = await fs.promises.readFile(path.join(basedir, fn), {
+      encoding: 'utf-8',
+    });
     return c.slice(0, c.indexOf('\n'));
   }
   async function readBaseFile(fn) {
-    const c = await fs.promises.readFile(path.join(basedir, fn),
-                                         { encoding: 'utf-8' });
+    const c = await fs.promises.readFile(path.join(basedir, fn), {
+      encoding: 'utf-8',
+    });
     return c;
   }
   async function readBaseLines(fn) {
-    const c = await fs.promises.readFile(path.join(basedir, fn),
-                                         { encoding: 'utf-8' });
+    const c = await fs.promises.readFile(path.join(basedir, fn), {
+      encoding: 'utf-8',
+    });
     return c.slice(0, c.lastIndexOf('\n')).split('\n');
   }
 
   const version = await readBaseLine('vat-version');
   if (version !== '1') {
-    throw new Error(`I understand vat-version '1', but this basedir has '${version}'`);
+    throw new Error(
+      `I understand vat-version '1', but this basedir has '${version}'`,
+    );
   }
   const myVatID = await readBaseLine('id');
   console.log(`myVatID ${myVatID}`);
@@ -288,21 +313,44 @@ async function run(argv) {
   const s = makeRealm();
 
   // todo: how do we set encoding=utf-8 on an open()?
-  const output = await fs.promises.open(path.join(basedir, 'output-transcript'), 'w');
+  const output = await fs.promises.open(
+    path.join(basedir, 'output-transcript'),
+    'w',
+  );
 
   const locatordir = path.join(basedir, '..');
-  const comms = await buildComms(myVatSecret, readBaseFile, readBaseLines, locatordir);
+  const comms = await buildComms(
+    myVatSecret,
+    readBaseFile,
+    readBaseLines,
+    locatordir,
+  );
 
   const vatEndowments = makeVatEndowments(s, output, comms);
-  if (!vatEndowments instanceof s.global.Object) {
+  if (!(vatEndowments instanceof s.global.Object)) {
     throw new Error('vatEndowments must be in-Realm');
   }
   console.log('vatEndowments are', vatEndowments);
-  const guestSource = await bundleCode(path.join(basedir, 'source', 'index.js'), true);
+  const guestSource = await bundleCode(
+    path.join(basedir, 'source', 'index.js'),
+    true,
+  );
 
-  const v = await buildVat(s, myVatID, myVatSecret, myHostID, vatEndowments, guestSource);
+  const v = await buildVat(
+    s,
+    myVatID,
+    myVatSecret,
+    myHostID,
+    vatEndowments,
+    guestSource,
+  );
   const guestArgvJSON = await readBaseFile('argv.json');
-  const guestArgv = await buildArgv(v, guestArgvJSON, readBaseFile, vatEndowments);
+  const guestArgv = await buildArgv(
+    v,
+    guestArgvJSON,
+    readBaseFile,
+    vatEndowments,
+  );
 
   await v.initializeCode(rootSturdyRef, guestArgv);
   console.log(`rootSturdyRef: ${rootSturdyRef}`);
@@ -314,7 +362,7 @@ async function run(argv) {
   } catch (ex) {
     console.log(`unable to read input-transcript, ignoring (${ex})`);
   }
-  for(let op of ops) {
+  for (const op of ops) {
     // TODO: find turn boundaries, ignore all messages that might appear
     // after a turn boundary because that means we crashed while writing
     v.executeTranscriptLine(op);
@@ -328,55 +376,78 @@ async function run(argv) {
 
 export async function main() {
   yargs
-    .command('create <basedir> <addr> <port>', 'create a new Vat in BASEDIR', (yargs) => {
-      yargs
-        .positional('basedir', {
-          describe: 'directory to create, must not already exist',
-        })
-        .positional('addr', {
-          describe: 'IP addr (not hostname) to advertise in BASEDIR/addresses, start with 127.0.0.1',
-        })
-        .positional('port', {
-          describe: 'TCP port to listen on, choose something unique',
-        })
-        .coerce('addr', (addr) => {
-          if (!/^[\d\.]+$/.test(addr)) {
-            throw new Error(`addr=${addr} must be a dotted-quad numeric IP address, not a hostname`);
-          }
-          // libp2p doesn't do hostname resolution, at least not the way
-          // we're using it
-          return addr;
-        })
-      ;
-    }, (argv) => create(argv))
-    .command('run [basedir]', 'run a Vat (in current directory, or from BASEDIR)', (yargs) => {
-      yargs
-        .option('basedir', {
+    .command(
+      'create <basedir> <addr> <port>',
+      'create a new Vat in BASEDIR',
+      yargs => {
+        yargs
+          .positional('basedir', {
+            describe: 'directory to create, must not already exist',
+          })
+          .positional('addr', {
+            describe:
+              'IP addr (not hostname) to advertise in BASEDIR/addresses, start with 127.0.0.1',
+          })
+          .positional('port', {
+            describe: 'TCP port to listen on, choose something unique',
+          })
+          .coerce('addr', addr => {
+            if (!/^[\d\.]+$/.test(addr)) {
+              throw new Error(
+                `addr=${addr} must be a dotted-quad numeric IP address, not a hostname`,
+              );
+            }
+            // libp2p doesn't do hostname resolution, at least not the way
+            // we're using it
+            return addr;
+          });
+      },
+      argv => create(argv),
+    )
+    .command(
+      'run [basedir]',
+      'run a Vat (in current directory, or from BASEDIR)',
+      yargs => {
+        yargs.option('basedir', {
           describe: 'base directory, created by "vat create"',
-        })
-      ;
-    }, (argv) => run(argv))
-    .command('convert-to-quorum <vatid> <vatsecret> [basedir]', 'convert a Solo Vat (in current directory, or from BASEDIR) to the new Quorum VatID', (yargs) => {
-      yargs
-        .positional('vatid', {
-          describe: 'new Quorum VatID',
-        })
-        .coerce('vatid', (vatid) => {
-          if (!/^q(\d+)-/.test(vatid)) {
-            throw new Error(`new vatid must start with 'qNN-', but is ${vatid}`);
-          }
-          return vatid;
-        })
-        .positional('vatsecret', {
-          describe: 'Quorum Vat secret, copy from LEADERDIR/vat-secret',
-        })
-        .option('basedir', {
-          describe: 'base directory, created by "vat create"',
-        })
-      ;
-    }, (argv) => convertToQuorum(argv))
-    .command('*', false, () => {}, (argv) => {
-      console.log('no subcommand specified, try "vat create", "vat run", or "vat convert-to-quorum"');
-    })
+        });
+      },
+      argv => run(argv),
+    )
+    .command(
+      'convert-to-quorum <vatid> <vatsecret> [basedir]',
+      'convert a Solo Vat (in current directory, or from BASEDIR) to the new Quorum VatID',
+      yargs => {
+        yargs
+          .positional('vatid', {
+            describe: 'new Quorum VatID',
+          })
+          .coerce('vatid', vatid => {
+            if (!/^q(\d+)-/.test(vatid)) {
+              throw new Error(
+                `new vatid must start with 'qNN-', but is ${vatid}`,
+              );
+            }
+            return vatid;
+          })
+          .positional('vatsecret', {
+            describe: 'Quorum Vat secret, copy from LEADERDIR/vat-secret',
+          })
+          .option('basedir', {
+            describe: 'base directory, created by "vat create"',
+          });
+      },
+      argv => convertToQuorum(argv),
+    )
+    .command(
+      '*',
+      false,
+      () => {},
+      argv => {
+        console.log(
+          'no subcommand specified, try "vat create", "vat run", or "vat convert-to-quorum"',
+        );
+      },
+    )
     .parse();
 }

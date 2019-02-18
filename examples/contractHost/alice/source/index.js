@@ -1,4 +1,4 @@
-/*global Vow Flow def*/
+/* global Vow Flow def */
 // Copyright (C) 2013 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -44,7 +44,7 @@ export default function(argv) {
 
   const alice = def({
     init,
-    payBobWell: function() {
+    payBobWell() {
       if (!initialized) {
         console.log('++ ERR: payBobWell called before init()');
       }
@@ -52,14 +52,14 @@ export default function(argv) {
       const ackP = paymentP.e.deposit(10, myMoneyPurseP);
       return ackP.then(_ => bobP.e.buy('shoe', paymentP));
     },
-    payBobBadly1: function() {
+    payBobBadly1() {
       if (!initialized) {
         console.log('++ ERR: payBobBadly1 called before init()');
       }
-      const payment = def({ deposit: function(amount, src) {} });
+      const payment = def({ deposit(amount, src) {} });
       return bobP.e.buy('shoe', payment);
     },
-    payBobBadly2: function() {
+    payBobBadly2() {
       if (!initialized) {
         console.log('++ ERR: payBobBadly2 called before init()');
       }
@@ -68,18 +68,18 @@ export default function(argv) {
       return ackP.then(_ => bobP.e.buy('shoe', paymentP));
     },
 
-    tradeWell: function() {
+    tradeWell() {
       if (!initialized) {
         console.log('++ ERR: tradeWell called before init()');
       }
       const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
-      const bobTokenP   = tokensP.then(tokens => tokens[1]);
+      const bobTokenP = tokensP.then(tokens => tokens[1]);
       Vow.resolve(bobP).e.invite(bobTokenP, escrowSrc, 1);
       return Vow.resolve(alice).e.invite(aliceTokenP, escrowSrc, 0);
     },
 
-    invite: function(tokenP, allegedSrc, allegedSide) {
+    invite(tokenP, allegedSrc, allegedSide) {
       if (!initialized) {
         console.log('++ ERR: invite called before init()');
       }
@@ -91,14 +91,17 @@ export default function(argv) {
         moneySrcP: myMoneyIssuerP.e.makeEmptyPurse('aliceMoneySrc'),
         stockDstP: myStockIssuerP.e.makeEmptyPurse('aliceStockDst'),
         stockNeeded: 7,
-        cancellationP: f.makeVow(function(r) { cancel = r; })
+        cancellationP: f.makeVow(function(r) {
+          cancel = r;
+        }),
       });
       const ackP = a.moneySrcP.e.deposit(10, myMoneyPurseP);
 
-      const doneP = ackP.then(
-        _ => contractHostP.e.play(tokenP, allegedSrc, allegedSide, a));
+      const doneP = ackP.then(_ =>
+        contractHostP.e.play(tokenP, allegedSrc, allegedSide, a),
+      );
       return doneP.then(_ => a.stockDstP.e.getBalance());
-    }
+    },
   });
   return alice;
 }

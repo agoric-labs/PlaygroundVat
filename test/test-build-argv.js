@@ -1,15 +1,20 @@
 import test from 'tape';
 import { buildArgv } from '../src/main';
 
-test('build argv', async (t) => {
+test('build argv', async t => {
   const filenames = [];
   function readBaseFile(fn) {
     filenames.push(fn);
     return 'contents of file';
   }
-  const vat = { makeEmptyObject() { return {}; },
-                createPresence(sturdyref) { return `sr: ${sturdyref}`; },
-              };
+  const vat = {
+    makeEmptyObject() {
+      return {};
+    },
+    createPresence(sturdyref) {
+      return `sr: ${sturdyref}`;
+    },
+  };
   const j1 = `{"name1": {"string": "silly"},
                "name2": {"number": 123.4},
                "name3": {"filename": "fn1"},

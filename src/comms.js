@@ -17,25 +17,26 @@ class CommsNode extends Node {
   constructor(_options) {
     const defaults = {
       modules: {
-        transport: [ TCP,
-                     WS ],
-        //streamMuxer: [ MPLEX ],
-        connEncryption: [ SECIO ],
-      }
+        transport: [TCP, WS],
+        // streamMuxer: [ MPLEX ],
+        connEncryption: [SECIO],
+      },
       // config
     };
     super(defaultsDeep(_options, defaults));
   }
 }
 
-function asp(numVals, errFirst=false) {
-  let r, rx;
+function asp(numVals, errFirst = false) {
+  let r;
+  let rx;
   const p = new Promise((resolve, reject) => {
     r = resolve;
     rx = reject;
   });
   function cb(...valsAndErr) {
-    let vals, err;
+    let vals;
+    let err;
     if (errFirst) {
       err = valsAndErr[0];
       vals = valsAndErr.slice(1);
@@ -55,47 +56,47 @@ function asp(numVals, errFirst=false) {
 async function connectTo(n, hostID, addresses, manager) {
   console.log(`connectTo(${addresses}`);
 
-  let a = asp(1, true);
+  const a = asp(1, true);
   const addr = addresses[0]; // TODO: use them all, somehow
   console.log(`dialing ${addr}`);
   n.dialProtocol(addr, '/vattp-hack/0.1', a.cb);
-  //n.dial(addr, a.cb);
+  // n.dial(addr, a.cb);
   const conn = await a.p;
-  //const conn = await promisify(n.dialProtocol)(addr, '/echo/1.0.0.0');
+  // const conn = await promisify(n.dialProtocol)(addr, '/echo/1.0.0.0');
 
   console.log(`connected: ${conn}`);
-  //console.log(`connected: ${conn} ${Object.getOwnPropertyNames(conn.conn.source).join(',')}`);
-  const pusher = Pushable(err => {console.log('done');
-                              //conn.end();
-                              //doner();
-                             });
+  // console.log(`connected: ${conn} ${Object.getOwnPropertyNames(conn.conn.source).join(',')}`);
+  const pusher = Pushable(err => {
+    console.log('done');
+    // conn.end();
+    // doner();
+  });
   const c = {
     send(msg) {
-      //console.log(`send/push ${msg}`);
+      // console.log(`send/push ${msg}`);
       pusher.push(`${msg}`);
-    }
+    },
   };
-  //pusher.end();
+  // pusher.end();
 
   pullStream(
     pusher,
     pullStream.map(line => {
-      //console.log(`sending line ${line}`);
-      return line+'\n';
+      // console.log(`sending line ${line}`);
+      return `${line}\n`;
     }),
-    conn
+    conn,
   );
 
   let doneResolver;
-  const doneP = new Promise((res, rej) => doneResolver = res);
+  const doneP = new Promise((res, rej) => (doneResolver = res));
 
   pullStream(
     conn,
     pullSplit('\n'),
     pullStream.map(line => {
-      //console.log(`got line on outbound '${line}'`);
-      if (!line)
-        return;
+      // console.log(`got line on outbound '${line}'`);
+      if (!line) return;
       manager.commsReceived(hostID, line);
     }),
     pullStream.onEnd(_ => doneResolver()),
@@ -106,8 +107,12 @@ async function connectTo(n, hostID, addresses, manager) {
 
 async function handleConnection(manager, protocol, conn) {
   console.log(`got ${protocol} connection`);
-  let hostIDres, hostIDrej;
-  const hostIDp = new Promise((res, rej) => { hostIDres = res; hostIDrej = rej; });
+  let hostIDres;
+  let hostIDrej;
+  const hostIDp = new Promise((res, rej) => {
+    hostIDres = res;
+    hostIDrej = rej;
+  });
 
   conn.getPeerInfo((err, pi) => {
     if (err) {
@@ -128,40 +133,42 @@ async function handleConnection(manager, protocol, conn) {
   });
 
   const pusher = Pushable();
-  pullStream(pusher,
-             pullStream.map(line => {
-               //console.log(`sending line ${line}`);
-               return line+'\n';
-             }),
-             conn,
-             /*pullStream.collect((err, data) => {
+  pullStream(
+    pusher,
+    pullStream.map(line => {
+      // console.log(`sending line ${line}`);
+      return `${line}\n`;
+    }),
+    conn,
+    /* pullStream.collect((err, data) => {
                if (err) { throw err; }
                console.log('received echo:', data.toString());
-               }*/);
+               } */
+  );
   const c = {
     send(msg) {
-      //console.log(`send/push ${msg}`);
+      // console.log(`send/push ${msg}`);
       pusher.push(`${msg}`);
-    }
+    },
   };
 
   manager.connectionMade(hostID, c);
 
-  pullStream(conn,
-             pullSplit('\n'),
-             pullStream.map(line => {
-               //console.log(`got line on inbound '${line}'`);
-               if (!line)
-                 return;
-               manager.commsReceived(hostID, line);
-             }),
-             pullStream.drain()
-            );
+  pullStream(
+    conn,
+    pullSplit('\n'),
+    pullStream.map(line => {
+      // console.log(`got line on inbound '${line}'`);
+      if (!line) return;
+      manager.commsReceived(hostID, line);
+    }),
+    pullStream.drain(),
+  );
 }
 
 export async function createComms(myPeerInfo, getAddressesForHostID) {
   console.log(`createComms`);
-  //console.log(`peerInfo is ${myPeerInfo}`);
+  // console.log(`peerInfo is ${myPeerInfo}`);
   let started = false;
   const wanted = new Set();
   const pending = new Set();
@@ -171,23 +178,27 @@ export async function createComms(myPeerInfo, getAddressesForHostID) {
 
   async function check() {
     console.log(`startComms.check`, started);
-    for (let hostID of wanted) {
+    for (const hostID of wanted) {
       if (!established.has(hostID) && !pending.has(hostID)) {
         const addresses = await getAddressesForHostID(hostID);
         pending.add(hostID);
         const p = connectTo(n, hostID, addresses, manager);
-        p.then(({c, doneP}) => { pending.delete(hostID);
-                                 established.set(hostID, c);
-                                 manager.connectionMade(hostID, c);
-                                 doneP.then(_ => {
-                                   console.log(`connectionLost ${hostID}`);
-                                   established.delete(hostID);
-                                   manager.connectionLost(hostID);
-                                 });
-                               },
-               rej => { console.log(`connectTo failed (${hostID}): ${rej}`);
-                        pending.delete(hostID);
-                      });
+        p.then(
+          ({ c, doneP }) => {
+            pending.delete(hostID);
+            established.set(hostID, c);
+            manager.connectionMade(hostID, c);
+            doneP.then(_ => {
+              console.log(`connectionLost ${hostID}`);
+              established.delete(hostID);
+              manager.connectionLost(hostID);
+            });
+          },
+          rej => {
+            console.log(`connectTo failed (${hostID}): ${rej}`);
+            pending.delete(hostID);
+          },
+        );
       }
     }
   }
@@ -202,25 +213,26 @@ export async function createComms(myPeerInfo, getAddressesForHostID) {
         console.log('ERR: start called before registerManager');
         throw new Error('start called before registerManager');
       }
-      n.on('peer:connect', (peerInfo) => {
+      n.on('peer:connect', peerInfo => {
         // never printed
         console.log(`received dial to me from: ${peerInfo.id.toB58String()}`);
       });
       n.handle('/vattp-hack/0.1', (protocol, conn) =>
-               handleConnection(manager, protocol, conn));
-      let a = asp(0);
-      //await n.start();
+        handleConnection(manager, protocol, conn),
+      );
+      const a = asp(0);
+      // await n.start();
       n.start(a.cb);
       await a.p;
 
       // todo: do this in 'vat create', stash all the addresses in
       // BASEDIR/addresses
       console.log('Listener ready, listening on:');
-      n.peerInfo.multiaddrs.forEach((ma) => {
-        //console.log(ma.toString() + '/ipfs/' + id.toB58String());
+      n.peerInfo.multiaddrs.forEach(ma => {
+        // console.log(ma.toString() + '/ipfs/' + id.toB58String());
         console.log(ma.toString());
       });
-      setInterval(check, 5*1000);
+      setInterval(check, 5 * 1000);
       check();
     },
     wantConnection(hostID) {

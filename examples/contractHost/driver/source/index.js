@@ -1,4 +1,4 @@
-/*global Vow*/
+/* global Vow */
 // Copyright (C) 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,7 +57,7 @@ function trivialContractTest(host) {
     console.log('++ eightP resolved to', res, '(should be 8)');
     if (res !== 8) {
       throw new Error(`eightP resolved to ${res}, not 8`);
-    };
+    }
     console.log('++ DONE');
   });
   return eightP;
@@ -77,15 +77,23 @@ export function betterContractTestAliceFirst(mint, host, alice, bob) {
   const bobP = Vow.resolve(bob).e.init(bobMoneyPurseP, bobStockPurseP);
 
   const ifItFitsP = aliceP.e.payBobWell();
-  ifItFitsP.then(res => {
-    console.log('++ ifItFitsP done:', res);
-    console.log('++ DONE');
-  },
-                 rej => console.log('++ ifItFitsP failed', rej));
+  ifItFitsP.then(
+    res => {
+      console.log('++ ifItFitsP done:', res);
+      console.log('++ DONE');
+    },
+    rej => console.log('++ ifItFitsP failed', rej),
+  );
   return ifItFitsP;
 }
 
-export function betterContractTestBobFirst(mint, host, alice, bob, bobLies=false) {
+export function betterContractTestBobFirst(
+  mint,
+  host,
+  alice,
+  bob,
+  bobLies = false,
+) {
   const contractHostP = Vow.resolve(host);
   const moneyMintP = Vow.resolve(mint).e.makeMint();
   const aliceMoneyPurseP = moneyMintP.e.mint(1000, 'aliceMainMoney');
@@ -105,7 +113,8 @@ export function betterContractTestBobFirst(mint, host, alice, bob, bobLies=false
     },
     rej => {
       console.log('++ bobP.e.tradeWell error:', rej);
-    });
+    },
+  );
   //  return aliceP.e.tradeWell(bobP);
 }
 
@@ -119,7 +128,13 @@ export default function(argv) {
   } else if (argv.which === 'bob-first') {
     betterContractTestBobFirst(argv.mint, argv.host, argv.alice, argv.bob);
   } else if (argv.which === 'bob-first-lies') {
-    betterContractTestBobFirst(argv.mint, argv.host, argv.alice, argv.bob, true);
+    betterContractTestBobFirst(
+      argv.mint,
+      argv.host,
+      argv.alice,
+      argv.bob,
+      true,
+    );
   }
 
   return undefined;

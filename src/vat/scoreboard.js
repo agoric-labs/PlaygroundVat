@@ -24,7 +24,6 @@ import { insist } from '../insist';
  * set X, it must say true for any superset of set X.
  */
 export function makeScoreboard(quorumTest, def, logConflict) {
-
   // map of seqNum to sequence-maps, where a sequence-map is a map
   // from msgID to a record of a `msg` and the set of `componentIDs`
   // that have agreed on that msgID (and therefore presumably on that
@@ -37,7 +36,7 @@ export function makeScoreboard(quorumTest, def, logConflict) {
   function fetchReadyMsg(seqNum) {
     const seqMap = queue.get(seqNum);
     if (seqMap) {
-      for (const [msgID, {msg, componentIDs}] of seqMap) {
+      for (const [msgID, { msg, componentIDs }] of seqMap) {
         if (quorumTest(componentIDs)) {
           return msg;
         }
@@ -61,12 +60,18 @@ export function makeScoreboard(quorumTest, def, logConflict) {
       if (!record) {
         record = {
           msg,
-          componentIDs: new Set()
+          componentIDs: new Set(),
         };
         seqMap.set(msgID, record);
         if (seqMap.size > 1) {
-          logConflict('Conflicting alleged messages',
-                      componentID, seqNum, msgID, msg, seqMap);
+          logConflict(
+            'Conflicting alleged messages',
+            componentID,
+            seqNum,
+            msgID,
+            msg,
+            seqMap,
+          );
         }
       }
       const { componentIDs } = record;
@@ -75,11 +80,11 @@ export function makeScoreboard(quorumTest, def, logConflict) {
     },
 
     getNext() {
-      /*console.log('queue:');
+      /* console.log('queue:');
       for (let q of queue.values()) {
         for (let [k,v] of q.entries()) {
           console.log(' k,v=', k, '=>',  v);
-        }}*/
+        }} */
 
       const msg = fetchReadyMsg(currentSeqNum);
       if (!msg) {
@@ -90,10 +95,9 @@ export function makeScoreboard(quorumTest, def, logConflict) {
       // queue.delete(currentSeqNum);
       currentSeqNum += 1;
       return msg;
-    }        
+    },
   });
 }
-
 
 /**
  * decidedQs are a list of remoteVows for the vatTP-to-capTP upcall
@@ -105,7 +109,6 @@ export function makeScoreboard(quorumTest, def, logConflict) {
  * threshold, or any other change to the quorum rules.
  */
 function makeConsensusLeader(decidedQs) {
-
   // map from compositeID to scoreboard
   const scoreboards = new Map();
 
@@ -114,7 +117,7 @@ function makeConsensusLeader(decidedQs) {
       decidedQP.e.deliverMsg(compositeID, msg);
     }
   }
-  
+
   return def({
     acceptProtoMsg(compositeID, componentID, seqNum, msgID, msg) {
       let scoreboard = scoreboards.get(compositeID);
@@ -136,10 +139,9 @@ function makeConsensusLeader(decidedQs) {
           deliverMsg(compositeID, msg);
         }
       }
-    }
+    },
   });
 }
-
 
 /* BOGUS. Needs to be at earlier level of abstraction, trafficking in
  * the allegedly signed message as originally received.

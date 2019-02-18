@@ -1,6 +1,9 @@
 import { test } from 'tape-promise/tape';
-import { makeRemoteForVatID, makeDecisionList,
-         makeRemoteManager } from '../src/vat/remotes';
+import {
+  makeRemoteForVatID,
+  makeDecisionList,
+  makeRemoteManager,
+} from '../src/vat/remotes';
 import { parseVatID } from '../src/vat/id';
 import { vatMessageIDHash } from '../src/vat/swissCrypto';
 import { hash58 } from '../src/host';
@@ -9,8 +12,7 @@ function shallowDef(obj) {
   return Object.freeze(obj);
 }
 
-
-test('parseVatID', (t) => {
+test('parseVatID', t => {
   const r1 = parseVatID('vat1');
   t.equal(r1.threshold, 1);
   t.equal(r1.leader, 'vat1');
@@ -34,13 +36,11 @@ test('parseVatID', (t) => {
   t.end();
 });
 
-
 function logConflict(text, componentID, seqNum, msgID, msg, seqMap) {
   throw new Error('logConflict');
 }
 
-
-test('vatRemote seqnum', (t) => {
+test('vatRemote seqnum', t => {
   const r = makeRemoteForVatID('vat1', shallowDef, logConflict);
   t.equal(r.nextOutboundSeqnum(), 0);
   t.equal(r.nextOutboundSeqnum(), 1);
@@ -48,28 +48,29 @@ test('vatRemote seqnum', (t) => {
   t.end();
 });
 
-function makeMsg(vat, seqnum, target='etc', toVatID='vat1') {
-  const hostMessage = { fromVatID: vat,
-                        toVatID,
-                        seqnum,
-                        msg: { op: 'send',
-                               target },
-                      };
+function makeMsg(vat, seqnum, target = 'etc', toVatID = 'vat1') {
+  const hostMessage = {
+    fromVatID: vat,
+    toVatID,
+    seqnum,
+    msg: { op: 'send', target },
+  };
   const wireMessage = `op ${JSON.stringify(hostMessage)}`;
   const id = vatMessageIDHash(JSON.stringify(hostMessage), hash58);
   return { hostMessage, wireMessage, id };
 }
 
-test('vatRemote inbound solo', (t) => {
+test('vatRemote inbound solo', t => {
   // I am vat1, upstream is vat2. Deliver messages from an upstream solo vat,
   // out of order, and examine how getReadyMessage() makes them available for
   // delivery.
   const r = makeRemoteForVatID('vat2', shallowDef, logConflict);
 
   function got(hm, host) {
-    return r.gotHostMessage({ fromHostID: host }, hm.id,
-                            { hostMessage: hm.hostMessage,
-                              wireMessage: hm.wireMessage });
+    return r.gotHostMessage({ fromHostID: host }, hm.id, {
+      hostMessage: hm.hostMessage,
+      wireMessage: hm.wireMessage,
+    });
   }
 
   const hm0 = makeMsg('vat2', 0);
@@ -110,7 +111,7 @@ test('vatRemote inbound solo', (t) => {
   t.end();
 });
 
-test('vatRemote inbound quorum', (t) => {
+test('vatRemote inbound quorum', t => {
   // I am vat1, upstream is q2-vat2a-vat2b-vat2c
   const fromVatID = 'q2-vat2a-vat2b-vat2c';
   const conflicts = [];
@@ -118,11 +119,12 @@ test('vatRemote inbound quorum', (t) => {
     conflicts.push(args);
   }
   const r = makeRemoteForVatID(fromVatID, shallowDef, logConflict);
-  function got(hm, host, msgID=null) {
+  function got(hm, host, msgID = null) {
     msgID = msgID || hm.id;
-    return r.gotHostMessage({ fromHostID: host }, msgID,
-                            { hostMessage: hm.hostMessage,
-                              wireMessage: hm.wireMessage });
+    return r.gotHostMessage({ fromHostID: host }, msgID, {
+      hostMessage: hm.hostMessage,
+      wireMessage: hm.wireMessage,
+    });
   }
   let res;
 
@@ -207,46 +209,51 @@ test('vatRemote inbound quorum', (t) => {
   t.end();
 });
 
-test('decisionList solo', (t) => {
+test('decisionList solo', t => {
   const remotes = new Map();
   const hm20 = makeMsg('vat2', 0);
   const hm30 = makeMsg('vat3', 0);
-  let ready = [];
-  let consumed = [];
+  const ready = [];
+  const consumed = [];
   const deliveries = [];
   const deliver = (fromVatID, msg) => deliveries.push({ fromVatID, msg });
   const decisionMessages = [];
   const sendDecisionTo = (toHostID, msg) =>
-        decisionMessages.push({ toHostID, msg });
+    decisionMessages.push({ toHostID, msg });
 
-  const dl = makeDecisionList('q2-vat1a-vat1b-vat1c', true, [],
-                              () => ready, deliver, sendDecisionTo);
+  const dl = makeDecisionList(
+    'q2-vat1a-vat1b-vat1c',
+    true,
+    [],
+    () => ready,
+    deliver,
+    sendDecisionTo,
+  );
   t.equal(dl.debug_getNextDeliverySeqnum(), 0);
 
-  ready.push([ 'vat2', hm20, () => consumed.push(20) ]);
+  ready.push(['vat2', hm20, () => consumed.push(20)]);
   dl.addMessage(hm20);
-  //console.log(dl.debug_getDecisionList());
-  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.hostMessage } ]);
+  // console.log(dl.debug_getDecisionList());
+  t.deepEqual(deliveries, [{ fromVatID: 'vat2', msg: hm20.hostMessage }]);
   t.deepEqual(consumed, [20]);
 
   deliveries.splice(0);
   consumed.splice(0);
 
-  ready.push(['vat3', hm30, () => consumed.push(30) ]);
+  ready.push(['vat3', hm30, () => consumed.push(30)]);
   dl.addMessage(hm30);
-  t.deepEqual(deliveries, [ { fromVatID: 'vat3', msg: hm30.hostMessage } ]);
+  t.deepEqual(deliveries, [{ fromVatID: 'vat3', msg: hm30.hostMessage }]);
   t.deepEqual(consumed, [30]);
 
   t.deepEqual(decisionMessages, []);
 
   t.end();
-
 });
 
-test('decisionList follower', (t) => {
+test('decisionList follower', t => {
   const remotes = new Map();
-  let ready = [];
-  let consumed = [];
+  const ready = [];
+  const consumed = [];
   function getReadyMessages() {
     return ready;
   }
@@ -255,11 +262,16 @@ test('decisionList follower', (t) => {
   const deliver = (fromVatID, msg) => deliveries.push({ fromVatID, msg });
   const decisionMessages = [];
   const sendDecisionTo = (toHostID, msg) =>
-        decisionMessages.push({ toHostID, msg });
+    decisionMessages.push({ toHostID, msg });
 
-  const dl = makeDecisionList('q2-vat1a-vat1b-vat1c', false,
-                              ['vat1b', 'vat1c'],
-                              getReadyMessages, deliver, sendDecisionTo);
+  const dl = makeDecisionList(
+    'q2-vat1a-vat1b-vat1c',
+    false,
+    ['vat1b', 'vat1c'],
+    getReadyMessages,
+    deliver,
+    sendDecisionTo,
+  );
   t.equal(dl.debug_getNextDeliverySeqnum(), 0);
   const hm20 = makeMsg('vat2', 0, 'etc', 'q2-vat1a-vat1b-vat1c');
   const hm30 = makeMsg('vat3', 0, 'etc', 'q2-vat1a-vat1b-vat1c');
@@ -268,13 +280,17 @@ test('decisionList follower', (t) => {
 
   // message before decision
 
-  ready.push([ 'vat2', hm20, () => consumed.push(20) ]);
+  ready.push(['vat2', hm20, () => consumed.push(20)]);
   dl.addMessage(hm20);
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
-  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 0, vatMessageID: hm20.id});
-  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.hostMessage } ]);
+  dl.addDecision({
+    toVatID: 'q2-vat1a-vat1b-vat1c',
+    decisionSeqnum: 0,
+    vatMessageID: hm20.id,
+  });
+  t.deepEqual(deliveries, [{ fromVatID: 'vat2', msg: hm20.hostMessage }]);
   t.deepEqual(consumed, [20]);
 
   deliveries.splice(0);
@@ -282,13 +298,17 @@ test('decisionList follower', (t) => {
 
   // decision before message
 
-  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 1, vatMessageID: hm30.id});
+  dl.addDecision({
+    toVatID: 'q2-vat1a-vat1b-vat1c',
+    decisionSeqnum: 1,
+    vatMessageID: hm30.id,
+  });
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
-  ready.push([ 'vat3', hm30, () => consumed.push(30) ]);
+  ready.push(['vat3', hm30, () => consumed.push(30)]);
   dl.addMessage(hm30);
-  t.deepEqual(deliveries, [ { fromVatID: 'vat3', msg: hm30.hostMessage } ]);
+  t.deepEqual(deliveries, [{ fromVatID: 'vat3', msg: hm30.hostMessage }]);
   t.deepEqual(consumed, [30]);
 
   deliveries.splice(0);
@@ -296,37 +316,50 @@ test('decisionList follower', (t) => {
 
   // duplicate decision does nothing
 
-  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 1, vatMessageID: hm30.id});
+  dl.addDecision({
+    toVatID: 'q2-vat1a-vat1b-vat1c',
+    decisionSeqnum: 1,
+    vatMessageID: hm30.id,
+  });
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
   // out-of-order decisions: last causes multiple deliveries
-  ready.push([ 'vat2', hm21, () => consumed.push(21) ]);
+  ready.push(['vat2', hm21, () => consumed.push(21)]);
   dl.addMessage(hm21);
-  ready.push([ 'vat3', hm31, () => consumed.push(31) ]);
+  ready.push(['vat3', hm31, () => consumed.push(31)]);
   dl.addMessage(hm31);
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
-  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 3, vatMessageID: hm31.id});
+  dl.addDecision({
+    toVatID: 'q2-vat1a-vat1b-vat1c',
+    decisionSeqnum: 3,
+    vatMessageID: hm31.id,
+  });
   t.deepEqual(deliveries, []);
   t.deepEqual(consumed, []);
 
-  dl.addDecision({ toVatID: 'q2-vat1a-vat1b-vat1c', decisionSeqnum: 2, vatMessageID: hm21.id});
-  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm21.hostMessage },
-                            { fromVatID: 'vat3', msg: hm31.hostMessage } ]);
+  dl.addDecision({
+    toVatID: 'q2-vat1a-vat1b-vat1c',
+    decisionSeqnum: 2,
+    vatMessageID: hm21.id,
+  });
+  t.deepEqual(deliveries, [
+    { fromVatID: 'vat2', msg: hm21.hostMessage },
+    { fromVatID: 'vat3', msg: hm31.hostMessage },
+  ]);
   t.deepEqual(consumed, [21, 31]);
 
   t.deepEqual(decisionMessages, []);
 
   t.end();
-
 });
 
-test('decisionList leader', (t) => {
+test('decisionList leader', t => {
   const remotes = new Map();
-  let ready = [];
-  let consumed = [];
+  const ready = [];
+  const consumed = [];
   function getReadyMessages() {
     return ready;
   }
@@ -335,60 +368,78 @@ test('decisionList leader', (t) => {
   const deliver = (fromVatID, msg) => deliveries.push({ fromVatID, msg });
   const decisionMessages = [];
   const sendDecisionTo = (toHostID, msg) =>
-        decisionMessages.push({ toHostID, msg });
+    decisionMessages.push({ toHostID, msg });
 
-  const dl = makeDecisionList('q2-vat1a-vat1b-vat1c', true,
-                              ['vat1b', 'vat1c'],
-                              getReadyMessages, deliver, sendDecisionTo);
+  const dl = makeDecisionList(
+    'q2-vat1a-vat1b-vat1c',
+    true,
+    ['vat1b', 'vat1c'],
+    getReadyMessages,
+    deliver,
+    sendDecisionTo,
+  );
   t.equal(dl.debug_getNextDeliverySeqnum(), 0);
   const hm20 = makeMsg('vat2', 0, 'etc', 'q2-vat1a-vat1b-vat1c');
 
-  ready.push([ 'vat2', hm20, () => consumed.push(20) ]);
+  ready.push(['vat2', hm20, () => consumed.push(20)]);
   dl.addMessage(hm20);
-  t.deepEqual(deliveries, [ { fromVatID: 'vat2', msg: hm20.hostMessage } ]);
+  t.deepEqual(deliveries, [{ fromVatID: 'vat2', msg: hm20.hostMessage }]);
   t.deepEqual(consumed, [20]);
 
   t.deepEqual(decisionMessages, [
-    { toHostID: 'vat1b',
-      msg: { toVatID: 'q2-vat1a-vat1b-vat1c',
-             decisionSeqnum: 0,
-             vatMessageID: hm20.id,
-             debug_fromVatID: 'vat2',
-             debug_vatSeqnum: 0 } },
-    { toHostID: 'vat1c',
-      msg: { toVatID: 'q2-vat1a-vat1b-vat1c',
-             decisionSeqnum: 0,
-             vatMessageID: hm20.id,
-             debug_fromVatID: 'vat2',
-             debug_vatSeqnum: 0 } },
+    {
+      toHostID: 'vat1b',
+      msg: {
+        toVatID: 'q2-vat1a-vat1b-vat1c',
+        decisionSeqnum: 0,
+        vatMessageID: hm20.id,
+        debug_fromVatID: 'vat2',
+        debug_vatSeqnum: 0,
+      },
+    },
+    {
+      toHostID: 'vat1c',
+      msg: {
+        toVatID: 'q2-vat1a-vat1b-vat1c',
+        decisionSeqnum: 0,
+        vatMessageID: hm20.id,
+        debug_fromVatID: 'vat2',
+        debug_vatSeqnum: 0,
+      },
+    },
   ]);
 
   t.end();
-
 });
 
-test('connections', (t) => {
-  function managerWriteInput(fromVatID, wireMessage) {
-  }
-  function managerWriteOutput(msg) {
-  }
-  function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {
-  }
+test('connections', t => {
+  function managerWriteInput(fromVatID, wireMessage) {}
+  function managerWriteOutput(msg) {}
+  function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {}
   function def(o) {
     return Object.freeze(o);
   }
   const wanted = [];
   const comms = {
-    wantConnection(hostID) { wanted.push(hostID); },
+    wantConnection(hostID) {
+      wanted.push(hostID);
+    },
   };
 
-  const rm = makeRemoteManager('vat1', 'vat1', comms,
-                               managerWriteInput, managerWriteOutput,
-                               def, logConflict, hash58);
+  const rm = makeRemoteManager(
+    'vat1',
+    'vat1',
+    comms,
+    managerWriteInput,
+    managerWriteOutput,
+    def,
+    logConflict,
+    hash58,
+  );
   const fakeEngine = {};
   rm.setEngine(fakeEngine);
-  rm.sendTo('vat2', {op: 'whatever'});
-  t.deepEqual(wanted, [ 'vat2' ]);
+  rm.sendTo('vat2', { op: 'whatever' });
+  t.deepEqual(wanted, ['vat2']);
   const messages = [];
   const c = {
     send(body) {
@@ -399,11 +450,12 @@ test('connections', (t) => {
   t.equal(messages.length, 1);
   t.ok(messages[0].startsWith('op '));
   const m = JSON.parse(messages[0].slice('op '.length));
-  t.deepEqual(m, { fromVatID: 'vat1',
-                   toVatID: 'vat2',
-                   seqnum: 0,
-                   opMsg: { op: 'whatever' },
-                 });
+  t.deepEqual(m, {
+    fromVatID: 'vat1',
+    toVatID: 'vat2',
+    seqnum: 0,
+    opMsg: { op: 'whatever' },
+  });
   rm.connectionLost('vat2');
 
   // each new connection should re-send all messages, until we get acks
