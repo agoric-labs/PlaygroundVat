@@ -10,5 +10,8 @@ module.exports = {
     'arrow-parens': 'off',
     strict: 'off',
     'no-console': 'off',
+
+    /// temporarily turn off until a decision is made
+    'prefer-arrow-callback': 'off',
   },
 };

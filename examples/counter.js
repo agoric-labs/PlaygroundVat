@@ -2,7 +2,7 @@ let count = 0;
 
 let resolver1;
 const f = new Flow();
-const p1 = f.makeVow((resolve, reject) => resolver1 = resolve);
+const p1 = f.makeVow((resolve, reject) => (resolver1 = resolve));
 
 const o = {
   increment() {
@@ -23,15 +23,16 @@ const o = {
     console.log(`did call`);
   },
 
-  //console.log('i am here');
-  //console.log('i got here');
+  // console.log('i am here');
+  // console.log('i got here');
 
   returnValue(value) {
     return value;
   },
 
   send(target) {
-    Vow.resolve(target).e.respond('arg1', 'arg2')
+    Vow.resolve(target)
+      .e.respond('arg1', 'arg2')
       .then(res => console.log(`send response was ${res}`));
   },
 
@@ -41,14 +42,14 @@ const o = {
   },
 
   wait() {
-    //console.log('in wait');
+    // console.log('in wait');
     return p1;
   },
 
   fire(arg) {
-    //console.log('in fire');
+    // console.log('in fire');
     resolver1(arg);
-    //console.log(' ran resolver');
+    // console.log(' ran resolver');
   },
 };
 

@@ -1,4 +1,4 @@
-/*global Vow Flow def*/
+/* global Vow Flow def */
 // Copyright (C) 2013 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -38,35 +38,36 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
      * Bob, and therefore a request that Bob sell something. OO naming
      * is a bit confusing here.
      */
-    buy: function(desc, paymentP) {
+    buy(desc, paymentP) {
       let amount;
       let good;
-      desc = ''+desc;
+      desc = `${desc}`;
       switch (desc) {
-      case 'shoe': {
-        amount = 10;
-        good = 'If it fits, ware it.';
-        break;
-      }
-      default: {
-        throw new Error('unknown desc: '+desc);
-      }
+        case 'shoe': {
+          amount = 10;
+          good = 'If it fits, ware it.';
+          break;
+        }
+        default: {
+          throw new Error(`unknown desc: ${desc}`);
+        }
       }
 
       return myMoneyPurseP.e.deposit(10, paymentP).then(_ => good);
     },
 
-    tradeWell: function(aliceP, bobLies=false) {
+    tradeWell(aliceP, bobLies = false) {
       const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
-      const bobTokenP   = tokensP.then(tokens => tokens[1]);
+      const bobTokenP = tokensP.then(tokens => tokens[1]);
       let escrowSrcWeTellAlice = escrowSrc;
       if (bobLies) {
         escrowSrcWeTellAlice += 'NOT';
       }
-      return Vow.all([Vow.resolve(aliceP).e.invite(aliceTokenP,
-                                                   escrowSrcWeTellAlice, 0),
-                      Vow.resolve(bob).e.invite(bobTokenP, escrowSrc, 1)]);
+      return Vow.all([
+        Vow.resolve(aliceP).e.invite(aliceTokenP, escrowSrcWeTellAlice, 0),
+        Vow.resolve(bob).e.invite(bobTokenP, escrowSrc, 1),
+      ]);
     },
 
     /**
@@ -74,25 +75,28 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
      * this object, asking it to join in a contract instance. It is not
      * requesting that this object invite anything.
      */
-    invite: function(tokenP, allegedSrc, allegedSide) {
+    invite(tokenP, allegedSrc, allegedSide) {
       check(allegedSrc, allegedSide);
       let cancel;
       const b = def({
         stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
         moneyDstP: myMoneyIssuerP.e.makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,
-        cancellationP: f.makeVow(function(r) { cancel = r; })
+        cancellationP: f.makeVow(function(r) {
+          cancel = r;
+        }),
       });
       const ackP = b.stockSrcP.e.deposit(7, myStockPurse);
 
-      const doneP = ackP.then(
-        _ => contractHostP.e.play(tokenP, allegedSrc, allegedSide, b));
+      const doneP = ackP.then(_ =>
+        contractHostP.e.play(tokenP, allegedSrc, allegedSide, b),
+      );
       return doneP.then(_ => b.moneyDstP.e.getBalance());
-    }
+    },
   });
   return bob;
 }
 
 export const bobMaker = {
-  makeBob
+  makeBob,
 };

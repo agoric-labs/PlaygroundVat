@@ -1,4 +1,4 @@
-/*global Vow*/
+/* global Vow */
 // Copyright (C) 2011 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,16 +66,22 @@ export function betterContractTestAliceFirst() {
   const aliceStockPurseP = stockMintP.e.mint(2002);
   const bobStockPurseP = stockMintP.e.mint(2003);
 
-  const aliceP = Vow.resolve(aliceMaker).
-        e.makeAlice(aliceMoneyPurseP, aliceStockPurseP, contractHostP);
-  const bobP = Vow.resolve(bobMaker).
-        e.makeBob(bobMoneyPurseP, bobStockPurseP, contractHostP);
+  const aliceP = Vow.resolve(aliceMaker).e.makeAlice(
+    aliceMoneyPurseP,
+    aliceStockPurseP,
+    contractHostP,
+  );
+  const bobP = Vow.resolve(bobMaker).e.makeBob(
+    bobMoneyPurseP,
+    bobStockPurseP,
+    contractHostP,
+  );
 
   const ifItFitsP = aliceP.e.payBobWell(bobP);
   return ifItFitsP;
 }
 
-export function betterContractTestBobFirst(bobLies=false) {
+export function betterContractTestBobFirst(bobLies = false) {
   const contractHostP = Vow.fromFn(makeContractHost);
   const moneyMintP = Vow.resolve(mintMaker).e.makeMint();
   const aliceMoneyPurseP = moneyMintP.e.mint(1000, 'aliceMainMoney');
@@ -85,18 +91,26 @@ export function betterContractTestBobFirst(bobLies=false) {
   const aliceStockPurseP = stockMintP.e.mint(2002, 'aliceMainStock');
   const bobStockPurseP = stockMintP.e.mint(2003, 'bobMainStock');
 
-  const aliceP = Vow.resolve(aliceMaker).
-        e.makeAlice(aliceMoneyPurseP, aliceStockPurseP, contractHostP);
-  const bobP = Vow.resolve(bobMaker).
-        e.makeBob(bobMoneyPurseP, bobStockPurseP, contractHostP);
+  const aliceP = Vow.resolve(aliceMaker).e.makeAlice(
+    aliceMoneyPurseP,
+    aliceStockPurseP,
+    contractHostP,
+  );
+  const bobP = Vow.resolve(bobMaker).e.makeBob(
+    bobMoneyPurseP,
+    bobStockPurseP,
+    contractHostP,
+  );
 
   return bobP.e.tradeWell(aliceP, bobLies);
-//  return aliceP.e.tradeWell(bobP);
+  //  return aliceP.e.tradeWell(bobP);
 }
 
 export default function(argv) {
-  return { mintTest, trivialContractTest,
-           betterContractTestAliceFirst,
-           betterContractTestBobFirst,
-         };
+  return {
+    mintTest,
+    trivialContractTest,
+    betterContractTestAliceFirst,
+    betterContractTestBobFirst,
+  };
 }

@@ -1,4 +1,3 @@
-
 export function makeTranscript() {
   const lines = [];
   const waiters = [];
@@ -49,7 +48,7 @@ export function makeQueues(t) {
 
   function dump() {
     console.log('queues:');
-    for (let k of queues.keys()) {
+    for (const k of queues.keys()) {
       console.log(k, queues.get(k));
     }
   }
@@ -58,13 +57,12 @@ export function makeQueues(t) {
     const key = toKey(a, b);
     const q = queues.get(key);
     t.ok(q.length > 0);
-    if (!q.length)
-      throw new Error('ugh');
-    //console.log('---');
-    //console.log('expect', a, b, q);
+    if (!q.length) throw new Error('ugh');
+    // console.log('---');
+    // console.log('expect', a, b, q);
     const got = q.shift();
     t.notEqual(got, undefined);
-    //console.log('--got', got);
+    // console.log('--got', got);
     t.ok(got.startsWith('op '), got);
     const payload = JSON.parse(got.slice(3));
     if (msg) {

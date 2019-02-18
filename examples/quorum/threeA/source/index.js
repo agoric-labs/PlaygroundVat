@@ -1,4 +1,3 @@
-
 export default function(argv) {
   const one = Vow.resolve(argv.one);
   return {

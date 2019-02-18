@@ -1,13 +1,12 @@
-let responses = new Set();
+const responses = new Set();
 
 function check() {
   if (responses.size >= 3) {
     console.log('++ EVERYTHING WORKS');
-  };
+  }
 }
 
 const o = {
-
   responseFromTwo(msg) {
     console.log('++ responseFromTwo', msg);
     responses.add('responseFromTwo');

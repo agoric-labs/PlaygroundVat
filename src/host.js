@@ -17,11 +17,12 @@ export function hash58(s) {
   const buf = Buffer.from(s, 'utf8');
   const h = crypto.createHash('sha256');
   h.update(s);
-  return bs58.encode(h.digest().slice(0,16));
+  return bs58.encode(h.digest().slice(0, 16));
 }
 
 export function makeVatEndowments(s, output, comms) {
-  const power = { // made available to build()
+  const power = {
+    // made available to build()
     hash58,
     comms,
     output,
@@ -50,26 +51,31 @@ export function makeVatEndowments(s, output, comms) {
         return power.hash58(s);
       },
       comms: {
-        registerManager(m) { // m is SES
+        registerManager(m) {
+          // m is SES
           // the manager will be called with connectionMade, commsReceived,
           // and connectionLost
           const wrappedManager = def({
-            connectionMade(hostID, c) { // c is Primal
+            connectionMade(hostID, c) {
+              // c is Primal
               // the Connection has a send() method
-              const wrappedConnection = def({ // wrappedConnection is SES
+              const wrappedConnection = def({
+                // wrappedConnection is SES
                 send(msg) {
                   c.send(`${msg}`);
-                }
+                },
               });
               eventually(_ => m.connectionMade(`${hostID}`, wrappedConnection));
             },
             // hostID and line are supposed to be strings, which are
             // primitives so they don't belong to any particular realm, but
             // stringify them to be sure
-            commsReceived(hostID, line) { // hostID+line are Primal
+            commsReceived(hostID, line) {
+              // hostID+line are Primal
               eventually(_ => m.commsReceived(`${hostID}`, `${line}`));
             },
-            connectionLost(hostID) { // hostID is Primal
+            connectionLost(hostID) {
+              // hostID is Primal
               eventually(_ => m.connectionLost(`${hostID}`));
             },
           });
@@ -78,7 +84,8 @@ export function makeVatEndowments(s, output, comms) {
         start() {
           eventually(_ => power.comms.start());
         },
-        wantConnection(hostID) { // hostID is SES
+        wantConnection(hostID) {
+          // hostID is SES
           // wantConnection will be called early, when we process the input
           // transcript, before comms have started. The Remote Manager will
           // use a Vow to defer delivery of these messages until comms are
@@ -106,4 +113,3 @@ export function readAndHashFile(fn) {
   const sourceHash = sourceHasher.digest('hex');
   return { source, sourceHash };
 }
-

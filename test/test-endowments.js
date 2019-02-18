@@ -1,9 +1,13 @@
 import { test } from 'tape-promise/tape';
 import SES from 'ses';
 import { makeVatEndowments } from '../src/host';
-import { makeSwissnum, makeSwissbase, doSwissHashing } from '../src/vat/swissCrypto';
+import {
+  makeSwissnum,
+  makeSwissbase,
+  doSwissHashing,
+} from '../src/vat/swissCrypto';
 
-test('hash58', (t) => {
+test('hash58', t => {
   const s = SES.makeSESRootRealm();
   const e = makeVatEndowments(s, null, null);
   // test vectors from python and electrum/lib/address.py Base58 class
@@ -12,14 +16,14 @@ test('hash58', (t) => {
   t.equal(e.hash58(''), 'V7jseQevszwMPhi4evidTR'); // stable
   t.equal(e.hash58('a'), 'S1yrYnjHbfbiTySsN9h1eC');
   let xyz100 = '';
-  for (let i=0; i<100; i++) {
+  for (let i = 0; i < 100; i++) {
     xyz100 += 'xyz';
   }
   t.equal(e.hash58(xyz100), 'LkLiePjfKWZzhQgmcEPT8j');
   t.end();
 });
 
-test.skip('swissHashing', (t) => {
+test.skip('swissHashing', t => {
   const s = SES.makeSESRootRealm();
   const e = makeVatEndowments(s, null, null);
   const vs = e.hash58('vat secret');
@@ -38,4 +42,3 @@ test.skip('swissHashing', (t) => {
 
   t.end();
 });
-

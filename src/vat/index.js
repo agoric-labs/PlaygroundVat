@@ -3,7 +3,14 @@
 // primal realm, so it must not be exposed to guest code.
 // TODO: I'm not sure that comment is correct anymore -warner
 
-import { isVow, asVow, Flow, Vow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
+import {
+  isVow,
+  asVow,
+  Flow,
+  Vow,
+  makePresence,
+  makeUnresolvedRemoteVow,
+} from '../flow/flowcomm';
 import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
 import { makeEngine } from './executionEngine';
@@ -16,15 +23,22 @@ function confineGuestSource(source, endowments) {
   const module = { exports };
   const endow = { module, exports };
   if (endowments) {
-    Object.defineProperties(endow,
-                            Object.getOwnPropertyDescriptors(endowments));
+    Object.defineProperties(
+      endow,
+      Object.getOwnPropertyDescriptors(endowments),
+    );
   }
   SES.confine(source, endow);
   return module.exports;
 }
 
-export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSource) {
-
+export function makeVat(
+  endowments,
+  myVatID,
+  myVatSecret,
+  myHostID,
+  initialSource,
+) {
   // We have one serializer/deserializer for each locally-hosted Vat, so
   // it shared among all peer Vats.
 
@@ -77,7 +91,6 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
   // argument into this function call to give the comms layer a way to ask
   // about NearVow->object mappings.
 
-
   // We currently define three operations: Send(targetID, op, args,
   // resolverID), SendOnly(targetID, op, args), and Resolve(resolverID, val).
 
@@ -120,18 +133,36 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
   }
 
   function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {
-    console.log(issue, `${seqMap.size} msgIDs, from hostID ${componentID} [${seqNum}]`);
+    console.log(
+      issue,
+      `${seqMap.size} msgIDs, from hostID ${componentID} [${seqNum}]`,
+    );
   }
-  const manager = makeRemoteManager(myVatID, myHostID, endowments.comms,
-                                    managerWriteInput, managerWriteOutput,
-                                    def, logConflict, endowments.hash58);
+  const manager = makeRemoteManager(
+    myVatID,
+    myHostID,
+    endowments.comms,
+    managerWriteInput,
+    managerWriteOutput,
+    def,
+    logConflict,
+    endowments.hash58,
+  );
 
-  const engine = makeEngine(def, endowments.hash58,
-                            Vow, isVow, Flow,
-                            makePresence, makeUnresolvedRemoteVow,
-                            handlerOf, resolutionOf,
-                            myVatID, myVatSecret,
-                            manager);
+  const engine = makeEngine(
+    def,
+    endowments.hash58,
+    Vow,
+    isVow,
+    Flow,
+    makePresence,
+    makeUnresolvedRemoteVow,
+    handlerOf,
+    resolutionOf,
+    myVatID,
+    myVatSecret,
+    manager,
+  );
   manager.setEngine(engine);
   const marshal = engine.marshal;
   endowments.comms.registerManager(manager);
@@ -163,14 +194,19 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
       const refVatID = refParts[0];
       const rootSwissnum = refParts[1];
       if (refParts[0] !== myVatID) {
-        throw new Error(`vatID mismatch:\n${myVatID} is my vatID, but saved rootSturdyRef uses\n${refVatID}`);
+        throw new Error(
+          `vatID mismatch:\n${myVatID} is my vatID, but saved rootSturdyRef uses\n${refVatID}`,
+        );
       }
-      //endowments.writeOutput(`load: ${initialSourceHash}`);
+      // endowments.writeOutput(`load: ${initialSourceHash}`);
       // the top-level code executes now, during evaluation
-      const e = confineGuestSource(initialSource,
-                                   { isVow, asVow, Flow, Vow,
-                                     ext: engine.ext,
-                                   }).default;
+      const e = confineGuestSource(initialSource, {
+        isVow,
+        asVow,
+        Flow,
+        Vow,
+        ext: engine.ext,
+      }).default;
       // then we execute whatever was exported as the 'default'
       const root = await Vow.resolve().then(_ => e(argv));
       // we wait for that to resolve before executing the transcript
@@ -182,11 +218,13 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
       return root; // for testing
     },
 
-    connectionMade(hostID, c) { // for unit tests
+    connectionMade(hostID, c) {
+      // for unit tests
       manager.connectionMade(hostID, c);
     },
 
-    commsReceived(hostID, line) { // for unit tests
+    commsReceived(hostID, line) {
+      // for unit tests
       manager.commsReceived(`${hostID}`, `${line}`);
     },
 
@@ -205,7 +243,7 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
     executeTranscriptLine(line) {
       console.log(`executeTranscriptLine '${line}'`);
       if (line === '') {
-        //console.log(`empty line`);
+        // console.log(`empty line`);
         return;
       }
       if (line.startsWith('load: ')) {
@@ -240,7 +278,6 @@ export function makeVat(endowments, myVatID, myVatSecret, myHostID, initialSourc
       const p = f.makeVow((resolve, reject) => resolver = resolve);
       processOp(op, resolver);
       return p;
-    }*/
+    } */
   };
 }
-

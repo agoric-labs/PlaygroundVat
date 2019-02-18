@@ -1,4 +1,4 @@
-/*global SES Vow Flow def */
+/* global SES Vow Flow def */
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -85,19 +85,19 @@ export function makeContractHost() {
   const m = new WeakMap();
 
   return def({
-    setup: function(contractSrc) {
+    setup(contractSrc) {
       contractSrc = `${contractSrc}`;
       const tokens = [];
       const argPs = [];
       let resolve;
       const f = new Flow();
-      const resultP = f.makeVow((r) => resolve = r);
-      const contract = SES.confineExpr(contractSrc, {Flow, Vow, console});
+      const resultP = f.makeVow(r => (resolve = r));
+      const contract = SES.confineExpr(contractSrc, { Flow, Vow, console });
 
       const addParam = function(i, token) {
         tokens[i] = token;
         let resolveArg;
-        argPs[i] = f.makeVow((r) => resolveArg = r);
+        argPs[i] = f.makeVow(r => (resolveArg = r));
         m.set(token, function(allegedSrc, allegedI, arg) {
           if (contractSrc !== allegedSrc) {
             throw new Error(`unexpected contract: ${contractSrc}`);
@@ -113,12 +113,17 @@ export function makeContractHost() {
       for (let i = 0; i < contract.length; i++) {
         addParam(i, def({}));
       }
-      resolve(Vow.all(argPs).then(
-        function(args) { return contract.apply(undefined, args); }));
+      resolve(
+        Vow.all(argPs).then(function(args) {
+          return contract(...args);
+        }),
+      );
       return tokens;
     },
-    play: function(tokenP, allegedSrc, allegedI, arg) {
-      return Vow.resolve(tokenP).then(
-        function(token) { return m.get(token)(allegedSrc, allegedI, arg); }); }
+    play(tokenP, allegedSrc, allegedI, arg) {
+      return Vow.resolve(tokenP).then(function(token) {
+        return m.get(token)(allegedSrc, allegedI, arg);
+      });
+    },
   });
 }

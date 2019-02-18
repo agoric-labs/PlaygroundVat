@@ -1,4 +1,4 @@
-/*global Vow Flow def*/
+/* global Vow Flow def */
 // Copyright (C) 2013 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -32,30 +32,30 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
   };
 
   const alice = def({
-    payBobWell: function(bobP) {
+    payBobWell(bobP) {
       const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
       const ackP = paymentP.e.deposit(10, myMoneyPurseP);
       return ackP.then(_ => bobP.e.buy('shoe', paymentP));
     },
-    payBobBadly1: function(bobP) {
-      const payment = def({ deposit: function(amount, src) {} });
+    payBobBadly1(bobP) {
+      const payment = def({ deposit(amount, src) {} });
       return bobP.e.buy('shoe', payment);
     },
-    payBobBadly2: function(bobP) {
+    payBobBadly2(bobP) {
       const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
       const ackP = paymentP.e.deposit(5, myMoneyPurse);
       return ackP.then(_ => bobP.e.buy('shoe', paymentP));
     },
 
-    tradeWell: function(bobP) {
+    tradeWell(bobP) {
       const tokensP = contractHostP.e.setup(escrowSrc);
       const aliceTokenP = tokensP.then(tokens => tokens[0]);
-      const bobTokenP   = tokensP.then(tokens => tokens[1]);
+      const bobTokenP = tokensP.then(tokens => tokens[1]);
       Vow.resolve(bobP).e.invite(bobTokenP, escrowSrc, 1);
       return Vow.resolve(alice).e.invite(aliceTokenP, escrowSrc, 0);
     },
 
-    invite: function(tokenP, allegedSrc, allegedSide) {
+    invite(tokenP, allegedSrc, allegedSide) {
       check(allegedSrc, allegedSide);
 
       let cancel;
@@ -63,19 +63,21 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
         moneySrcP: myMoneyIssuerP.e.makeEmptyPurse('aliceMoneySrc'),
         stockDstP: myStockIssuerP.e.makeEmptyPurse('aliceStockDst'),
         stockNeeded: 7,
-        cancellationP: f.makeVow(function(r) { cancel = r; })
+        cancellationP: f.makeVow(function(r) {
+          cancel = r;
+        }),
       });
       const ackP = a.moneySrcP.e.deposit(10, myMoneyPurseP);
 
-      const doneP = ackP.then(
-        _ => contractHostP.e.play(tokenP, allegedSrc, allegedSide, a));
+      const doneP = ackP.then(_ =>
+        contractHostP.e.play(tokenP, allegedSrc, allegedSide, a),
+      );
       return doneP.then(_ => a.stockDstP.e.getBalance());
-    }
+    },
   });
   return alice;
 }
 
-
 export const aliceMaker = {
-  makeAlice
+  makeAlice,
 };

@@ -1,4 +1,3 @@
-
 // Our swissnums need to be deterministic across multiple executions of a
 // single Vat (with the same input transcript), so we can replay an input
 // transcript and get the same output transcript. But they must also be
@@ -40,25 +39,24 @@
 // swissbase3  =      b3-8ETwGG3NFZMskqWBorEhe2
 // hash sb3    = hb3-8ET-9vy5vpgVHi9H4PJCNYKxas
 
-
 export function makeSwissnum(vatSecret, count, hash58) {
   const preimage = `${vatSecret}${count}`;
   return `${count}-${hash58(preimage)}`;
 }
 
 export function makeSwissbase(vatSecret, count, hash58) {
-  return 'b' + makeSwissnum(vatSecret, count, hash58);
+  return `b${makeSwissnum(vatSecret, count, hash58)}`;
 }
 
 export function doSwissHashing(base, hash58) {
   const commentEnd = base.lastIndexOf('-');
   const citation = base.slice(0, commentEnd + 4);
-  const newComment = 'h' + citation;
+  const newComment = `h${citation}`;
 
-  const nonComment = base.slice(commentEnd+1);
+  const nonComment = base.slice(commentEnd + 1);
   const newSwiss = hash58(nonComment);
 
-  return newComment + '-' + newSwiss;
+  return `${newComment}-${newSwiss}`;
 }
 
 export function vatMessageIDHash(vatMessageString, hash58) {
