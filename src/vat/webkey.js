@@ -29,11 +29,8 @@ function canPassByCopy(val) {
     return false;
   }
   const names = Object.getOwnPropertyNames(val);
-  for (const name of names) {
-    if (typeof val[name] === 'function') {
-      return false;
-    }
-  }
+  const hasFunction = names.every(name => typeof val[name] === 'function');
+  if (hasFunction) return false;
   const p = Object.getPrototypeOf(val);
   if (p !== null && p !== Object.prototype && p !== Array.prototype) {
     // todo: arrays should also be Array.isArray(val)
