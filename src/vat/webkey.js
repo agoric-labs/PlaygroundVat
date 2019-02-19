@@ -1,5 +1,6 @@
+/* globals def Nat */
+
 import { makeSwissnum, makeSwissbase, doSwissHashing } from './swissCrypto';
-import { insist } from '../insist';
 
 // objects can only be passed in one of two/three forms:
 // 1: pass-by-presence: all properties (own and inherited) are methods,
@@ -87,22 +88,6 @@ export function makeWebkeyMarshal(
   myVatSecret,
   serializer,
 ) {
-  // val might be a primitive, a pass by (shallow) copy object, a
-  // remote reference, or other.  We treat all other as a local object
-  // to be exported as a local webkey.
-  function serialize(val, resolutionOf) {
-    return JSON.stringify(val, makeReplacer(resolutionOf));
-  }
-
-  function unserialize(str) {
-    return JSON.parse(str, makeReviver());
-  }
-
-  function makeWebkey(data) {
-    // todo: use a cheaper (but still safe/reversible) combiner
-    return JSON.stringify({ vatID: data.vatID, swissnum: data.swissnum });
-  }
-
   // Record: { value, vatID, swissnum, serialized }
   // holds both objects (pass-by-presence) and unresolved promises
   const val2Record = new WeakMap();
@@ -206,14 +191,14 @@ export function makeWebkeyMarshal(
           return val;
         }
         case 'symbol': {
-          const opt_key = Symbol.keyFor(val);
-          if (opt_key === undefined) {
+          const optKey = Symbol.keyFor(val);
+          if (optKey === undefined) {
             // TODO: Symmetric unguessable identity
             throw new TypeError('Cannot serialize unregistered symbol');
           }
           return def({
             [QCLASS]: 'symbol',
-            key: opt_key,
+            key: optKey,
           });
         }
         case 'bigint': {
@@ -296,22 +281,27 @@ export function makeWebkeyMarshal(
     };
   }
 
-  function parseSturdyref(sturdyref) {
-    const parts = sturdyref.split('/');
-    return { vatID: parts[0], swissnum: parts[1] };
+  function makeWebkey(data) {
+    // todo: use a cheaper (but still safe/reversible) combiner
+    return JSON.stringify({ vatID: data.vatID, swissnum: data.swissnum });
   }
 
-  function createPresence(sturdyref) {
-    // used to create initial argv references
-    const { vatID, swissnum } = parseSturdyref(sturdyref);
-    const serialized = {
-      [QCLASS]: 'presence',
-      vatID,
-      swissnum,
-    };
-    // this creates the Presence, and also stores it into the tables, so we
-    // can send it back out again later
-    return unserializePresence(serialized);
+  function unserializeVow(data) {
+    const key = makeWebkey(data);
+    if (webkey2Record.has(key)) {
+      return webkey2Record.get(key).value;
+    }
+    const v = makeUnresolvedRemoteVow(serializer, data.vatID, data.swissnum);
+    const rec = def({
+      value: v,
+      vatID: data.vatID,
+      swissnum: data.swissnum,
+      serialized: data,
+    });
+    val2Record.set(v, rec);
+    webkey2Record.set(key, rec);
+    serializer.opWhen(data.vatID, data.swissnum);
+    return v;
   }
 
   function unserializePresence(data) {
@@ -337,24 +327,6 @@ export function makeWebkeyMarshal(
     val2Record.set(p, rec);
     webkey2Record.set(key, rec);
     return p;
-  }
-
-  function unserializeVow(data) {
-    const key = makeWebkey(data);
-    if (webkey2Record.has(key)) {
-      return webkey2Record.get(key).value;
-    }
-    const v = makeUnresolvedRemoteVow(serializer, data.vatID, data.swissnum);
-    const rec = def({
-      value: v,
-      vatID: data.vatID,
-      swissnum: data.swissnum,
-      serialized: data,
-    });
-    val2Record.set(v, rec);
-    webkey2Record.set(key, rec);
-    serializer.opWhen(data.vatID, data.swissnum);
-    return v;
   }
 
   function makeReviver() {
@@ -423,6 +395,35 @@ export function makeWebkeyMarshal(
       ibids.push(data);
       return def(data);
     };
+  }
+
+  // val might be a primitive, a pass by (shallow) copy object, a
+  // remote reference, or other.  We treat all other as a local object
+  // to be exported as a local webkey.
+  function serialize(val, resolutionOf) {
+    return JSON.stringify(val, makeReplacer(resolutionOf));
+  }
+
+  function unserialize(str) {
+    return JSON.parse(str, makeReviver());
+  }
+
+  function parseSturdyref(sturdyref) {
+    const parts = sturdyref.split('/');
+    return { vatID: parts[0], swissnum: parts[1] };
+  }
+
+  function createPresence(sturdyref) {
+    // used to create initial argv references
+    const { vatID, swissnum } = parseSturdyref(sturdyref);
+    const serialized = {
+      [QCLASS]: 'presence',
+      vatID,
+      swissnum,
+    };
+    // this creates the Presence, and also stores it into the tables, so we
+    // can send it back out again later
+    return unserializePresence(serialized);
   }
 
   function allocateSwissStuff() {

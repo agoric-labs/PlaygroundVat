@@ -10,8 +10,11 @@ module.exports = {
     'arrow-parens': 'off',
     strict: 'off',
     'no-console': 'off',
+
+    // revisit the following later
     'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     'no-return-assign': 'off',
     'no-param-reassign': 'off',
+    'import/prefer-default-export': 'off',
   },
 };
