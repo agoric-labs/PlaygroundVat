@@ -37,8 +37,7 @@ function asp(numVals, errFirst = false) {
     let vals;
     let err;
     if (errFirst) {
-      err = valsAndErr[0];
-      vals = valsAndErr.slice(1);
+      [err, ...vals] = valsAndErr;
     } else {
       vals = valsAndErr.slice(0, numVals);
       err = valsAndErr[numVals];
@@ -87,8 +86,8 @@ export async function connect(myVatID, addr, commandfile) {
     'msg: v2->v1 {"method": "increment", "args": []}\n',
   ]);
   let doner;
-  const donep = new Promise((resolve, reject) => (doner = resolve));
-  const s2 = Pushable(err => {
+  const donep = new Promise((resolve, _reject) => (doner = resolve));
+  const s2 = Pushable(_err => {
     console.log('done');
     // conn.end();
     doner();
@@ -97,11 +96,11 @@ export async function connect(myVatID, addr, commandfile) {
   if (commandfile) {
     const opTranscript = fs.readFileSync(commandfile).toString('utf8');
     const ops = opTranscript.split('\n');
-    for (const op of ops) {
+    ops.forEach(op => {
       if (op) {
         s2.push(op);
       }
-    }
+    });
   }
   s2.end();
   pullStream(
@@ -117,7 +116,7 @@ export async function connect(myVatID, addr, commandfile) {
   pullStream(
     conn,
     pullSplit('\n'),
-    pullStream.map(line => {
+    pullStream.forEach(line => {
       console.log(`rx '${line}'`);
     }),
     pullStream.drain(),
