@@ -1,4 +1,4 @@
-/* globals def Nat */
+/* globals def */
 
 import { makeSwissnum, makeSwissbase, doSwissHashing } from './swissCrypto';
 
@@ -63,7 +63,7 @@ function mustPassByPresence(val) {
       throw new Error(
         `cannot serialize objects with non-methods like the .${name} in ${val}`,
       );
-      return false;
+      // return false;
     }
   }
   const p = Object.getPrototypeOf(val);
@@ -228,10 +228,10 @@ export function makeWebkeyMarshal(
       if (ibidMap.has(val)) {
         throw new Error('ibid disabled for now');
         // Backreference to prior occurrence
-        return def({
-          [QCLASS]: 'ibid',
-          index: ibidMap.get(val),
-        });
+        // return def({
+        //   [QCLASS]: 'ibid',
+        //   index: ibidMap.get(val),
+        // });
       }
       ibidMap.set(val, ibidCount);
       ibidCount += 1;
@@ -312,9 +312,9 @@ export function makeWebkeyMarshal(
       return webkey2Record.get(key).value;
     }
     // console.log(` did not find previous`);
-    for (const k of webkey2Record.keys()) {
-      // console.log(` had: ${k}`);
-    }
+    // for (const k of webkey2Record.keys()) {
+    //   console.log(` had: ${k}`);
+    // }
 
     // todo: maybe pre-generate the FarVow and stash it for quick access
     const p = makePresence(serializer, data.vatID, data.swissnum);
@@ -360,16 +360,17 @@ export function makeWebkeyMarshal(
             return Symbol.for(data.key);
           }
           case 'bigint': {
+            /* eslint-disable-next-line no-undef */
             return BigInt(data.digits);
           }
 
           case 'ibid': {
             throw new Error('ibid disabled for now');
-            const index = Nat(data.index);
-            if (index >= ibids.length) {
-              throw new RangeError(`ibid out of range: ${index}`);
-            }
-            return ibids[index];
+            // const index = Nat(data.index);
+            // if (index >= ibids.length) {
+            //   throw new RangeError(`ibid out of range: ${index}`);
+            // }
+            // return ibids[index];
           }
 
           case 'vow': {
@@ -433,7 +434,7 @@ export function makeWebkeyMarshal(
   }
 
   function registerTarget(val, swissnum, resolutionOf) {
-    const rec = serializePassByPresence(val, resolutionOf, swissnum);
+    serializePassByPresence(val, resolutionOf, swissnum);
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
