@@ -51,10 +51,12 @@ function mustPassByPresence(val) {
   if (typeof val !== 'object') {
     throw new Error(`cannot serialize non-objects like ${val}`);
   }
-  for (const name of Object.getOwnPropertyNames(val)) {
+
+  const names = Object.getOwnPropertyNames(val);
+  names.forEach(name => {
     if (name === 'e') {
       // hack to allow Vows to pass-by-presence
-      continue;
+      return;
     }
     if (typeof val[name] !== 'function') {
       throw new Error(
@@ -62,7 +64,8 @@ function mustPassByPresence(val) {
       );
       // return false;
     }
-  }
+  });
+
   const p = Object.getPrototypeOf(val);
   if (p !== null && p !== Object.prototype) {
     mustPassByPresence(p);
