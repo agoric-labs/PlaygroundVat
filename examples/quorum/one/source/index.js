@@ -1,3 +1,5 @@
+/* globals Vow */
+
 const responses = new Set();
 
 function check() {

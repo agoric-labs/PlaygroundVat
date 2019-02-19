@@ -1,3 +1,5 @@
+/* globals Vow */
+
 export default function(argv) {
   const one = Vow.resolve(argv.one);
   one.e.wakeupFromTwo('we say howdy');
