@@ -48,9 +48,9 @@ export function makeQueues(t) {
 
   function dump() {
     console.log('queues:');
-    for (const k of queues.keys()) {
+    queues.keys().forEach(k => {
       console.log(k, queues.get(k));
-    }
+    });
   }
 
   function expect(a, b, frame, msg) {
@@ -66,7 +66,7 @@ export function makeQueues(t) {
     t.ok(got.startsWith('op '), got);
     const payload = JSON.parse(got.slice(3));
     if (msg) {
-      if (!payload.hasOwnProperty('opMsg')) {
+      if (!Object.prototype.hasOwnProperty.call(payload, 'opMsg')) {
         t.fail(`expected .opMsg but didn't find one in ${got}`);
         return undefined;
       }
@@ -89,7 +89,9 @@ export function makeQueues(t) {
   function expectAndDeliverAck(a, b, targetVat, ackSeqnum) {
     // todo: acks are disabled until we figure out what they mean in a quorum vat
     return;
+    // eslint-disable-next-line no-unreachable
     const got = expect(a, b, { ackSeqnum, type: 'ack' }, undefined);
+    // eslint-disable-next-line no-unreachable
     targetVat.commsReceived(`vat${a}`, got);
   }
 
