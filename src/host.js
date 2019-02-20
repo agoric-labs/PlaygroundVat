@@ -1,3 +1,5 @@
+/* global def */
+
 // this defines the endowments that live in the primal realm and may be
 // granted to the Vat host. It is the "airlock" or Membrane that sits between
 // the primal realm and the SES realm, specialized for the specific
