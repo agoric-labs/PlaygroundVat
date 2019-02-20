@@ -80,7 +80,7 @@ export async function connect(myVatID, addr, commandfile) {
       ',',
     )}`,
   );
-  const source = pullStream.values([
+  pullStream.values([
     'line1\n',
     'line2\n',
     'msg: v2->v1 {"method": "increment", "args": []}\n',
@@ -116,7 +116,8 @@ export async function connect(myVatID, addr, commandfile) {
   pullStream(
     conn,
     pullSplit('\n'),
-    pullStream.forEach(line => {
+    // eslint-disable-next-line array-callback-return
+    pullStream.map(line => {
       console.log(`rx '${line}'`);
     }),
     pullStream.drain(),
@@ -138,7 +139,7 @@ export async function main() {
     .command(
       'run <myVatID> <addr> [commandfile]',
       'connect to a vat server',
-      y => {},
+      _y => {},
       args => {
         connect(
           args.myVatID,
