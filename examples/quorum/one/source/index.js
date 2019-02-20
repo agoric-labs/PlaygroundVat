@@ -1,4 +1,4 @@
-/* globals Vow */
+/* global Vow */
 
 const responses = new Set();
 
