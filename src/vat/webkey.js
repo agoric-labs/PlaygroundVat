@@ -29,7 +29,7 @@ function canPassByCopy(val) {
     return false;
   }
   const names = Object.getOwnPropertyNames(val);
-  const hasFunction = names.every(name => typeof val[name] === 'function');
+  const hasFunction = names.some(name => typeof val[name] === 'function');
   if (hasFunction) return false;
   const p = Object.getPrototypeOf(val);
   if (p !== null && p !== Object.prototype && p !== Array.prototype) {
