@@ -1,4 +1,4 @@
-/* global Vow Flow def Nat */
+/* global Vow */
 
 export default function(argv) {
   console.log(`sending '${argv.value}'`);
