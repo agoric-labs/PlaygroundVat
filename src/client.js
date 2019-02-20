@@ -37,8 +37,7 @@ function asp(numVals, errFirst = false) {
     let vals;
     let err;
     if (errFirst) {
-      err = valsAndErr[0];
-      vals = valsAndErr.slice(1);
+      [err, ...vals] = valsAndErr;
     } else {
       vals = valsAndErr.slice(0, numVals);
       err = valsAndErr[numVals];
@@ -81,14 +80,15 @@ export async function connect(myVatID, addr, commandfile) {
       ',',
     )}`,
   );
-  const source = pullStream.values([
+  /* eslint-disable-next-line no-unused-vars, no-underscore-dangle */
+  const _source = pullStream.values([
     'line1\n',
     'line2\n',
     'msg: v2->v1 {"method": "increment", "args": []}\n',
   ]);
   let doner;
-  const donep = new Promise((resolve, reject) => (doner = resolve));
-  const s2 = Pushable(err => {
+  const donep = new Promise((resolve, _reject) => (doner = resolve));
+  const s2 = Pushable(_err => {
     console.log('done');
     // conn.end();
     doner();
@@ -97,15 +97,15 @@ export async function connect(myVatID, addr, commandfile) {
   if (commandfile) {
     const opTranscript = fs.readFileSync(commandfile).toString('utf8');
     const ops = opTranscript.split('\n');
-    for (const op of ops) {
+    ops.forEach(op => {
       if (op) {
         s2.push(op);
       }
-    }
+    });
   }
   s2.end();
   pullStream(
-    // source,
+    // _source,
     s2,
     pullStream.map(line => {
       console.log(`sending line ${line}`);
@@ -117,6 +117,7 @@ export async function connect(myVatID, addr, commandfile) {
   pullStream(
     conn,
     pullSplit('\n'),
+    // eslint-disable-next-line array-callback-return
     pullStream.map(line => {
       console.log(`rx '${line}'`);
     }),
@@ -139,7 +140,7 @@ export async function main() {
     .command(
       'run <myVatID> <addr> [commandfile]',
       'connect to a vat server',
-      y => {},
+      _y => {},
       args => {
         connect(
           args.myVatID,
