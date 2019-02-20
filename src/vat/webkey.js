@@ -1,5 +1,6 @@
+/* globals def */
+
 import { makeSwissnum, makeSwissbase, doSwissHashing } from './swissCrypto';
-import { insist } from '../insist';
 
 // objects can only be passed in one of two/three forms:
 // 1: pass-by-presence: all properties (own and inherited) are methods,
@@ -28,11 +29,8 @@ function canPassByCopy(val) {
     return false;
   }
   const names = Object.getOwnPropertyNames(val);
-  for (const name of names) {
-    if (typeof val[name] === 'function') {
-      return false;
-    }
-  }
+  const hasFunction = names.some(name => typeof val[name] === 'function');
+  if (hasFunction) return false;
   const p = Object.getPrototypeOf(val);
   if (p !== null && p !== Object.prototype && p !== Array.prototype) {
     // todo: arrays should also be Array.isArray(val)
@@ -53,18 +51,21 @@ function mustPassByPresence(val) {
   if (typeof val !== 'object') {
     throw new Error(`cannot serialize non-objects like ${val}`);
   }
-  for (const name of Object.getOwnPropertyNames(val)) {
+
+  const names = Object.getOwnPropertyNames(val);
+  names.forEach(name => {
     if (name === 'e') {
       // hack to allow Vows to pass-by-presence
-      continue;
+      return;
     }
     if (typeof val[name] !== 'function') {
       throw new Error(
         `cannot serialize objects with non-methods like the .${name} in ${val}`,
       );
-      return false;
+      // return false;
     }
-  }
+  });
+
   const p = Object.getPrototypeOf(val);
   if (p !== null && p !== Object.prototype) {
     mustPassByPresence(p);
@@ -87,22 +88,6 @@ export function makeWebkeyMarshal(
   myVatSecret,
   serializer,
 ) {
-  // val might be a primitive, a pass by (shallow) copy object, a
-  // remote reference, or other.  We treat all other as a local object
-  // to be exported as a local webkey.
-  function serialize(val, resolutionOf) {
-    return JSON.stringify(val, makeReplacer(resolutionOf));
-  }
-
-  function unserialize(str) {
-    return JSON.parse(str, makeReviver());
-  }
-
-  function makeWebkey(data) {
-    // todo: use a cheaper (but still safe/reversible) combiner
-    return JSON.stringify({ vatID: data.vatID, swissnum: data.swissnum });
-  }
-
   // Record: { value, vatID, swissnum, serialized }
   // holds both objects (pass-by-presence) and unresolved promises
   const val2Record = new WeakMap();
@@ -206,14 +191,14 @@ export function makeWebkeyMarshal(
           return val;
         }
         case 'symbol': {
-          const opt_key = Symbol.keyFor(val);
-          if (opt_key === undefined) {
+          const optKey = Symbol.keyFor(val);
+          if (optKey === undefined) {
             // TODO: Symmetric unguessable identity
             throw new TypeError('Cannot serialize unregistered symbol');
           }
           return def({
             [QCLASS]: 'symbol',
-            key: opt_key,
+            key: optKey,
           });
         }
         case 'bigint': {
@@ -243,10 +228,10 @@ export function makeWebkeyMarshal(
       if (ibidMap.has(val)) {
         throw new Error('ibid disabled for now');
         // Backreference to prior occurrence
-        return def({
-          [QCLASS]: 'ibid',
-          index: ibidMap.get(val),
-        });
+        // return def({
+        //   [QCLASS]: 'ibid',
+        //   index: ibidMap.get(val),
+        // });
       }
       ibidMap.set(val, ibidCount);
       ibidCount += 1;
@@ -296,47 +281,9 @@ export function makeWebkeyMarshal(
     };
   }
 
-  function parseSturdyref(sturdyref) {
-    const parts = sturdyref.split('/');
-    return { vatID: parts[0], swissnum: parts[1] };
-  }
-
-  function createPresence(sturdyref) {
-    // used to create initial argv references
-    const { vatID, swissnum } = parseSturdyref(sturdyref);
-    const serialized = {
-      [QCLASS]: 'presence',
-      vatID,
-      swissnum,
-    };
-    // this creates the Presence, and also stores it into the tables, so we
-    // can send it back out again later
-    return unserializePresence(serialized);
-  }
-
-  function unserializePresence(data) {
-    // console.log(`unserializePresence ${JSON.stringify(data)}`);
-    const key = makeWebkey(data);
-    if (webkey2Record.has(key)) {
-      // console.log(` found previous`);
-      return webkey2Record.get(key).value;
-    }
-    // console.log(` did not find previous`);
-    for (const k of webkey2Record.keys()) {
-      // console.log(` had: ${k}`);
-    }
-
-    // todo: maybe pre-generate the FarVow and stash it for quick access
-    const p = makePresence(serializer, data.vatID, data.swissnum);
-    const rec = def({
-      value: p,
-      vatID: data.vatID,
-      swissnum: data.swissnum,
-      serialized: data,
-    });
-    val2Record.set(p, rec);
-    webkey2Record.set(key, rec);
-    return p;
+  function makeWebkey(data) {
+    // todo: use a cheaper (but still safe/reversible) combiner
+    return JSON.stringify({ vatID: data.vatID, swissnum: data.swissnum });
   }
 
   function unserializeVow(data) {
@@ -355,6 +302,31 @@ export function makeWebkeyMarshal(
     webkey2Record.set(key, rec);
     serializer.opWhen(data.vatID, data.swissnum);
     return v;
+  }
+
+  function unserializePresence(data) {
+    // console.log(`unserializePresence ${JSON.stringify(data)}`);
+    const key = makeWebkey(data);
+    if (webkey2Record.has(key)) {
+      // console.log(` found previous`);
+      return webkey2Record.get(key).value;
+    }
+    // console.log(` did not find previous`);
+    // for (const k of webkey2Record.keys()) {
+    //   console.log(` had: ${k}`);
+    // }
+
+    // todo: maybe pre-generate the FarVow and stash it for quick access
+    const p = makePresence(serializer, data.vatID, data.swissnum);
+    const rec = def({
+      value: p,
+      vatID: data.vatID,
+      swissnum: data.swissnum,
+      serialized: data,
+    });
+    val2Record.set(p, rec);
+    webkey2Record.set(key, rec);
+    return p;
   }
 
   function makeReviver() {
@@ -388,16 +360,17 @@ export function makeWebkeyMarshal(
             return Symbol.for(data.key);
           }
           case 'bigint': {
+            /* eslint-disable-next-line no-undef */
             return BigInt(data.digits);
           }
 
           case 'ibid': {
             throw new Error('ibid disabled for now');
-            const index = Nat(data.index);
-            if (index >= ibids.length) {
-              throw new RangeError(`ibid out of range: ${index}`);
-            }
-            return ibids[index];
+            // const index = Nat(data.index);
+            // if (index >= ibids.length) {
+            //   throw new RangeError(`ibid out of range: ${index}`);
+            // }
+            // return ibids[index];
           }
 
           case 'vow': {
@@ -425,6 +398,35 @@ export function makeWebkeyMarshal(
     };
   }
 
+  // val might be a primitive, a pass by (shallow) copy object, a
+  // remote reference, or other.  We treat all other as a local object
+  // to be exported as a local webkey.
+  function serialize(val, resolutionOf) {
+    return JSON.stringify(val, makeReplacer(resolutionOf));
+  }
+
+  function unserialize(str) {
+    return JSON.parse(str, makeReviver());
+  }
+
+  function parseSturdyref(sturdyref) {
+    const parts = sturdyref.split('/');
+    return { vatID: parts[0], swissnum: parts[1] };
+  }
+
+  function createPresence(sturdyref) {
+    // used to create initial argv references
+    const { vatID, swissnum } = parseSturdyref(sturdyref);
+    const serialized = {
+      [QCLASS]: 'presence',
+      vatID,
+      swissnum,
+    };
+    // this creates the Presence, and also stores it into the tables, so we
+    // can send it back out again later
+    return unserializePresence(serialized);
+  }
+
   function allocateSwissStuff() {
     const swissbase = allocateSwissbase();
     const swissnum = doSwissHashing(swissbase, hash58);
@@ -432,7 +434,7 @@ export function makeWebkeyMarshal(
   }
 
   function registerTarget(val, swissnum, resolutionOf) {
-    const rec = serializePassByPresence(val, resolutionOf, swissnum);
+    serializePassByPresence(val, resolutionOf, swissnum);
   }
 
   function getOutboundResolver(vatID, swissnum, handlerOf) {
