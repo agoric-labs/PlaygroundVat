@@ -80,7 +80,8 @@ export async function connect(myVatID, addr, commandfile) {
       ',',
     )}`,
   );
-  pullStream.values([
+  /* eslint-disable-next-line no-unused-vars, no-underscore-dangle */
+  const _source = pullStream.values([
     'line1\n',
     'line2\n',
     'msg: v2->v1 {"method": "increment", "args": []}\n',
@@ -104,7 +105,7 @@ export async function connect(myVatID, addr, commandfile) {
   }
   s2.end();
   pullStream(
-    // source,
+    // _source,
     s2,
     pullStream.map(line => {
       console.log(`sending line ${line}`);
