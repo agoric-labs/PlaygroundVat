@@ -4,7 +4,7 @@ import { makeResolutionNotifier } from '../src/vat/notifyUponResolution';
 
 function make() {
   let r;
-  const v = new Flow().makeVow((res, rej) => (r = res));
+  const v = new Flow().makeVow((res, _rej) => (r = res));
   return { v, r };
 }
 
