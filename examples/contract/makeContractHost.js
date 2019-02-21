@@ -82,6 +82,7 @@
  */
 
 export function makeContractHost() {
+  /* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
   const harden = require('@agoric/harden');
   const m = new WeakMap();
 
@@ -93,13 +94,18 @@ export function makeContractHost() {
       let resolve;
       const f = new Flow();
       const resultP = f.makeVow(r => (resolve = r));
-      const contract = SES.confineExpr(contractSrc, { Flow, Vow, console, require });
+      const contract = SES.confineExpr(contractSrc, {
+        Flow,
+        Vow,
+        console,
+        require,
+      });
 
-      const addParam = function(i, token) {
+      const addParam = (i, token) => {
         tokens[i] = token;
         let resolveArg;
         argPs[i] = f.makeVow(r => (resolveArg = r));
-        m.set(token, function(allegedSrc, allegedI, arg) {
+        m.set(token, (allegedSrc, allegedI, arg) => {
           if (contractSrc !== allegedSrc) {
             throw new Error(`unexpected contract: ${contractSrc}`);
           }
@@ -111,18 +117,14 @@ export function makeContractHost() {
           return resultP;
         });
       };
-      for (let i = 0; i < contract.length; i++) {
+      for (let i = 0; i < contract.length; i += 1) {
         addParam(i, harden({}));
       }
-      resolve(
-        Vow.all(argPs).then(function(args) {
-          return contract(...args);
-        }),
-      );
+      resolve(Vow.all(argPs).then(args => contract(...args)));
       return tokens;
     },
     play(tokenP, allegedSrc, allegedI, arg) {
-      return Vow.resolve(tokenP).then(function(token) {
+      return Vow.resolve(tokenP).then(token => {
         return m.get(token)(allegedSrc, allegedI, arg);
       });
     },
