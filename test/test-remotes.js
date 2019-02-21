@@ -1,5 +1,4 @@
 import { test } from 'tape-promise/tape';
-import harden from '@agoric/harden';
 import {
   makeRemoteForVatID,
   makeDecisionList,
@@ -33,7 +32,7 @@ test('parseVatID', t => {
   t.end();
 });
 
-function logConflict(text, componentID, seqNum, msgID, msg, seqMap) {
+function logConflict(_text, _componentID, _seqNum, _msgID, _msg, _seqMap) {
   throw new Error('logConflict');
 }
 
@@ -112,6 +111,7 @@ test('vatRemote inbound quorum', t => {
   // I am vat1, upstream is q2-vat2a-vat2b-vat2c
   const fromVatID = 'q2-vat2a-vat2b-vat2c';
   const conflicts = [];
+  /* eslint-disable-next-line no-shadow */
   function logConflict(...args) {
     conflicts.push(args);
   }
@@ -207,7 +207,6 @@ test('vatRemote inbound quorum', t => {
 });
 
 test('decisionList solo', t => {
-  const remotes = new Map();
   const hm20 = makeMsg('vat2', 0);
   const hm30 = makeMsg('vat3', 0);
   const ready = [];
@@ -248,7 +247,6 @@ test('decisionList solo', t => {
 });
 
 test('decisionList follower', t => {
-  const remotes = new Map();
   const ready = [];
   const consumed = [];
   function getReadyMessages() {
@@ -354,7 +352,6 @@ test('decisionList follower', t => {
 });
 
 test('decisionList leader', t => {
-  const remotes = new Map();
   const ready = [];
   const consumed = [];
   function getReadyMessages() {
@@ -410,9 +407,10 @@ test('decisionList leader', t => {
 });
 
 test('connections', t => {
-  function managerWriteInput(fromVatID, wireMessage) {}
-  function managerWriteOutput(msg) {}
-  function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {}
+  function managerWriteInput(_fromVatID, _wireMessage) {}
+  function managerWriteOutput(_msg) {}
+  /* eslint-disable-next-line no-shadow */
+  function logConflict(_issue, _componentID, _seqNum, _msgID, _msg, _seqMap) {}
   const wanted = [];
   const comms = {
     wantConnection(hostID) {
