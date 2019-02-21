@@ -1,10 +1,12 @@
+/* global Vow */
+
 import { test } from 'tape-promise/tape';
-import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
+import { makeRealm, buildVat } from '../src/main';
 import { makeTranscript, funcToSource, makeQueues } from './util';
 import { hash58 } from '../src/host';
 
-function t1_left() {
-  exports.default = function(argv) {
+function t1Left() {
+  exports.default = argv => {
     let done;
     const p2 = Vow.resolve(argv.p1).e.foo('foo');
     const p3 = p2.e.bar('bar');
@@ -19,8 +21,8 @@ function t1_left() {
   };
 }
 
-function t1_right() {
-  exports.default = function(argv) {
+function t1Right() {
+  exports.default = _argv => {
     let fooCalled;
     let barCalled;
     const obj2 = {
@@ -29,7 +31,6 @@ function t1_right() {
         return 'done';
       },
     };
-    const obj3 = {};
     return {
       foo(arg) {
         fooCalled = arg;
@@ -59,7 +60,7 @@ test('promise pipelining', async t => {
     'vat1 secret',
     'vat1',
     endow,
-    funcToSource(t1_left),
+    funcToSource(t1Left),
   );
   const v1argv = { p1: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
@@ -70,12 +71,11 @@ test('promise pipelining', async t => {
     'vat2 secret',
     'vat2',
     endow,
-    funcToSource(t1_right),
+    funcToSource(t1Right),
   );
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
-  let got;
 
   v1.connectionMade('vat2', q.addQueue(1, 2));
   v2.connectionMade('vat1', q.addQueue(2, 1));
@@ -170,9 +170,10 @@ test('promise pipelining', async t => {
   t.end();
 });
 
-function t2_alice() {
-  exports.default = function(argv) {
+function t2Alice() {
+  exports.default = argv => {
     const p1 = Vow.resolve(argv.bob).e.getTarget1();
+    /* eslint-disable-next-line no-unused-vars */
     const p2 = p1.e.call('foo');
     return {
       // send bar manually after we see it get shortened
@@ -183,8 +184,8 @@ function t2_alice() {
   };
 }
 
-function t2_bob() {
-  exports.default = function(argv) {
+function t2Bob() {
+  exports.default = argv => {
     const carolP = Vow.resolve(argv.carol);
     return {
       getTarget1() {
@@ -196,8 +197,8 @@ function t2_bob() {
   };
 }
 
-function t2_carol() {
-  exports.default = function(argv) {
+function t2Carol() {
+  exports.default = _argv => {
     const calls = [];
     const target = {
       call(arg) {
@@ -227,9 +228,10 @@ test('promise pipelining to third party', async t => {
     'vat1 secret',
     'vat1',
     endow,
-    funcToSource(t2_alice),
+    funcToSource(t2Alice),
   );
   const v1argv = { bob: v1.createPresence('vat2/0') };
+  /* eslint-disable-next-line no-unused-vars */
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2 = await buildVat(
@@ -238,9 +240,10 @@ test('promise pipelining to third party', async t => {
     'vat2 secret',
     'vat2',
     endow,
-    funcToSource(t2_bob),
+    funcToSource(t2Bob),
   );
   const v2argv = { carol: v2.createPresence('vat3/0') };
+  /* eslint-disable-next-line no-unused-vars */
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
   const v3 = await buildVat(
@@ -249,9 +252,10 @@ test('promise pipelining to third party', async t => {
     'vat3 secret',
     'vat3',
     endow,
-    funcToSource(t2_carol),
+    funcToSource(t2Carol),
   );
   const v3argv = {};
+  /* eslint-disable-next-line no-unused-vars */
   const v3root = await v3.initializeCode('vat3/0', v3argv);
 
   const q = makeQueues(t);
@@ -315,6 +319,7 @@ test('promise pipelining to third party', async t => {
 
   // this sends getTarget2 to Carol, with baz right behind it
 
+  /* eslint-disable-next-line no-unused-vars */
   const got5 = q.expect(
     2,
     3,
@@ -328,6 +333,7 @@ test('promise pipelining to third party', async t => {
     },
   );
 
+  /* eslint-disable-next-line no-unused-vars */
   const got6 = q.expect(
     2,
     3,
@@ -335,6 +341,7 @@ test('promise pipelining to third party', async t => {
     { op: 'when', targetSwissnum: 'hb1-YAj-Vv5XMJYHSunn14Xhp12q4V' },
   );
 
+  /* eslint-disable-next-line no-unused-vars */
   const got7 = q.expect(
     2,
     3,
@@ -348,6 +355,7 @@ test('promise pipelining to third party', async t => {
     },
   );
 
+  /* eslint-disable-next-line no-unused-vars */
   const got8 = q.expect(
     2,
     3,
