@@ -1,4 +1,5 @@
 import { insist } from '../insist';
+import harden from '@agoric/harden';
 
 /**
  * A scoreboard is an object that accepts proto messages, where each
@@ -23,7 +24,7 @@ import { insist } from '../insist';
  * or remember the set it is passed. By monotonic, if it says true for
  * set X, it must say true for any superset of set X.
  */
-export function makeScoreboard(quorumTest, def, logConflict) {
+export function makeScoreboard(quorumTest, logConflict) {
   // map of seqNum to sequence-maps, where a sequence-map is a map
   // from msgID to a record of a `msg` and the set of `componentIDs`
   // that have agreed on that msgID (and therefore presumably on that
@@ -45,7 +46,7 @@ export function makeScoreboard(quorumTest, def, logConflict) {
     return undefined;
   }
 
-  return def({
+  return harden({
     // Return a conservative flag about whether this acceptance might
     // have caused a next message to be ready. If false, then no next
     // message is ready; otherwise maybe.
@@ -118,7 +119,7 @@ function makeConsensusLeader(decidedQs) {
     }
   }
 
-  return def({
+  return harden({
     acceptProtoMsg(compositeID, componentID, seqNum, msgID, msg) {
       let scoreboard = scoreboards.get(compositeID);
       if (!scoreboard) {
@@ -148,7 +149,7 @@ function makeConsensusLeader(decidedQs) {
 export function makeConsensusFollower(leaderP) {
   leaderP = Vow.resolve(leaderP);
   
-  return def({
+  return harden({
     acceptProtoMsg(compositeID, componentID, seqNum, msgID, msg) {
       // BOGUS Vulnerable HACK! Must forward signed message
       // itself. The receiver must be the one that takes it apart and

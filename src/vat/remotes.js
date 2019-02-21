@@ -1,3 +1,4 @@
+import harden from '@agoric/harden';
 import { makeScoreboard } from './scoreboard';
 import { insist } from '../insist';
 import { vatMessageIDHash } from './swissCrypto';
@@ -10,7 +11,7 @@ function buildAck(ackSeqnum) {
 const OP = 'op ';
 const DECIDE = 'decide ';
 
-export function makeRemoteForVatID(vatID, def, logConflict) {
+export function makeRemoteForVatID(vatID, logConflict) {
   let nextOutboundSeqnum = 0;
 
   // inbound management
@@ -27,7 +28,7 @@ export function makeRemoteForVatID(vatID, def, logConflict) {
     return componentIDs.size >= threshold;
   }
 
-  const scoreboard = makeScoreboard(quorumTest, def, logConflict);
+  const scoreboard = makeScoreboard(quorumTest, logConflict);
 
   function getReadyMessage() {
     if (!readyMessage) {
@@ -226,7 +227,6 @@ export function makeRemoteManager(
   comms,
   managerWriteInput,
   managerWriteOutput,
-  def,
   logConflict,
   hash58,
 ) {
@@ -245,7 +245,7 @@ export function makeRemoteManager(
       }
       hostRemotes.set(
         hostID,
-        makeRemoteForHostID(hostID, comms, def, managerWriteInput),
+        makeRemoteForHostID(hostID, comms, managerWriteInput),
       );
     }
     return hostRemotes.get(hostID);
@@ -253,7 +253,7 @@ export function makeRemoteManager(
 
   function getVatRemote(vatID) {
     if (!vatRemotes.has(vatID)) {
-      vatRemotes.set(vatID, makeRemoteForVatID(vatID, def, logConflict));
+      vatRemotes.set(vatID, makeRemoteForVatID(vatID, logConflict));
     }
     return vatRemotes.get(vatID);
   }
@@ -393,7 +393,7 @@ export function makeRemoteManager(
     }
   }
 
-  const manager = def({
+  const manager = harden({
     setEngine(e) {
       engine = e;
     },
@@ -411,13 +411,13 @@ export function makeRemoteManager(
 }
 
 // this is just for outbound messages, but todo future maybe acks too
-function makeRemoteForHostID(hostID, comms, def, managerWriteInput) {
+function makeRemoteForHostID(hostID, comms, managerWriteInput) {
   let queuedMessages = [];
   const nextInboundSeqnum = 0;
   const queuedInboundMessages = new Map(); // seqnum -> msg
   let connection;
 
-  const remote = def({
+  const remote = harden({
     connectionMade(c) {
       connection = c;
       if (nextInboundSeqnum > 0) {

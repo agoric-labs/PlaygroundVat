@@ -2,19 +2,13 @@
 
 'use strict';
 
+import harden from '@agoric/harden';
 import { insist, insistFn } from '../insist';
 
 // const debugLog = console.log;
 function debugLog() {} // disabled
 
 const scheduleHack = Promise.resolve(null);
-
-// TODO: remove this in favor of the global deep-freezing def() that SES
-// provides. However make sure test-flow.js can still work, which doesn't run
-// under SES.
-function def(x) {
-  return Object.freeze(x);
-}
 
 function isSymbol(x) {
   return typeof x === 'symbol';
@@ -192,7 +186,7 @@ class UnresolvedHandler {
     return false;
   }
 }
-def(UnresolvedHandler);
+harden(UnresolvedHandler);
 
 class FulfilledHandler {
   constructor(value) {
@@ -224,7 +218,7 @@ class FulfilledHandler {
     return true;
   }
 }
-def(FulfilledHandler);
+harden(FulfilledHandler);
 
 class FarRemoteHandler extends UnresolvedHandler {
   constructor(serializer, vatID, swissnum, presence = null) {
@@ -307,7 +301,7 @@ class FarRemoteHandler extends UnresolvedHandler {
     return super.processSingle(todo, flow);
   }
 }
-def(FarRemoteHandler);
+harden(FarRemoteHandler);
 
 class InnerFlow {
   constructor() {
@@ -361,7 +355,7 @@ class InnerFlow {
     }`;
   }
 }
-def(InnerFlow);
+harden(InnerFlow);
 
 const flowToInner = new WeakMap();
 
@@ -374,7 +368,7 @@ function realInnerFlow(value) {
 const farVows = new WeakMap(); // maps Presence to { vatID, swissnum, handler }
 
 export function makePresence(serializer, vatID, swissnum) {
-  const presence = def({});
+  const presence = harden({});
   const handler = new FarRemoteHandler(serializer, vatID, swissnum, presence);
   const rec = { vatID, swissnum, handler };
   farVows.set(presence, rec);
@@ -405,7 +399,7 @@ class Flow {
     return new Vow(flow, innerResolver);
   }
 }
-def(Flow);
+harden(Flow);
 
 // follow a chain of handlers
 function shortenForwards(firstResolver, optVow) {
@@ -437,9 +431,9 @@ function makeResolver(innerResolver) {
     innerResolver = innerResolver.resolve(value);
   };
   // resolver.toString = () => `Resolver{ resolved: ${getHandler(resolver)} }`;
-  return def(resolver);
+  return harden(resolver);
 }
-def(makeResolver);
+harden(makeResolver);
 
 const vowToInner = new WeakMap();
 const resolverToInner = new WeakMap();
@@ -489,7 +483,7 @@ class InnerVow {
   constructor(innerFlow, innerResolver) {
     this.flow = innerFlow;
     this.resolver = innerResolver;
-    // def(this);
+    // harden(this);
   }
 
   get(target, op, receiver) {
@@ -535,7 +529,7 @@ class Vow {
       value: new Proxy({}, inner),
       enumerable: false,
     });
-    // def(this);
+    // harden(this);
   }
 
   // TODO need second argument for `then`
@@ -599,7 +593,7 @@ class Vow {
     return Vow.resolve().then(() => fn());
   }
 }
-def(Vow);
+harden(Vow);
 
 const asVow = Vow.resolve;
 
