@@ -14,10 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
 
 export default function(argv) {
-  const escrowSrc = argv.escrowSrc;
+  const { escrowSrc } = argv;
   const contractHostP = Vow.resolve(argv.host);
   const bobP = Vow.resolve(argv.bob);
 
@@ -35,10 +36,11 @@ export default function(argv) {
     myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
     myStockPurseP = Vow.resolve(myStockPurse);
     myStockIssuerP = myStockPurseP.e.getIssuer();
-    return alice;
+    /* eslint-disable-next-line no-use-before-define */
+    return alice; // alice and init use each other
   }
 
-  const check = function(allegedSrc, allegedSide) {
+  const check = (_allegedSrc, _allegedSide) => {
     // for testing purposes, alice and bob are willing to play
     // any side of any contract, so that the failure we're testing
     // is in the contractHost's checking
@@ -58,7 +60,7 @@ export default function(argv) {
       if (!initialized) {
         console.log('++ ERR: payBobBadly1 called before init()');
       }
-      const payment = harden({ deposit(amount, src) {} });
+      const payment = harden({ deposit(_amount, _src) {} });
       return bobP.e.buy('shoe', payment);
     },
     payBobBadly2() {
@@ -88,14 +90,13 @@ export default function(argv) {
 
       check(allegedSrc, allegedSide);
 
+      /* eslint-disable-next-line no-unused-vars */
       let cancel;
       const a = harden({
         moneySrcP: myMoneyIssuerP.e.makeEmptyPurse('aliceMoneySrc'),
         stockDstP: myStockIssuerP.e.makeEmptyPurse('aliceStockDst'),
         stockNeeded: 7,
-        cancellationP: f.makeVow(function(r) {
-          cancel = r;
-        }),
+        cancellationP: f.makeVow(r => (cancel = r)),
       });
       const ackP = a.moneySrcP.e.deposit(10, myMoneyPurseP);
 
