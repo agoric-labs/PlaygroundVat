@@ -4,14 +4,6 @@ import SES from 'ses';
 import { promisify } from 'util';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import { makeVatEndowments } from '../src/host';
-import {
-  isVow,
-  asVow,
-  Flow,
-  Vow,
-  makePresence,
-  makeUnresolvedRemoteVow,
-} from '../src/flow/flowcomm';
 import { hash58 } from '../src/host';
 
 test('marshal', async t => {
@@ -57,11 +49,6 @@ test('marshal', async t => {
   const myVatSecret = 'v1 secret';
   const m = e.makeWebkeyMarshal(
     hash58,
-    Vow,
-    isVow,
-    Flow,
-    makePresence,
-    makeUnresolvedRemoteVow,
     'v1',
     myVatSecret,
     h.serializer,

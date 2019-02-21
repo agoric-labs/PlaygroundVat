@@ -89,11 +89,6 @@ const QCLASS = '@qclass';
 // directly
 export function makeWebkeyMarshal(
   hash58,
-  _Vow,
-  _isVow,
-  _Flow,
-  _makePresence,
-  _makeUnresolvedRemoteVow,
   myVatID,
   myVatSecret,
   serializer,

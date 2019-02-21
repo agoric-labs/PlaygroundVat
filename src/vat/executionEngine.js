@@ -2,16 +2,10 @@
 import harden from '@agoric/harden';
 import { doSwissHashing } from './swissCrypto';
 import { makeWebkeyMarshal } from './webkey';
+import { Vow, makePresence, handlerOf, resolutionOf } from '../flow/flowcomm';
 
 export function makeEngine(
   hash58,
-  Vow,
-  isVow,
-  Flow,
-  makePresence,
-  makeUnresolvedRemoteVow,
-  handlerOf,
-  resolutionOf,
   myVatID,
   myVatSecret,
   manager,
@@ -57,11 +51,6 @@ export function makeEngine(
   };
   const marshal = makeWebkeyMarshal(
     hash58,
-    Vow,
-    isVow,
-    Flow,
-    makePresence,
-    makeUnresolvedRemoteVow,
     myVatID,
     myVatSecret,
     serializer,

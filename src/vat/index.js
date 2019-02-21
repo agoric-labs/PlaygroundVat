@@ -9,9 +9,7 @@ import {
   Flow,
   Vow,
   makePresence,
-  makeUnresolvedRemoteVow,
 } from '../flow/flowcomm';
-import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
 import { makeEngine } from './executionEngine';
 
@@ -150,13 +148,6 @@ export function makeVat(
 
   const engine = makeEngine(
     endowments.hash58,
-    Vow,
-    isVow,
-    Flow,
-    makePresence,
-    makeUnresolvedRemoteVow,
-    handlerOf,
-    resolutionOf,
     myVatID,
     myVatSecret,
     manager,
