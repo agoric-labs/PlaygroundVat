@@ -1,4 +1,4 @@
-/* global Vow Flow def */
+/* global Vow Flow */
 // Copyright (C) 2013 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -13,6 +13,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+import harden from '@agoric/harden';
 
 export default function(argv) {
   const escrowSrc = argv.escrowSrc;
@@ -42,7 +44,7 @@ export default function(argv) {
     // is in the contractHost's checking
   };
 
-  const alice = def({
+  const alice = harden({
     init,
     payBobWell() {
       if (!initialized) {
@@ -56,7 +58,7 @@ export default function(argv) {
       if (!initialized) {
         console.log('++ ERR: payBobBadly1 called before init()');
       }
-      const payment = def({ deposit(amount, src) {} });
+      const payment = harden({ deposit(amount, src) {} });
       return bobP.e.buy('shoe', payment);
     },
     payBobBadly2() {
@@ -87,7 +89,7 @@ export default function(argv) {
       check(allegedSrc, allegedSide);
 
       let cancel;
-      const a = def({
+      const a = harden({
         moneySrcP: myMoneyIssuerP.e.makeEmptyPurse('aliceMoneySrc'),
         stockDstP: myStockIssuerP.e.makeEmptyPurse('aliceStockDst'),
         stockNeeded: 7,

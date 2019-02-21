@@ -1,4 +1,5 @@
 import { test } from 'tape-promise/tape';
+import Nat from '@agoric/nat';
 import SES from 'ses';
 import { makeVatEndowments } from '../src/host';
 import {
@@ -8,8 +9,9 @@ import {
 } from '../src/vat/swissCrypto';
 
 test('hash58', t => {
-  const s = SES.makeSESRootRealm();
-  const e = makeVatEndowments(s, null, null);
+  const s = SES.makeSESRootRealm({consoleMode: 'allow', errorStackMode: 'allow'});
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const e = makeVatEndowments(s, req, null, null);
   // test vectors from python and electrum/lib/address.py Base58 class
   // Base58.encode(hashlib.sha256(s).digest()[:16])
   t.equal(e.hash58(''), 'V7jseQevszwMPhi4evidTR');
@@ -25,7 +27,8 @@ test('hash58', t => {
 
 test.skip('swissHashing', t => {
   const s = SES.makeSESRootRealm();
-  const e = makeVatEndowments(s, null, null);
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const e = makeVatEndowments(s, req, null, null);
   const vs = e.hash58('vat secret');
   t.equal(vs, 'WHMV2quAubLYGoFtXtpEao');
   const sw1 = makeSwissnum(vs, 1, e.hash58);

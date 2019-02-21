@@ -22,7 +22,7 @@ export function hash58(s) {
   return bs58.encode(h.digest().slice(0, 16));
 }
 
-export function makeVatEndowments(s, output, comms) {
+export function makeVatEndowments(s, req, output, comms) {
   const power = {
     // made available to build()
     hash58,
@@ -45,10 +45,11 @@ export function makeVatEndowments(s, output, comms) {
   };
 
   function build(power) {
+    const harden = require('@agoric/harden');
     function eventually(f) {
       Promise.resolve().then(_ => f());
     }
-    return def({
+    return harden({
       hash58(s) {
         return power.hash58(s);
       },
@@ -57,11 +58,11 @@ export function makeVatEndowments(s, output, comms) {
           // m is SES
           // the manager will be called with connectionMade, commsReceived,
           // and connectionLost
-          const wrappedManager = def({
+          const wrappedManager = harden({
             connectionMade(hostID, c) {
               // c is Primal
               // the Connection has a send() method
-              const wrappedConnection = def({
+              const wrappedConnection = harden({
                 // wrappedConnection is SES
                 send(msg) {
                   c.send(`${msg}`);
@@ -105,7 +106,7 @@ export function makeVatEndowments(s, output, comms) {
     });
   }
 
-  return s.evaluate(`(${build})`)(power);
+  return s.evaluate(`(${build})`, { require: req })(power);
 }
 
 export function readAndHashFile(fn) {

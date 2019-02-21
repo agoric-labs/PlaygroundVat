@@ -1,4 +1,4 @@
-/* global SES Vow Flow def */
+/* global SES Vow Flow */
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -82,9 +82,10 @@
  */
 
 export function makeContractHost() {
+  const harden = require('@agoric/harden');
   const m = new WeakMap();
 
-  return def({
+  return harden({
     setup(contractSrc) {
       contractSrc = `${contractSrc}`;
       const tokens = [];
@@ -92,7 +93,7 @@ export function makeContractHost() {
       let resolve;
       const f = new Flow();
       const resultP = f.makeVow(r => (resolve = r));
-      const contract = SES.confineExpr(contractSrc, { Flow, Vow, console });
+      const contract = SES.confineExpr(contractSrc, { Flow, Vow, console, require });
 
       const addParam = function(i, token) {
         tokens[i] = token;
@@ -111,7 +112,7 @@ export function makeContractHost() {
         });
       };
       for (let i = 0; i < contract.length; i++) {
-        addParam(i, def({}));
+        addParam(i, harden({}));
       }
       resolve(
         Vow.all(argPs).then(function(args) {

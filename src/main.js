@@ -7,6 +7,7 @@ import yargs from 'yargs';
 import { rollup } from 'rollup';
 
 import SES from 'ses';
+import Nat from '@agoric/nat';
 
 import PeerId from 'peer-id';
 import PeerInfo from 'peer-info';
@@ -16,20 +17,22 @@ import { hash58, makeVatEndowments, readAndHashFile } from './host';
 import { parseVatID } from './vat/id';
 import { makeSwissnum } from './vat/swissCrypto';
 
-export function confineVatSource(s, source) {
+export function confineVatSource(s, req, source) {
   const exports = {};
-  const endow = { exports, console };
-  s.evaluate(source, endow);
+  s.evaluate(source, { exports, require: req });
   return exports;
 }
 
 export function makeRealm() {
-  const s = SES.makeSESRootRealm({ consoleMode: 'allow' });
+  const mode = { consoleMode: 'allow' };
+  // mode.errorStackMode = 'allow'; // debug only
+  const s = SES.makeSESRootRealm(mode);
   return s;
 }
 
 export async function bundleCode(filename, appendSourcemap) {
-  const guestBundle = await rollup({ input: filename, treeshake: false });
+  const guestBundle = await rollup({ input: filename, treeshake: false,
+                                     external: ['@agoric/nat', '@agoric/harden']});
   const { output } = await guestBundle.generate({
     format: 'cjs',
     sourcemap: appendSourcemap,
@@ -58,6 +61,7 @@ export async function bundleCode(filename, appendSourcemap) {
 
 export async function buildVat(
   s,
+  req,
   myVatID,
   myVatSecret,
   myHostID,
@@ -78,7 +82,7 @@ export async function buildVat(
   // console.log(`vatSource: ${vatSource}`);
 
   // const vatSource = fs.readFileSync(require.resolve('./vat.js'));
-  const { makeVat } = confineVatSource(s, vatSource);
+  const { makeVat } = confineVatSource(s, req, vatSource);
 
   return makeVat(vatEndowments, myVatID, myVatSecret, myHostID, guestSource);
 }
@@ -311,6 +315,7 @@ async function run(argv) {
   const rootSturdyRef = await readBaseLine('root-sturdyref');
 
   const s = makeRealm();
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
 
   // todo: how do we set encoding=utf-8 on an open()?
   const output = await fs.promises.open(
@@ -326,7 +331,7 @@ async function run(argv) {
     locatordir,
   );
 
-  const vatEndowments = makeVatEndowments(s, output, comms);
+  const vatEndowments = makeVatEndowments(s, req, output, comms);
   if (!(vatEndowments instanceof s.global.Object)) {
     throw new Error('vatEndowments must be in-Realm');
   }
@@ -338,6 +343,7 @@ async function run(argv) {
 
   const v = await buildVat(
     s,
+    req,
     myVatID,
     myVatSecret,
     myHostID,

@@ -1,4 +1,4 @@
-/* global Vow Flow def */
+/* global Vow Flow */
 // Copyright (C) 2013 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -17,6 +17,7 @@
 import { escrowExchange } from './escrow';
 
 function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
+  const harden = require('@agoric/harden');
   const escrowSrc = `${escrowExchange}`;
   const myMoneyPurseP = Vow.resolve(myMoneyPurse);
   const myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
@@ -31,7 +32,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
     // is in the contractHost's checking
   };
 
-  const bob = def({
+  const bob = harden({
     /**
      * This is not an imperative to Bob to buy something but rather
      * the opposite. It is a request by a client to buy something from
@@ -78,7 +79,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
     invite(tokenP, allegedSrc, allegedSide) {
       check(allegedSrc, allegedSide);
       let cancel;
-      const b = def({
+      const b = harden({
         stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
         moneyDstP: myMoneyIssuerP.e.makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,

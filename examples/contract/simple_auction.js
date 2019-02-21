@@ -30,12 +30,13 @@
  */
 define('contract/simple_auction', ['Q'], function(Q) {
   "use strict";
-   
+  const harden = require('@agoric/harden');
+
   var makeAuctioneer = function() {
 
     var auctions = new WeakMap(); // for rights amplification
 
-    return def({
+    return harden({
     
       /**
        * minBid = minimum bid required by the seller (a number)
@@ -49,7 +50,7 @@ define('contract/simple_auction', ['Q'], function(Q) {
         // resolveBidder refers to the "resolve" function of the promise
         // handed out to the highest bidder so far, if any
         var resolveBidder = undefined;
-        var auctionToken = def({});
+        var auctionToken = harden({});
       
         auctions.set(auctionToken, function(bid) {
           bid = +bid; // make sure bid is a number
@@ -93,7 +94,7 @@ define('contract/simple_auction', ['Q'], function(Q) {
 
 
   var makeSeller = function() {
-    return def({
+    return harden({
     
       /**
        * good = the good to auction
@@ -141,7 +142,7 @@ define('contract/simple_auction', ['Q'], function(Q) {
 
 
   var makeBidder = function() {
-    return def({
+    return harden({
     
       /**
        * goodDesc = a description of the good the bidder is interested in. This description

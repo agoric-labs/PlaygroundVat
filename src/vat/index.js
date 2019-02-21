@@ -21,7 +21,7 @@ function confineGuestSource(source, endowments) {
   endowments = endowments || {};
   const exports = {};
   const module = { exports };
-  const endow = { module, exports };
+  const endow = { module, exports, require };
   if (endowments) {
     Object.defineProperties(
       endow,
@@ -144,13 +144,11 @@ export function makeVat(
     endowments.comms,
     managerWriteInput,
     managerWriteOutput,
-    def,
     logConflict,
     endowments.hash58,
   );
 
   const engine = makeEngine(
-    def,
     endowments.hash58,
     Vow,
     isVow,

@@ -1,4 +1,5 @@
 import { test } from 'tape-promise/tape';
+import Nat from '@agoric/nat';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
 import { makeTranscript, funcToSource, makeQueues } from './util';
 import { hash58 } from '../src/host';
@@ -43,14 +44,15 @@ test('comms, sending a message', async t => {
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const s = makeRealm();
+  const s = makeRealm({ consoleMode: 'allow' });
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const v1src = funcToSource(t1_sender);
-  const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
+  const v1 = await buildVat(s, req, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
   const v1argv = { target: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t1_responder);
-  const v2 = await buildVat(s, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
+  const v2 = await buildVat(s, req, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
@@ -159,14 +161,15 @@ test('sending unresolved local Vow', async t => {
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const s = makeRealm();
+  const s = makeRealm({ consoleMode: 'allow' });
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const v1src = funcToSource(t2_sender);
-  const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
+  const v1 = await buildVat(s, req, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
   const v1argv = { target: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t2_responder);
-  const v2 = await buildVat(s, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
+  const v2 = await buildVat(s, req, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
@@ -316,9 +319,10 @@ test('sending third-party Vow', async t => {
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const s = makeRealm();
+  const s = makeRealm({ consoleMode: 'allow' });
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const v1src = funcToSource(t3_one);
-  const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
+  const v1 = await buildVat(s, req, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
   const v1argv = {
     target2: v1.createPresence('vat2/0'),
     target3: v1.createPresence('vat3/0'),
@@ -326,12 +330,12 @@ test('sending third-party Vow', async t => {
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t3_two);
-  const v2 = await buildVat(s, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
+  const v2 = await buildVat(s, req, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
   const v3src = funcToSource(t3_three);
-  const v3 = await buildVat(s, 'vat3', 'vat3 secret', 'vat3', endow, v3src);
+  const v3 = await buildVat(s, req, 'vat3', 'vat3 secret', 'vat3', endow, v3src);
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
   const q = makeQueues(t);
@@ -527,9 +531,10 @@ test('sending third-party Vow that resolves to Presence', async t => {
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const s = makeRealm();
+  const s = makeRealm({ consoleMode: 'allow' });
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const v1src = funcToSource(t4_one);
-  const v1 = await buildVat(s, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
+  const v1 = await buildVat(s, req, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
   const v1argv = {
     target2: v1.createPresence('vat2/0'),
     target3: v1.createPresence('vat3/0'),
@@ -537,12 +542,12 @@ test('sending third-party Vow that resolves to Presence', async t => {
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
   const v2src = funcToSource(t4_two);
-  const v2 = await buildVat(s, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
+  const v2 = await buildVat(s, req, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
   const v3src = funcToSource(t4_three);
-  const v3 = await buildVat(s, 'vat3', 'vat3 secret', 'vat3', endow, v3src);
+  const v3 = await buildVat(s, req, 'vat3', 'vat3 secret', 'vat3', endow, v3src);
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
   const q = makeQueues(t);
@@ -745,12 +750,14 @@ test('third-party Vow gets resolved', async t => {
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const s = makeRealm();
+  const s = makeRealm({ consoleMode: 'allow' });
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
 
   const ALICE = 'ALICE';
   const alice_src = funcToSource(t5_alice);
   const vatALICE = await buildVat(
     s,
+    req,
     'vatALICE',
     'aSecret',
     'vatALICE',
@@ -764,6 +771,7 @@ test('third-party Vow gets resolved', async t => {
   const bob_src = funcToSource(t5_bob);
   const vatBOB = await buildVat(
     s,
+    req,
     'vatBOB',
     'bSecret',
     'vatBOB',
@@ -777,6 +785,7 @@ test('third-party Vow gets resolved', async t => {
   const carol_src = funcToSource(t5_carol);
   const vatCAROL = await buildVat(
     s,
+    req,
     'vatCAROL',
     'cSecret',
     'vatCAROL',

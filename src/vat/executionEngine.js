@@ -1,9 +1,9 @@
 // the execution engine
+import harden from '@agoric/harden';
 import { doSwissHashing } from './swissCrypto';
 import { makeWebkeyMarshal } from './webkey';
 
 export function makeEngine(
-  def,
   hash58,
   Vow,
   isVow,
@@ -33,8 +33,8 @@ export function makeEngine(
     args,
     resolutionOf,
   ) {
-    const argsS = marshal.serialize(def(args), resolutionOf);
-    const body = def({
+    const argsS = marshal.serialize(harden(args), resolutionOf);
+    const body = harden({
       op: 'send',
       targetSwissnum,
       methodName,
@@ -45,7 +45,7 @@ export function makeEngine(
   }
 
   function opWhen(targetVatID, targetSwissnum) {
-    const body = def({ op: 'when', targetSwissnum });
+    const body = harden({ op: 'when', targetSwissnum });
     manager.sendTo(targetVatID, body);
   }
 
@@ -74,8 +74,8 @@ export function makeEngine(
   function opResolve(targetVatID, targetSwissnum, value) {
     // todo: rename targetSwissnum to mySwissnum? The thing being resolved
     // lives on the sender, not the recipient.
-    const valueS = marshal.serialize(def(value), resolutionOf);
-    const body = def({ op: 'resolve', targetSwissnum, valueS });
+    const valueS = marshal.serialize(harden(value), resolutionOf);
+    const body = harden({ op: 'resolve', targetSwissnum, valueS });
     manager.sendTo(targetVatID, body);
   }
 
@@ -178,5 +178,5 @@ export function makeEngine(
     },
   };
 
-  return def(engine);
+  return harden(engine);
 }

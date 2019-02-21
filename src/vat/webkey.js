@@ -1,6 +1,14 @@
-/* globals def */
 
+import harden from '@agoric/harden';
 import { makeSwissnum, makeSwissbase, doSwissHashing } from './swissCrypto';
+import {
+  isVow,
+  asVow,
+  Flow,
+  Vow,
+  makePresence,
+  makeUnresolvedRemoteVow,
+} from '../flow/flowcomm';
 
 // objects can only be passed in one of two/three forms:
 // 1: pass-by-presence: all properties (own and inherited) are methods,
@@ -77,13 +85,15 @@ function mustPassByPresence(val) {
 // decoding.
 const QCLASS = '@qclass';
 
+// TODO: remove these Vow/Flow parameters now that we can import them
+// directly
 export function makeWebkeyMarshal(
   hash58,
-  Vow,
-  isVow,
-  Flow,
-  makePresence,
-  makeUnresolvedRemoteVow,
+  _Vow,
+  _isVow,
+  _Flow,
+  _makePresence,
+  _makeUnresolvedRemoteVow,
   myVatID,
   myVatSecret,
   serializer,
@@ -123,7 +133,7 @@ export function makeWebkeyMarshal(
       swissnum = allocateSwissnum();
     }
 
-    const rec = def({
+    const rec = harden({
       value: val,
       vatID: myVatID,
       swissnum,
@@ -169,7 +179,7 @@ export function makeWebkeyMarshal(
           throw new Error(`bare functions like ${val} are disabled for now`);
         }
         case 'undefined': {
-          return def({ [QCLASS]: 'undefined' });
+          return harden({ [QCLASS]: 'undefined' });
         }
         case 'string':
         case 'boolean': {
@@ -177,16 +187,16 @@ export function makeWebkeyMarshal(
         }
         case 'number': {
           if (Number.isNaN(val)) {
-            return def({ [QCLASS]: 'NaN' });
+            return harden({ [QCLASS]: 'NaN' });
           }
           if (Object.is(val, -0)) {
-            return def({ [QCLASS]: '-0' });
+            return harden({ [QCLASS]: '-0' });
           }
           if (val === Infinity) {
-            return def({ [QCLASS]: 'Infinity' });
+            return harden({ [QCLASS]: 'Infinity' });
           }
           if (val === -Infinity) {
-            return def({ [QCLASS]: '-Infinity' });
+            return harden({ [QCLASS]: '-Infinity' });
           }
           return val;
         }
@@ -196,13 +206,13 @@ export function makeWebkeyMarshal(
             // TODO: Symmetric unguessable identity
             throw new TypeError('Cannot serialize unregistered symbol');
           }
-          return def({
+          return harden({
             [QCLASS]: 'symbol',
             key: optKey,
           });
         }
         case 'bigint': {
-          return def({
+          return harden({
             [QCLASS]: 'bigint',
             digits: String(val),
           });
@@ -228,7 +238,7 @@ export function makeWebkeyMarshal(
       if (ibidMap.has(val)) {
         throw new Error('ibid disabled for now');
         // Backreference to prior occurrence
-        // return def({
+        // return harden({
         //   [QCLASS]: 'ibid',
         //   index: ibidMap.get(val),
         // });
@@ -292,7 +302,7 @@ export function makeWebkeyMarshal(
       return webkey2Record.get(key).value;
     }
     const v = makeUnresolvedRemoteVow(serializer, data.vatID, data.swissnum);
-    const rec = def({
+    const rec = harden({
       value: v,
       vatID: data.vatID,
       swissnum: data.swissnum,
@@ -318,7 +328,7 @@ export function makeWebkeyMarshal(
 
     // todo: maybe pre-generate the FarVow and stash it for quick access
     const p = makePresence(serializer, data.vatID, data.swissnum);
-    const rec = def({
+    const rec = harden({
       value: p,
       vatID: data.vatID,
       swissnum: data.swissnum,
@@ -394,7 +404,7 @@ export function makeWebkeyMarshal(
       }
       // The ibids case returned early to avoid this.
       ibids.push(data);
-      return def(data);
+      return harden(data);
     };
   }
 
@@ -461,7 +471,7 @@ export function makeWebkeyMarshal(
 
   function registerRemoteVow(targetVatID, swissnum, val) {
     // console.log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
-    const rec = def({
+    const rec = harden({
       value: val,
       vatID: targetVatID,
       swissnum,
@@ -478,7 +488,7 @@ export function makeWebkeyMarshal(
     serializer.opWhen(targetVatID, swissnum);
   }
 
-  return def({
+  return harden({
     serialize,
     unserialize,
     allocateSwissStuff,

@@ -1,4 +1,5 @@
 import { test } from 'tape-promise/tape';
+import Nat from '@agoric/nat';
 import { makeRealm, buildVat, bundleCode } from '../src/main';
 import { hash58 } from '../src/host';
 
@@ -17,11 +18,13 @@ async function buildContractVat(source = '../examples/contract') {
   function writeOutput(line) {
     outputTranscript.push(line);
   }
-  const s = makeRealm();
+  const s = makeRealm({ consoleMode: 'allow', errorStackMode: 'allow' });
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const contractTestSource = await bundleCode(require.resolve(source));
   const endow = { writeOutput, comms: { registerManager() {} }, hash58 };
   const v = await buildVat(
     s,
+    req,
     'v1',
     'v1 secret',
     'v1',
