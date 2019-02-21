@@ -13,14 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export function escrowExchange(a, b) {
+/* global Q */
+
+export default function escrowExchange(a, b) {
   // a from Alice, b from Bob
   let decide;
-  const decisionP = Q.promise(function(resolve) {
+  const decisionP = Q.promise(resolve => {
     decide = resolve;
   });
 
-  const transfer = function(srcPurseP, dstPurseP, amount) {
+  const transfer = (srcPurseP, dstPurseP, amount) => {
     const makeEscrowPurseP = Q.join(
       Q(srcPurseP).invoke('getMakePurse'),
       Q(dstPurseP).invoke('getMakePurse'),
@@ -29,10 +31,10 @@ export function escrowExchange(a, b) {
 
     Q(decisionP).then(
       // setup phase 2
-      function(_) {
+      () => {
         Q(dstPurseP).invoke('deposit', amount, escrowPurseP);
       },
-      function(_) {
+      () => {
         Q(srcPurseP).invoke('deposit', amount, escrowPurseP);
       },
     );
@@ -40,8 +42,8 @@ export function escrowExchange(a, b) {
     return Q(escrowPurseP).invoke('deposit', amount, srcPurseP); // phase 1
   };
 
-  const failOnly = function(cancellationP) {
-    return Q(cancellationP).then(function(cancellation) {
+  const failOnly = cancellationP => {
+    return Q(cancellationP).then(cancellation => {
       throw cancellation;
     });
   };
