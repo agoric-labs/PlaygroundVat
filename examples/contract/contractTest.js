@@ -39,7 +39,7 @@ async function mintTest() {
 export function trivialContractTest() {
   const contractHostP = Vow.fromFn(makeContractHost);
 
-  function trivContract(whiteP, blackP) {
+  function trivContract(_whiteP, _blackP) {
     return 8;
   }
   const contractSrc = `${trivContract}`;
@@ -106,7 +106,7 @@ export function betterContractTestBobFirst(bobLies = false) {
   //  return aliceP.e.tradeWell(bobP);
 }
 
-export default function(argv) {
+export default function(_argv) {
   return {
     mintTest,
     trivialContractTest,
