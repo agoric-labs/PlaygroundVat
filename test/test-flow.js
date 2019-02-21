@@ -61,20 +61,20 @@ test('pre-resolved send queues in order', async t => {
 
 test('order across forwarding', async t => {
   let c = 0;
-  console.log(`s ${c++}`);
+  console.log(`s ${(c += 1)}`);
   const f1 = new Flow();
   let r1;
   const v1 = f1.makeVow(r => (r1 = r));
   const v2 = v1.e.concat(' MORE'); // v1 ! concat(" MORE")
-  console.log(`s ${c++}`);
+  console.log(`s ${(c += 1)}`);
   let r3;
   const v3 = f1.makeVow(r => (r3 = r));
   r1(v3);
   r3('some');
-  console.log(`s ${c++}`);
+  console.log(`s ${(c += 1)}`);
 
   const res = await v2;
-  console.log(`s ${c++}`);
+  console.log(`s ${(c += 1)}`);
   t.equal(res, 'some MORE');
   t.end();
 });
@@ -83,6 +83,7 @@ test('all flow', t => {
   const f1 = new Flow();
   let r1;
   const v1 = f1.makeVow(r => (r1 = r));
+  /* eslint-disable-next-line no-unused-vars */
   let r2;
   const x1 = f1.makeVow(r => (r2 = r));
 
@@ -93,6 +94,7 @@ test('all flow', t => {
   v1.then(s => console.log(`THE      N1 ${s}`));
   v2.then(s => console.log(`THEN2 ${s}`));
 
+  /* eslint-disable-next-line no-unused-vars */
   const x2 = x1.e.concat(' ANOTHER'); // x1 ! concat(" ANOTHER")
 
   const v3 = v1.e.split();
@@ -122,7 +124,7 @@ test('remote vow', t => {
       targetSwissnum,
       methodName,
       args,
-      resolutionOf,
+      _resolutionOf,
     ) {
       results.push({
         resultSwissbase,
@@ -151,6 +153,7 @@ test('remote vow', t => {
 
 test('JSON serialize Vow', t => {
   const f1 = new Flow();
+  /* eslint-disable-next-line no-unused-vars */
   let r1;
   const v1 = f1.makeVow(r => (r1 = r));
   // this used to suffer infinite recursion and overflowed the stack
@@ -177,17 +180,17 @@ test('simple broken vow', async t => {
 
 test('error across forwarding', async t => {
   let c = 0;
-  console.log(`s ${c++}`);
+  console.log(`s ${(c += 1)}`);
   const f1 = new Flow();
   let r1;
   const v1 = f1.makeVow(r => (r1 = r));
   const v2 = v1.e.concat(' MORE'); // v1 ! concat(" MORE")
-  console.log(`s ${c++}`);
+  console.log(`s ${(c += 1)}`);
   let r3;
   const v3 = f1.makeVow(r => (r3 = r));
   r1(v3);
   r3(7);
-  console.log(`s ${c++}`);
+  console.log(`s ${(c += 1)}`);
 
   let res;
   try {
