@@ -39,7 +39,7 @@ function trivialContractTest(host) {
   console.log('starting trivialContractTest');
   const contractHostP = Vow.resolve(host);
 
-  function trivContract(whiteP, blackP) {
+  function trivContract(_whiteP, _blackP) {
     return 8;
   }
   const contractSrc = `${trivContract}`;
@@ -64,6 +64,7 @@ function trivialContractTest(host) {
 }
 
 export function betterContractTestAliceFirst(mint, host, alice, bob) {
+  /* eslint-disable-next-line no-unused-vars */
   const contractHostP = Vow.resolve(host);
   const moneyMintP = Vow.resolve(mint).e.makeMint();
   const aliceMoneyPurseP = moneyMintP.e.mint(1000);
@@ -74,6 +75,7 @@ export function betterContractTestAliceFirst(mint, host, alice, bob) {
   const bobStockPurseP = stockMintP.e.mint(2003);
 
   const aliceP = Vow.resolve(alice).e.init(aliceMoneyPurseP, aliceStockPurseP);
+  /* eslint-disable-next-line no-unused-vars */
   const bobP = Vow.resolve(bob).e.init(bobMoneyPurseP, bobStockPurseP);
 
   const ifItFitsP = aliceP.e.payBobWell();
@@ -94,6 +96,7 @@ export function betterContractTestBobFirst(
   bob,
   bobLies = false,
 ) {
+  /* eslint-disable-next-line no-unused-vars */
   const contractHostP = Vow.resolve(host);
   const moneyMintP = Vow.resolve(mint).e.makeMint();
   const aliceMoneyPurseP = moneyMintP.e.mint(1000, 'aliceMainMoney');
@@ -103,6 +106,7 @@ export function betterContractTestBobFirst(
   const aliceStockPurseP = stockMintP.e.mint(2002, 'aliceMainStock');
   const bobStockPurseP = stockMintP.e.mint(2003, 'bobMainStock');
 
+  /* eslint-disable-next-line no-unused-vars */
   const aliceP = Vow.resolve(alice).e.init(aliceMoneyPurseP, aliceStockPurseP);
   const bobP = Vow.resolve(bob).e.init(bobMoneyPurseP, bobStockPurseP);
 
