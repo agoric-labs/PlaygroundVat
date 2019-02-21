@@ -1,7 +1,5 @@
 import { test } from 'tape-promise/tape';
-import SES from 'ses';
-import { promisify } from 'util';
-import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
+import { makeRealm, buildVat, bundleCode } from '../src/main';
 import { hash58 } from '../src/host';
 
 function sendCall(v, methodName, ...args) {
@@ -71,7 +69,7 @@ test.skip('contract test Bob lies', async t => {
   const v = await buildContractVat();
   const p = sendCall(v, 'betterContractTestBobFirst', true);
   await p.then(
-    e => t.fail('should have broken'),
+    _e => t.fail('should have broken'),
     ex => {
       t.ok(ex.message.startsWith('unexpected contract'));
     },
