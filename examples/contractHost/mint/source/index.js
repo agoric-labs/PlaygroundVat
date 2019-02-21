@@ -1,4 +1,4 @@
-/* global Vow Flow */
+/* global Vow */
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -15,9 +15,11 @@
 // limitations under the License.
 
 import Nat from '@agoric/nat';
+
+/* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
 
-export default function(argv) {
+export default function(_argv) {
   let debugCounter = 0;
 
   function makeMint() {
@@ -26,11 +28,12 @@ export default function(argv) {
 
     const issuer = harden({
       makeEmptyPurse(name) {
-        return mint(0, name);
+        /* eslint-disable-next-line no-use-before-define */
+        return mint(0, name); // mint and issuer call each other
       },
     });
 
-    const mint = function(initialBalance, name) {
+    const mint = (initialBalance, name) => {
       const purse = harden({
         getBalance() {
           console.log(`getBalance`, ledger.get(purse));
