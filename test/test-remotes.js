@@ -1,4 +1,5 @@
 import { test } from 'tape-promise/tape';
+import harden from '@agoric/harden';
 import {
   makeRemoteForVatID,
   makeDecisionList,
@@ -7,10 +8,6 @@ import {
 import { parseVatID } from '../src/vat/id';
 import { vatMessageIDHash } from '../src/vat/swissCrypto';
 import { hash58 } from '../src/host';
-
-function shallowDef(obj) {
-  return Object.freeze(obj);
-}
 
 test('parseVatID', t => {
   const r1 = parseVatID('vat1');
@@ -41,7 +38,7 @@ function logConflict(text, componentID, seqNum, msgID, msg, seqMap) {
 }
 
 test('vatRemote seqnum', t => {
-  const r = makeRemoteForVatID('vat1', shallowDef, logConflict);
+  const r = makeRemoteForVatID('vat1', logConflict);
   t.equal(r.nextOutboundSeqnum(), 0);
   t.equal(r.nextOutboundSeqnum(), 1);
   t.equal(r.getReadyMessage(), undefined);
@@ -64,7 +61,7 @@ test('vatRemote inbound solo', t => {
   // I am vat1, upstream is vat2. Deliver messages from an upstream solo vat,
   // out of order, and examine how getReadyMessage() makes them available for
   // delivery.
-  const r = makeRemoteForVatID('vat2', shallowDef, logConflict);
+  const r = makeRemoteForVatID('vat2', logConflict);
 
   function got(hm, host) {
     return r.gotHostMessage({ fromHostID: host }, hm.id, {
@@ -118,7 +115,7 @@ test('vatRemote inbound quorum', t => {
   function logConflict(...args) {
     conflicts.push(args);
   }
-  const r = makeRemoteForVatID(fromVatID, shallowDef, logConflict);
+  const r = makeRemoteForVatID(fromVatID, logConflict);
   function got(hm, host, msgID = null) {
     msgID = msgID || hm.id;
     return r.gotHostMessage({ fromHostID: host }, msgID, {
@@ -416,9 +413,6 @@ test('connections', t => {
   function managerWriteInput(fromVatID, wireMessage) {}
   function managerWriteOutput(msg) {}
   function logConflict(issue, componentID, seqNum, msgID, msg, seqMap) {}
-  function def(o) {
-    return Object.freeze(o);
-  }
   const wanted = [];
   const comms = {
     wantConnection(hostID) {
@@ -432,7 +426,6 @@ test('connections', t => {
     comms,
     managerWriteInput,
     managerWriteOutput,
-    def,
     logConflict,
     hash58,
   );

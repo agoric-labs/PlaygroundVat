@@ -1,4 +1,5 @@
 import { test } from 'tape-promise/tape';
+import Nat from '@agoric/nat';
 import SES from 'ses';
 import { promisify } from 'util';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
@@ -58,10 +59,11 @@ function s2() {
 }
 
 test('confineVatSource', t => {
-  const s = SES.makeSESRootRealm();
+  const s = SES.makeSESRootRealm({ consoleMode: 'allow' });
   const s1code = funcToSource(s1);
   // console.log(`source: ${s1code}`);
-  const e = confineVatSource(s, `${s1code}`).default();
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const e = confineVatSource(s, req, `${s1code}`).default();
   t.equal(e.increment(), 1);
   t.equal(e.increment(), 2);
   t.equal(e.decrement(), 1);
@@ -72,12 +74,13 @@ test('methods can send messages via doSendOnly', async t => {
   // todo remove
   const tr = makeTranscript();
   const s = makeRealm();
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const endow = {
     writeOutput: tr.writeOutput,
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
+  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   const opMsg = {
@@ -127,12 +130,13 @@ test('methods can send messages via doSendOnly', async t => {
 test('methods can send messages via commsReceived', async t => {
   const tr = makeTranscript();
   const s = makeRealm();
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const endow = {
     writeOutput: tr.writeOutput,
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
+  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   const opMsg = {
@@ -190,12 +194,13 @@ test('methods can send messages via commsReceived', async t => {
 test('method results are sent back', async t => {
   const tr = makeTranscript();
   const s = makeRealm();
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const endow = {
     writeOutput: tr.writeOutput,
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
+  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
   const opMsg = {
     op: 'send',
@@ -231,12 +236,13 @@ test('method results are sent back', async t => {
 test('methods can return a promise', async t => {
   const tr = makeTranscript();
   const s = makeRealm();
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const endow = {
     writeOutput: tr.writeOutput,
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const v = await buildVat(s, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
+  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
   await v.initializeCode('v1/0');
 
   let result = false;

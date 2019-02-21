@@ -1,6 +1,7 @@
 /* global Vow */
 
 import { test } from 'tape-promise/tape';
+import Nat from '@agoric/nat';
 import { makeRealm, buildVat } from '../src/main';
 import { makeTranscript, funcToSource, makeQueues } from './util';
 import { hash58 } from '../src/host';
@@ -54,8 +55,10 @@ test('promise pipelining', async t => {
     hash58,
   };
   const s = makeRealm();
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const v1 = await buildVat(
     s,
+    req,
     'vat1',
     'vat1 secret',
     'vat1',
@@ -67,6 +70,7 @@ test('promise pipelining', async t => {
 
   const v2 = await buildVat(
     s,
+    req,
     'vat2',
     'vat2 secret',
     'vat2',
@@ -222,8 +226,10 @@ test('promise pipelining to third party', async t => {
     hash58,
   };
   const s = makeRealm();
+  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
   const v1 = await buildVat(
     s,
+    req,
     'vat1',
     'vat1 secret',
     'vat1',
@@ -236,6 +242,7 @@ test('promise pipelining to third party', async t => {
 
   const v2 = await buildVat(
     s,
+    req,
     'vat2',
     'vat2 secret',
     'vat2',
@@ -248,6 +255,7 @@ test('promise pipelining to third party', async t => {
 
   const v3 = await buildVat(
     s,
+    req,
     'vat3',
     'vat3 secret',
     'vat3',
