@@ -1,8 +1,10 @@
+/* global Flow Vow */
+
 let count = 0;
 
 let resolver1;
 const f = new Flow();
-const p1 = f.makeVow((resolve, reject) => (resolver1 = resolve));
+const p1 = f.makeVow((resolve, _reject) => (resolver1 = resolve));
 
 const o = {
   increment() {
@@ -53,6 +55,6 @@ const o = {
   },
 };
 
-export default function(argv) {
+export default function(_argv) {
   return o;
 }
