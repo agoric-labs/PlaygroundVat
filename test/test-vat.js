@@ -1,14 +1,16 @@
+/* global Vow Flow */
+
 import { test } from 'tape-promise/tape';
 import Nat from '@agoric/nat';
 import SES from 'ses';
 import { promisify } from 'util';
-import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
+import { confineVatSource, makeRealm, buildVat } from '../src/main';
 import { makeTranscript, funcToSource } from './util';
 import { hash58 } from '../src/host';
 import { doSwissHashing } from '../src/vat/swissCrypto';
 
 function s1() {
-  exports.default = function(argv) {
+  exports.default = _argv => {
     let count = 0;
 
     return {
@@ -27,12 +29,12 @@ function s1() {
 }
 
 function s2() {
-  exports.default = function(argv) {
+  exports.default = _argv => {
     let resolver1;
 
     // log('i am here');
     const f = new Flow();
-    const p1 = f.makeVow((resolve, reject) => (resolver1 = resolve));
+    const p1 = f.makeVow((resolve, _reject) => (resolver1 = resolve));
     // log('i got here');
 
     return {
@@ -62,7 +64,7 @@ test('confineVatSource', t => {
   const s = SES.makeSESRootRealm({ consoleMode: 'allow' });
   const s1code = funcToSource(s1);
   // console.log(`source: ${s1code}`);
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const e = confineVatSource(s, req, `${s1code}`).default();
   t.equal(e.increment(), 1);
   t.equal(e.increment(), 2);
@@ -74,13 +76,21 @@ test('methods can send messages via doSendOnly', async t => {
   // todo remove
   const tr = makeTranscript();
   const s = makeRealm();
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const endow = {
     writeOutput: tr.writeOutput,
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
+  const v = await buildVat(
+    s,
+    req,
+    'v1',
+    'v1 secret',
+    'v1',
+    endow,
+    funcToSource(s2),
+  );
   await v.initializeCode('v1/0');
 
   const opMsg = {
@@ -130,13 +140,21 @@ test('methods can send messages via doSendOnly', async t => {
 test('methods can send messages via commsReceived', async t => {
   const tr = makeTranscript();
   const s = makeRealm();
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const endow = {
     writeOutput: tr.writeOutput,
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
+  const v = await buildVat(
+    s,
+    req,
+    'v1',
+    'v1 secret',
+    'v1',
+    endow,
+    funcToSource(s2),
+  );
   await v.initializeCode('v1/0');
 
   const opMsg = {
@@ -194,13 +212,21 @@ test('methods can send messages via commsReceived', async t => {
 test('method results are sent back', async t => {
   const tr = makeTranscript();
   const s = makeRealm();
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const endow = {
     writeOutput: tr.writeOutput,
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
+  const v = await buildVat(
+    s,
+    req,
+    'v1',
+    'v1 secret',
+    'v1',
+    endow,
+    funcToSource(s2),
+  );
   await v.initializeCode('v1/0');
   const opMsg = {
     op: 'send',
@@ -236,13 +262,21 @@ test('method results are sent back', async t => {
 test('methods can return a promise', async t => {
   const tr = makeTranscript();
   const s = makeRealm();
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const endow = {
     writeOutput: tr.writeOutput,
     comms: { registerManager() {}, wantConnection() {} },
     hash58,
   };
-  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s2));
+  const v = await buildVat(
+    s,
+    req,
+    'v1',
+    'v1 secret',
+    'v1',
+    endow,
+    funcToSource(s2),
+  );
   await v.initializeCode('v1/0');
 
   let result = false;
