@@ -1,4 +1,4 @@
-/* global Vow Flow */
+/* global Vow */
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -15,8 +15,10 @@
 // limitations under the License.
 
 const Nat = require('@agoric/nat');
+/* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
 const harden = require('@agoric/harden');
 
+/* eslint-disable-next-line no-unused-vars */
 let counter = 0;
 function makeMint() {
   // Map from purse or payment to balance
@@ -24,11 +26,12 @@ function makeMint() {
 
   const issuer = harden({
     makeEmptyPurse(name) {
-      return mint(0, name);
+      /* eslint-disable-next-line no-use-before-define */
+      return mint(0, name); // mint and issuer call each other
     },
   });
 
-  const mint = function(initialBalance, name) {
+  const mint = (initialBalance, _name) => {
     const purse = harden({
       getBalance() {
         return ledger.get(purse);
@@ -39,7 +42,7 @@ function makeMint() {
       deposit(amount, srcP) {
         amount = Nat(amount);
         counter += 1;
-        const c = counter;
+        // const c = counter;
         // console.log(`deposit[${name}]#${c}: bal=${ledger.get(purse)} amt=${amount}`);
         return Vow.resolve(srcP).then(src => {
           // console.log(` dep[${name}]#${c} (post-P): bal=${
