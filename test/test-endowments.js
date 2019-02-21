@@ -16,7 +16,7 @@ test('hash58', t => {
   t.equal(e.hash58(''), 'V7jseQevszwMPhi4evidTR'); // stable
   t.equal(e.hash58('a'), 'S1yrYnjHbfbiTySsN9h1eC');
   let xyz100 = '';
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 100; i += 1) {
     xyz100 += 'xyz';
   }
   t.equal(e.hash58(xyz100), 'LkLiePjfKWZzhQgmcEPT8j');
