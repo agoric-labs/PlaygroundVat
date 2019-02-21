@@ -1,7 +1,9 @@
 /* global Vow */
+
+/* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
 const harden = require('@agoric/harden');
 
-function escrowExchange(a, b) {
+export default function escrowExchange(a, b) {
   // a from Alice , b from Bob
   function makeTransfer(srcPurseP, dstPurseP, amount) {
     const issuerP = Vow.join(srcPurseP.e.getIssuer(), dstPurseP.e.getIssuer());
@@ -32,7 +34,7 @@ function escrowExchange(a, b) {
     failOnly(a.cancellationP),
     failOnly(b.cancellationP),
   ]).then(
-    x => Vow.all([aT.phase2(), bT.phase2()]),
-    ex => Vow.all([aT.abort(), bT.abort()]),
+    _x => Vow.all([aT.phase2(), bT.phase2()]),
+    _ex => Vow.all([aT.abort(), bT.abort()]),
   );
 }
