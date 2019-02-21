@@ -1,3 +1,8 @@
+/* eslint-disable */
+// Note: Currently has parsing error preventing ESLint from running:
+//  66:67  error  Parsing error: Unexpected token )
+
+
 // Copyright (C) 2013 Vrije Universiteit Brussel
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
