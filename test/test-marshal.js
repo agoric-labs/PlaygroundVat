@@ -1,28 +1,29 @@
 import test from 'tape';
 import Nat from '@agoric/nat';
 import SES from 'ses';
-import { promisify } from 'util';
 import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
-import { makeVatEndowments } from '../src/host';
+import { makeVatEndowments, hash58 } from '../src/host';
 import {
   isVow,
-  asVow,
   Flow,
   Vow,
   makePresence,
   makeUnresolvedRemoteVow,
 } from '../src/flow/flowcomm';
-import { hash58 } from '../src/host';
 
 test('marshal', async t => {
-  const s = SES.makeSESRootRealm({consoleMode: 'allow', errorStackMode: 'allow'});
+  const s = SES.makeSESRootRealm({
+    consoleMode: 'allow',
+    errorStackMode: 'allow',
+  });
   const code = await bundleCode(require.resolve('../src/vat/webkey'));
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const e = confineVatSource(s, req, code);
   const endowments = makeVatEndowments(s, req, null, null);
-  const hash58 = endowments.hash58;
+  const { hash58: hash58Endowed } = endowments;
 
   function helpers() {
+    /* eslint-disable-next-line global-require, import/no-unresolved */
     const harden = require('@agoric/harden');
     function serializer(x) {
       console.log(x);
@@ -48,15 +49,18 @@ test('marshal', async t => {
   }
   const h = s.evaluate(`${helpers}; helpers()`, { require: req });
 
-  function mdef(template, ...subs) {
-    if (subs.length !== 0) {
-      throw new Error('unimplemented');
-    }
-    return s.evaluate(`(const harden = require('@agoric/harden'); harden(${template[0]}))`, { require: req });
-  }
+  // function mdef(template, ...subs) {
+  //   if (subs.length !== 0) {
+  //     throw new Error('unimplemented');
+  //   }
+  //   return s.evaluate(
+  //     `(const harden = require('@agoric/harden'); harden(${template[0]}))`,
+  //     { require: req },
+  //   );
+  // }
   const myVatSecret = 'v1 secret';
   const m = e.makeWebkeyMarshal(
-    hash58,
+    hash58, // hash58 or hash58Endowed?
     Vow,
     isVow,
     Flow,
@@ -151,9 +155,9 @@ function funcToSource(f) {
 }
 
 function s1() {
-  exports.default = function(argv) {
+  exports.default = _argv => {
     return {
-      run(arg1, arg2) {
+      run(arg1, _arg2) {
         return arg1;
       },
     };
@@ -162,9 +166,17 @@ function s1() {
 
 test.skip('deliver farref to vat', async t => {
   const s = makeRealm();
-  const endow = { writeOutput() {}, comms: { registerManager() {} }, hash58 };
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
-  const v = await buildVat(s, req, 'v1', 'v1 secret', 'v1', endow, funcToSource(s1));
+  const endow = { writeOutput() {}, comms: { registerManager() {} }, hash58 }; // hash58 or hash58Endowed
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
+  const v = await buildVat(
+    s,
+    req,
+    'v1',
+    'v1 secret',
+    'v1',
+    endow,
+    funcToSource(s1),
+  );
   await v.initializeCode('v1/0');
   const opMsg = {
     op: 'send',
