@@ -17,6 +17,7 @@
 import { escrowExchange } from './escrow';
 
 function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
+  /* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
   const harden = require('@agoric/harden');
   const escrowSrc = `${escrowExchange}`;
   const myMoneyPurseP = Vow.resolve(myMoneyPurse);
@@ -26,7 +27,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
   contractHostP = Vow.resolve(contractHostP);
   const f = new Flow();
 
-  const check = function(allegedSrc, allegedSide) {
+  const check = (_allegedSrc, _allegedSide) => {
     // for testing purposes, alice and bob are willing to play
     // any side of any contract, so that the failure we're testing
     // is in the contractHost's checking
@@ -40,6 +41,7 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
      * is a bit confusing here.
      */
     buy(desc, paymentP) {
+      /* eslint-disable-next-line no-unused-vars */
       let amount;
       let good;
       desc = `${desc}`;
@@ -78,14 +80,13 @@ function makeBob(myMoneyPurse, myStockPurse, contractHostP) {
      */
     invite(tokenP, allegedSrc, allegedSide) {
       check(allegedSrc, allegedSide);
+      /* eslint-disable-next-line no-unused-vars */
       let cancel;
       const b = harden({
         stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
         moneyDstP: myMoneyIssuerP.e.makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,
-        cancellationP: f.makeVow(function(r) {
-          cancel = r;
-        }),
+        cancellationP: f.makeVow(r => (cancel = r)),
       });
       const ackP = b.stockSrcP.e.deposit(7, myStockPurse);
 
