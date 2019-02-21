@@ -1,4 +1,4 @@
-/* global Flow Vow */
+/* global Flow Vow ext */
 
 let count = 0;
 
