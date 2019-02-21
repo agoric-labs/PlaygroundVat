@@ -1,4 +1,4 @@
-/* global Vow Flow def Nat */
+/* global Vow Flow */
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -14,19 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const Nat = require('@agoric/nat');
+const harden = require('@agoric/harden');
+
 let counter = 0;
 function makeMint() {
   // Map from purse or payment to balance
   const ledger = new WeakMap();
 
-  const issuer = def({
+  const issuer = harden({
     makeEmptyPurse(name) {
       return mint(0, name);
     },
   });
 
   const mint = function(initialBalance, name) {
-    const purse = def({
+    const purse = harden({
       getBalance() {
         return ledger.get(purse);
       },
@@ -62,7 +65,7 @@ function makeMint() {
     ledger.set(purse, initialBalance);
     return purse;
   };
-  return def({ mint });
+  return harden({ mint });
 }
 
 export const mintMaker = {

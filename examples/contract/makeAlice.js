@@ -1,4 +1,4 @@
-/* global Vow Flow def */
+/* global Vow Flow */
 // Copyright (C) 2013 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -17,6 +17,7 @@
 import { escrowExchange } from './escrow';
 
 function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
+  const harden = require('@agoric/harden');
   const escrowSrc = `${escrowExchange}`;
   const myMoneyPurseP = Vow.resolve(myMoneyPurse);
   const myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
@@ -31,14 +32,14 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
     // is in the contractHost's checking
   };
 
-  const alice = def({
+  const alice = harden({
     payBobWell(bobP) {
       const paymentP = myMoneyIssuerP.e.makeEmptyPurse();
       const ackP = paymentP.e.deposit(10, myMoneyPurseP);
       return ackP.then(_ => bobP.e.buy('shoe', paymentP));
     },
     payBobBadly1(bobP) {
-      const payment = def({ deposit(amount, src) {} });
+      const payment = harden({ deposit(amount, src) {} });
       return bobP.e.buy('shoe', payment);
     },
     payBobBadly2(bobP) {
@@ -59,7 +60,7 @@ function makeAlice(myMoneyPurse, myStockPurse, contractHostP) {
       check(allegedSrc, allegedSide);
 
       let cancel;
-      const a = def({
+      const a = harden({
         moneySrcP: myMoneyIssuerP.e.makeEmptyPurse('aliceMoneySrc'),
         stockDstP: myStockIssuerP.e.makeEmptyPurse('aliceStockDst'),
         stockNeeded: 7,

@@ -1,10 +1,11 @@
-/* global Vow def */
+/* global Vow */
 export function escrowExchange(a, b) {
+  const harden = require('@agoric/harden');
   // a from Alice , b from Bob
   function makeTransfer(srcPurseP, dstPurseP, amount) {
     const issuerP = Vow.join(srcPurseP.e.getIssuer(), dstPurseP.e.getIssuer());
     const escrowPurseP = issuerP.e.makeEmptyPurse('escrow');
-    return def({
+    return harden({
       phase1() {
         return escrowPurseP.e.deposit(amount, srcPurseP);
       },

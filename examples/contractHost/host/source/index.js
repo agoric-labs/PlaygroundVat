@@ -1,4 +1,4 @@
-/* global SES Vow Flow def */
+/* global SES Vow Flow */
 // Copyright (C) 2012 Google Inc.
 // Copyright (C) 2018 Agoric
 //
@@ -81,10 +81,12 @@
  * </pre>
  */
 
+import harden from '@agoric/harden';
+
 export default function(argv) {
   const m = new WeakMap();
 
-  return def({
+  return harden({
     setup(contractSrc) {
       contractSrc = `${contractSrc}`;
       const tokens = [];
@@ -92,7 +94,7 @@ export default function(argv) {
       let resolve;
       const f = new Flow();
       const resultP = f.makeVow(r => (resolve = r));
-      const contract = SES.confineExpr(contractSrc, { Flow, Vow, console });
+      const contract = SES.confineExpr(contractSrc, { Flow, Vow, console, require });
 
       const addParam = function(i, token) {
         tokens[i] = token;
@@ -111,7 +113,7 @@ export default function(argv) {
         });
       };
       for (let i = 0; i < contract.length; i++) {
-        addParam(i, def({}));
+        addParam(i, harden({}));
       }
       resolve(
         Vow.all(argPs).then(function(args) {
