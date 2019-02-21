@@ -14,10 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
 
 export default function(argv) {
-  const escrowSrc = argv.escrowSrc;
+  const { escrowSrc } = argv;
   const contractHostP = Vow.resolve(argv.host);
   const aliceP = Vow.resolve(argv.alice);
 
@@ -35,10 +36,11 @@ export default function(argv) {
     myMoneyIssuerP = myMoneyPurseP.e.getIssuer();
     myStockPurseP = Vow.resolve(myStockPurse);
     myStockIssuerP = myStockPurseP.e.getIssuer();
-    return bob;
+    /* eslint-disable-next-line no-use-before-define */
+    return bob; // bob and init use each other
   }
 
-  const check = function(allegedSrc, allegedSide) {
+  const check = (_allegedSrc, _allegedSide) => {
     // for testing purposes, alice and bob are willing to play
     // any side of any contract, so that the failure we're testing
     // is in the contractHost's checking
@@ -56,6 +58,7 @@ export default function(argv) {
       if (!initialized) {
         console.log('++ ERR: buy called before init()');
       }
+      /* eslint-disable-next-line no-unused-vars */
       let amount;
       let good;
       desc = `${desc}`;
@@ -90,7 +93,7 @@ export default function(argv) {
         Vow.resolve(bob).e.invite(bobTokenP, escrowSrc, 1),
       ]);
       doneP.then(
-        res => console.log('++ bob.tradeWell done'),
+        _res => console.log('++ bob.tradeWell done'),
         rej => console.log('++ bob.tradeWell reject', rej),
       );
       return doneP;
@@ -108,14 +111,13 @@ export default function(argv) {
       console.log('++ bob.invite start');
       check(allegedSrc, allegedSide);
       console.log('++ bob.invite passed check');
+      /* eslint-disable-next-line no-unused-vars */
       let cancel;
       const b = harden({
         stockSrcP: myStockIssuerP.e.makeEmptyPurse('bobStockSrc'),
         moneyDstP: myMoneyIssuerP.e.makeEmptyPurse('bobMoneyDst'),
         moneyNeeded: 10,
-        cancellationP: f.makeVow(function(r) {
-          cancel = r;
-        }),
+        cancellationP: f.makeVow(r => (cancel = r)),
       });
       const ackP = b.stockSrcP.e.deposit(7, myStockPurseP);
 
