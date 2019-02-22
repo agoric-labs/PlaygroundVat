@@ -35,6 +35,8 @@ export function makeEngine(
     targetSwissnum,
     methodName,
     args,
+    /* eslint-disable-next-line no-shadow */
+    resolutionOf,
   ) {
     /* eslint-disable-next-line no-use-before-define */
     const argsS = marshal.serialize(harden(args), resolutionOf);
