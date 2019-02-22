@@ -1,4 +1,6 @@
 // the execution engine
+
+/* eslint-disable-next-line import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
 import { doSwissHashing } from './swissCrypto';
 import { makeWebkeyMarshal } from './webkey';
@@ -17,10 +19,12 @@ export function makeEngine(
   manager,
 ) {
   function allocateSwissStuff() {
+    /* eslint-disable-next-line no-use-before-define */
     return marshal.allocateSwissStuff();
   }
 
   function registerRemoteVow(vatID, swissnum, resultVow) {
+    /* eslint-disable-next-line no-use-before-define */
     marshal.registerRemoteVow(vatID, swissnum, resultVow);
   }
 
@@ -31,8 +35,8 @@ export function makeEngine(
     targetSwissnum,
     methodName,
     args,
-    resolutionOf,
   ) {
+    /* eslint-disable-next-line no-use-before-define */
     const argsS = marshal.serialize(harden(args), resolutionOf);
     const body = harden({
       op: 'send',
@@ -55,6 +59,7 @@ export function makeEngine(
     allocateSwissStuff,
     registerRemoteVow,
   };
+
   const marshal = makeWebkeyMarshal(
     hash58,
     Vow,
@@ -79,11 +84,6 @@ export function makeEngine(
     manager.sendTo(targetVatID, body);
   }
 
-  function rxSendOnly(opMsg) {
-    // currently just for tests
-    return doSendInternal(opMsg);
-  }
-
   function doSendInternal(opMsg) {
     const target = marshal.getMyTargetBySwissnum(opMsg.targetSwissnum);
     if (!target) {
@@ -96,6 +96,11 @@ export function makeEngine(
     // todo: sometimes causes turn delay, could fastpath if target is
     // resolved
     return Vow.resolve(target).e[opMsg.methodName](...args);
+  }
+
+  function rxSendOnly(opMsg) {
+    // currently just for tests
+    return doSendInternal(opMsg);
   }
 
   function rxMessage(senderVatID, opMsg) {
