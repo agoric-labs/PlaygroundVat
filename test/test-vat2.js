@@ -843,6 +843,7 @@ test('third-party Vow gets resolved', async t => {
   const aliceSrc = funcToSource(t5Alice);
   const vatALICE = await buildVat(
     s,
+    req,
     'vatALICE',
     'aSecret',
     'vatALICE',
@@ -857,6 +858,7 @@ test('third-party Vow gets resolved', async t => {
   const bobSrc = funcToSource(t5Bob);
   const vatBOB = await buildVat(
     s,
+    req,
     'vatBOB',
     'bSecret',
     'vatBOB',
@@ -870,6 +872,7 @@ test('third-party Vow gets resolved', async t => {
   const carolSrc = funcToSource(t5Carol);
   const vatCAROL = await buildVat(
     s,
+    req,
     'vatCAROL',
     'cSecret',
     'vatCAROL',
