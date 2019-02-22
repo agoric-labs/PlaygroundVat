@@ -1,3 +1,5 @@
+/* global SES */
+
 // this file is evaluated in the SES realm and defines the Vat. It gets one
 // endowments: 'module' (used to export everything). This comes from the
 // primal realm, so it must not be exposed to guest code.
@@ -10,12 +12,13 @@ import {
   Vow,
   makePresence,
   makeUnresolvedRemoteVow,
+  resolutionOf, // todo unclean
+  handlerOf, // todo unclean
 } from '../flow/flowcomm';
-import { resolutionOf, handlerOf } from '../flow/flowcomm'; // todo unclean
 import { makeRemoteManager } from './remotes';
 import { makeEngine } from './executionEngine';
 
-const msgre = /^msg: (\w+)->(\w+) (.*)$/;
+// const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
 function confineGuestSource(source, endowments) {
   endowments = endowments || {};
@@ -162,17 +165,13 @@ export function makeVat(
     manager,
   );
   manager.setEngine(engine);
-  const marshal = engine.marshal;
+  // const { marshal } = engine; // used in comment
   endowments.comms.registerManager(manager);
 
   // This is the host's interface to the Vat. It must act as a sort of
   // airlock: host objects passed into these functions should not be exposed
   // to other code, to avoid accidentally exposing primal-realm
   // Object/Function/etc.
-
-  function buildSturdyRef(vatID, swissnum) {
-    return `${vatID}/${swissnum}`;
-  }
 
   return {
     check() {
@@ -245,7 +244,7 @@ export function makeVat(
         return;
       }
       if (line.startsWith('load: ')) {
-        const arg = /^load: (\w+)$/.exec(line)[1];
+        // const arg = /^load: (\w+)$/.exec(line)[1];
         //      if (arg !== initialSourceHash) {
         //        throw Error(`err: input says to load ${arg}, but we loaded ${initialSourceHash}`);
         //      }
