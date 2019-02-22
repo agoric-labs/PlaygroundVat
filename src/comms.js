@@ -1,12 +1,8 @@
-import { promisify } from 'util';
 import { setInterval } from 'timers';
 
 import Node from 'libp2p';
-import PeerId from 'peer-id';
-import PeerInfo from 'peer-info';
 import TCP from 'libp2p-tcp';
 import WS from 'libp2p-websockets';
-import MPLEX from 'libp2p-mplex';
 import SECIO from 'libp2p-secio';
 import defaultsDeep from '@nodeutils/defaults-deep';
 import pullStream from 'pull-stream';
@@ -38,8 +34,7 @@ function asp(numVals, errFirst = false) {
     let vals;
     let err;
     if (errFirst) {
-      err = valsAndErr[0];
-      vals = valsAndErr.slice(1);
+      [err, ...vals] = valsAndErr;
     } else {
       vals = valsAndErr.slice(0, numVals);
       err = valsAndErr[numVals];
@@ -66,7 +61,7 @@ async function connectTo(n, hostID, addresses, manager) {
 
   console.log(`connected: ${conn}`);
   // console.log(`connected: ${conn} ${Object.getOwnPropertyNames(conn.conn.source).join(',')}`);
-  const pusher = Pushable(err => {
+  const pusher = Pushable(_err => {
     console.log('done');
     // conn.end();
     // doner();
@@ -89,11 +84,13 @@ async function connectTo(n, hostID, addresses, manager) {
   );
 
   let doneResolver;
-  const doneP = new Promise((res, rej) => (doneResolver = res));
+  const doneP = new Promise((res, _rej) => (doneResolver = res));
 
   pullStream(
     conn,
     pullSplit('\n'),
+    // pullStreams are not arrays
+    /* eslint-disable-next-line array-callback-return */
     pullStream.map(line => {
       // console.log(`got line on outbound '${line}'`);
       if (!line) return;
@@ -157,6 +154,8 @@ async function handleConnection(manager, protocol, conn) {
   pullStream(
     conn,
     pullSplit('\n'),
+    // pullStreams are not arrays
+    /* eslint-disable-next-line array-callback-return */
     pullStream.map(line => {
       // console.log(`got line on inbound '${line}'`);
       if (!line) return;
@@ -176,9 +175,10 @@ export async function createComms(myPeerInfo, getAddressesForHostID) {
   let manager;
   const n = new CommsNode({ peerInfo: myPeerInfo });
 
-  async function check() {
+  function check() {
     console.log(`startComms.check`, started);
-    for (const hostID of wanted) {
+    const wantedHostIDs = Array.from(wanted);
+    wantedHostIDs.map(async hostID => {
       if (!established.has(hostID) && !pending.has(hostID)) {
         const addresses = await getAddressesForHostID(hostID);
         pending.add(hostID);
@@ -200,7 +200,7 @@ export async function createComms(myPeerInfo, getAddressesForHostID) {
           },
         );
       }
-    }
+    });
   }
 
   return {
