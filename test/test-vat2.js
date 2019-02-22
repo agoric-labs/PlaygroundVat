@@ -1,11 +1,13 @@
+/* global Vow Flow */
+
 import { test } from 'tape-promise/tape';
 import Nat from '@agoric/nat';
-import { confineVatSource, makeRealm, buildVat, bundleCode } from '../src/main';
+import { makeRealm, buildVat } from '../src/main';
 import { makeTranscript, funcToSource, makeQueues } from './util';
 import { hash58 } from '../src/host';
 
-function t1_sender() {
-  exports.default = function(argv) {
+function t1Sender() {
+  exports.default = argv => {
     let answer = 'unanswered';
     Vow.resolve(argv.target)
       .e.pleaseRespond('marco')
@@ -21,8 +23,8 @@ function t1_sender() {
   };
 }
 
-function t1_responder() {
-  exports.default = function(argv) {
+function t1Responder() {
+  exports.default = _argv => {
     let called = false;
     return {
       pleaseRespond(arg) {
@@ -45,14 +47,30 @@ test('comms, sending a message', async t => {
     hash58,
   };
   const s = makeRealm({ consoleMode: 'allow' });
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
-  const v1src = funcToSource(t1_sender);
-  const v1 = await buildVat(s, req, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
+  const v1src = funcToSource(t1Sender);
+  const v1 = await buildVat(
+    s,
+    req,
+    'vat1',
+    'vat1 secret',
+    'vat1',
+    endow,
+    v1src,
+  );
   const v1argv = { target: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
-  const v2src = funcToSource(t1_responder);
-  const v2 = await buildVat(s, req, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
+  const v2src = funcToSource(t1Responder);
+  const v2 = await buildVat(
+    s,
+    req,
+    'vat2',
+    'vat2 secret',
+    'vat2',
+    endow,
+    v2src,
+  );
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
@@ -118,8 +136,8 @@ test('comms, sending a message', async t => {
   t.end();
 });
 
-function t2_sender() {
-  exports.default = function(argv) {
+function t2Sender() {
+  exports.default = argv => {
     let r1;
     const v1 = new Flow().makeVow(res => (r1 = res));
     Vow.resolve(argv.target).e.pleaseWait(v1);
@@ -131,8 +149,8 @@ function t2_sender() {
   };
 }
 
-function t2_responder() {
-  exports.default = function(argv) {
+function t2Responder() {
+  exports.default = _argv => {
     let called = false;
     let answer = 'not yet';
     return {
@@ -162,14 +180,30 @@ test('sending unresolved local Vow', async t => {
     hash58,
   };
   const s = makeRealm({ consoleMode: 'allow' });
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
-  const v1src = funcToSource(t2_sender);
-  const v1 = await buildVat(s, req, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
+  const v1src = funcToSource(t2Sender);
+  const v1 = await buildVat(
+    s,
+    req,
+    'vat1',
+    'vat1 secret',
+    'vat1',
+    endow,
+    v1src,
+  );
   const v1argv = { target: v1.createPresence('vat2/0') };
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
-  const v2src = funcToSource(t2_responder);
-  const v2 = await buildVat(s, req, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
+  const v2src = funcToSource(t2Responder);
+  const v2 = await buildVat(
+    s,
+    req,
+    'vat2',
+    'vat2 secret',
+    'vat2',
+    endow,
+    v2src,
+  );
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
   const q = makeQueues(t);
@@ -275,19 +309,20 @@ test('sending unresolved local Vow', async t => {
   t.end();
 });
 
-function t3_one() {
-  exports.default = function(argv) {
+function t3One() {
+  exports.default = argv => {
     const two = Vow.resolve(argv.target2).e.getVow();
+    /* eslint-disable-next-line no-unused-vars */
     const three = Vow.resolve(argv.target3).e.pleaseWait(two);
   };
 }
 
-function t3_two() {
-  exports.default = function(argv) {
+function t3Two() {
+  exports.default = _argv => {
     let r;
     const vtwo = new Flow().makeVow(res => (r = res));
     return {
-      getVow(arg) {
+      getVow(_arg) {
         console.log('getVow');
         return vtwo;
       },
@@ -298,8 +333,8 @@ function t3_two() {
   };
 }
 
-function t3_three() {
-  exports.default = function(argv) {
+function t3Three() {
+  exports.default = _argv => {
     let fired = false;
     return {
       pleaseWait(vtwo) {
@@ -320,22 +355,47 @@ test('sending third-party Vow', async t => {
     hash58,
   };
   const s = makeRealm({ consoleMode: 'allow' });
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
-  const v1src = funcToSource(t3_one);
-  const v1 = await buildVat(s, req, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
+  const v1src = funcToSource(t3One);
+  const v1 = await buildVat(
+    s,
+    req,
+    'vat1',
+    'vat1 secret',
+    'vat1',
+    endow,
+    v1src,
+  );
   const v1argv = {
     target2: v1.createPresence('vat2/0'),
     target3: v1.createPresence('vat3/0'),
   };
+  /* eslint-disable-next-line no-unused-vars */
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
-  const v2src = funcToSource(t3_two);
-  const v2 = await buildVat(s, req, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
+  const v2src = funcToSource(t3Two);
+  const v2 = await buildVat(
+    s,
+    req,
+    'vat2',
+    'vat2 secret',
+    'vat2',
+    endow,
+    v2src,
+  );
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
-  const v3src = funcToSource(t3_three);
-  const v3 = await buildVat(s, req, 'vat3', 'vat3 secret', 'vat3', endow, v3src);
+  const v3src = funcToSource(t3Three);
+  const v3 = await buildVat(
+    s,
+    req,
+    'vat3',
+    'vat3 secret',
+    'vat3',
+    endow,
+    v3src,
+  );
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
   const q = makeQueues(t);
@@ -483,20 +543,21 @@ test('sending third-party Vow', async t => {
   t.end();
 });
 
-function t4_one() {
-  exports.default = function(argv) {
+function t4One() {
+  exports.default = argv => {
     const two = Vow.resolve(argv.target2).e.getVow();
+    /* eslint-disable-next-line no-unused-vars */
     const three = Vow.resolve(argv.target3).e.pleaseWait(two);
   };
 }
 
-function t4_two() {
-  exports.default = function(argv) {
+function t4Two() {
+  exports.default = _argv => {
     let r;
     const vtwo = new Flow().makeVow(res => (r = res));
     const presence = {};
     return {
-      getVow(arg) {
+      getVow(_arg) {
         console.log('getVow');
         return vtwo;
       },
@@ -510,8 +571,8 @@ function t4_two() {
   };
 }
 
-function t4_three() {
-  exports.default = function(argv) {
+function t4Three() {
+  exports.default = _argv => {
     let fired = false;
     return {
       pleaseWait(vtwo) {
@@ -532,22 +593,47 @@ test('sending third-party Vow that resolves to Presence', async t => {
     hash58,
   };
   const s = makeRealm({ consoleMode: 'allow' });
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
-  const v1src = funcToSource(t4_one);
-  const v1 = await buildVat(s, req, 'vat1', 'vat1 secret', 'vat1', endow, v1src);
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
+  const v1src = funcToSource(t4One);
+  const v1 = await buildVat(
+    s,
+    req,
+    'vat1',
+    'vat1 secret',
+    'vat1',
+    endow,
+    v1src,
+  );
   const v1argv = {
     target2: v1.createPresence('vat2/0'),
     target3: v1.createPresence('vat3/0'),
   };
+  /* eslint-disable-next-line no-unused-vars */
   const v1root = await v1.initializeCode('vat1/0', v1argv);
 
-  const v2src = funcToSource(t4_two);
-  const v2 = await buildVat(s, req, 'vat2', 'vat2 secret', 'vat2', endow, v2src);
+  const v2src = funcToSource(t4Two);
+  const v2 = await buildVat(
+    s,
+    req,
+    'vat2',
+    'vat2 secret',
+    'vat2',
+    endow,
+    v2src,
+  );
   const v2argv = {};
   const v2root = await v2.initializeCode('vat2/0', v2argv);
 
-  const v3src = funcToSource(t4_three);
-  const v3 = await buildVat(s, req, 'vat3', 'vat3 secret', 'vat3', endow, v3src);
+  const v3src = funcToSource(t4Three);
+  const v3 = await buildVat(
+    s,
+    req,
+    'vat3',
+    'vat3 secret',
+    'vat3',
+    endow,
+    v3src,
+  );
   const v3argv = {};
   const v3root = await v3.initializeCode('vat3/0', v3argv);
   const q = makeQueues(t);
@@ -702,9 +788,8 @@ test('sending third-party Vow that resolves to Presence', async t => {
 
 // We create a Vow on Alice, who sends it to Bob. Bob sends it to Carol. Test
 // that Carol subscribes (directly to Alice) to hear about its resolution.
-function t5_alice() {
-  exports.default = function(argv) {
-    const aliceDone = false;
+function t5Alice() {
+  exports.default = argv => {
     const v1 = new Flow().makeVow(_ => null);
     console.log('alice sends to bob');
     Vow.resolve(argv.bob).e.send1(v1); // got1
@@ -712,8 +797,8 @@ function t5_alice() {
   };
 }
 
-function t5_bob() {
-  exports.default = function(argv) {
+function t5Bob() {
+  exports.default = argv => {
     let bobStart = false;
     return {
       send1(v1) {
@@ -729,11 +814,11 @@ function t5_bob() {
   };
 }
 
-function t5_carol() {
-  exports.default = function(argv) {
+function t5Carol() {
+  exports.default = _argv => {
     let carolDone = false;
     return {
-      send2(v1) {
+      send2(_v1) {
         carolDone = true;
       },
       getCarolDone() {
@@ -751,10 +836,11 @@ test('third-party Vow gets resolved', async t => {
     hash58,
   };
   const s = makeRealm({ consoleMode: 'allow' });
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  /* eslint-disable-next-line no-unused-vars */
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
 
   const ALICE = 'ALICE';
-  const alice_src = funcToSource(t5_alice);
+  const aliceSrc = funcToSource(t5Alice);
   const vatALICE = await buildVat(
     s,
     req,
@@ -762,13 +848,14 @@ test('third-party Vow gets resolved', async t => {
     'aSecret',
     'vatALICE',
     endow,
-    alice_src,
+    aliceSrc,
   );
-  const alice_argv = { bob: vatALICE.createPresence('vatBOB/0') };
-  const alice_root = await vatALICE.initializeCode('vatALICE/0', alice_argv);
+  const aliceArgv = { bob: vatALICE.createPresence('vatBOB/0') };
+  /* eslint-disable-next-line no-unused-vars */
+  const aliceRoot = await vatALICE.initializeCode('vatALICE/0', aliceArgv);
 
   const BOB = 'BOB';
-  const bob_src = funcToSource(t5_bob);
+  const bobSrc = funcToSource(t5Bob);
   const vatBOB = await buildVat(
     s,
     req,
@@ -776,13 +863,13 @@ test('third-party Vow gets resolved', async t => {
     'bSecret',
     'vatBOB',
     endow,
-    bob_src,
+    bobSrc,
   );
-  const bob_argv = { carol: vatBOB.createPresence('vatCAROL/0') };
-  const bob_root = await vatBOB.initializeCode('vatBOB/0', bob_argv);
+  const bobArgv = { carol: vatBOB.createPresence('vatCAROL/0') };
+  const bobRoot = await vatBOB.initializeCode('vatBOB/0', bobArgv);
 
   const CAROL = 'CAROL';
-  const carol_src = funcToSource(t5_carol);
+  const carolSrc = funcToSource(t5Carol);
   const vatCAROL = await buildVat(
     s,
     req,
@@ -790,10 +877,11 @@ test('third-party Vow gets resolved', async t => {
     'cSecret',
     'vatCAROL',
     endow,
-    carol_src,
+    carolSrc,
   );
-  const carol_argv = {};
-  const carol_root = await vatCAROL.initializeCode('vatCAROL/0', carol_argv);
+  const carolArgv = {};
+  /* eslint-disable-next-line no-unused-vars */
+  const carolRoot = await vatCAROL.initializeCode('vatCAROL/0', carolArgv);
   const q = makeQueues(t); // , { [ALICE]: 'alice', [BOB]: 'bob', [CAROL]: 'carol'});
 
   vatALICE.connectionMade('vatBOB', q.addQueue(ALICE, BOB));
@@ -821,6 +909,7 @@ test('third-party Vow gets resolved', async t => {
       ],
     },
   );
+  /* eslint-disable-next-line no-unused-vars */
   const got1a = q.expect(
     ALICE,
     BOB,
@@ -829,13 +918,14 @@ test('third-party Vow gets resolved', async t => {
   );
   q.expectEmpty(ALICE, BOB);
 
-  t.equal(bob_root.getBobStart(), false);
+  t.equal(bobRoot.getBobStart(), false);
   q.expectEmpty(BOB, ALICE);
   q.expectEmpty(BOB, CAROL);
 
   vatBOB.commsReceived('vatALICE', got1);
   await Promise.resolve(0);
-  t.equal(bob_root.getBobStart(), true);
+  t.equal(bobRoot.getBobStart(), true);
+  /* eslint-disable-next-line no-unused-vars */
   const got2 = q.expect(
     BOB,
     ALICE,
@@ -861,6 +951,7 @@ test('third-party Vow gets resolved', async t => {
       ],
     },
   );
+  /* eslint-disable-next-line no-unused-vars */
   const got3a = q.expect(
     BOB,
     CAROL,
@@ -872,6 +963,7 @@ test('third-party Vow gets resolved', async t => {
   // this is what we care about: Carol subscribes directly to Alice (not Bob)
   // for the resolution of 'v1'
   vatCAROL.commsReceived('vatBOB', got3);
+  /* eslint-disable-next-line no-unused-vars */
   const got4 = q.expect(
     CAROL,
     ALICE,
