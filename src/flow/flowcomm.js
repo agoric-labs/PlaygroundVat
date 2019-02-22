@@ -1,14 +1,16 @@
+/* eslint-disable no-use-before-define */
+// Turning no-use-before-define off for this file, since there are many references to each other
+
 // A simple comm system using Flows for ordering
 
 'use strict';
 
+/* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
 import { insist, insistFn } from '../insist';
 
 // const debugLog = console.log;
 function debugLog() {} // disabled
-
-const scheduleHack = Promise.resolve(null);
 
 function isSymbol(x) {
   return typeof x === 'symbol';
@@ -16,24 +18,26 @@ function isSymbol(x) {
 
 let debugNextID = 1;
 const debugToID = new WeakMap();
-function debugRegister(obj, info = null) {
-  const debugID = debugNextID++;
+function debugRegister(obj, _info = null) {
+  const debugID = debugNextID;
+  debugNextID += 1;
   debugToID.set(obj, debugID);
   debugLog('REGISTER ', debugID, obj);
   return debugID;
 }
-function debugID(key) {
+function getDebugID(key) {
   return debugToID.get(key);
 }
 
 // TODO what happens to the then result?
 function scheduleTodo(target, todo) {
-  debugLog('SCHEDULE ', debugID(todo), todo);
+  debugLog('SCHEDULE ', getDebugID(todo), todo);
   Promise.resolve(target).then(todo.onFulfill, todo.onReject);
 }
 
-function isBroken(target) {
-  // todo
+// TODO
+/* eslint-disable-next-line no-unused-vars */
+function isBroken(_target) {
   return false;
 }
 
@@ -87,6 +91,7 @@ class PendingDelivery {
     // console.log(`PendingDelivery[${which}] ${op}, ${args}`);
   }
 
+  /* eslint-disable-next-line class-methods-use-this */
   get isMessageSend() {
     return true;
   }
@@ -94,14 +99,15 @@ class PendingDelivery {
 
 class PendingThen {
   constructor(onFulfill, onReject, handler) {
-    this.debugID = debugNextID++;
+    this.debugID = debugNextID;
+    debugNextID += 1;
     debugRegister(this);
     insistFn(onFulfill);
 
     this.debugTxt = onFulfill.toString();
 
     this.onFulfill = target => {
-      debugLog('THEN ', debugID(this), this);
+      debugLog('THEN ', getDebugID(this), this);
       let res;
       try {
         res = onFulfill ? onFulfill(target) : target;
@@ -115,13 +121,14 @@ class PendingThen {
       let res;
       try {
         res = onReject ? onReject(reason) : frozenRejection(reason);
-      } catch (reason) {
-        res = frozenRejection(reason);
+      } catch (reason2) {
+        res = frozenRejection(reason2);
       }
       handler.resolve(res);
     };
   }
 
+  /* eslint-disable-next-line class-methods-use-this */
   get isMessageSend() {
     return false;
   }
@@ -140,7 +147,7 @@ class UnresolvedHandler {
 
   resolve(target) {
     insist(!this.forwardedTo, 'Must be unresolved');
-    debugLog('RESOLVE ', debugID(target) || '*', target, 'this:', this);
+    debugLog('RESOLVE ', getDebugID(target) || '*', target, 'this:', this);
     const targetInner = getInnerVow(target);
     // if the target is a vow, forward to it, otherwise
     // target might be a Presence, or local object, or received pass-by-copy
@@ -179,7 +186,7 @@ class UnresolvedHandler {
   }
 
   processSingle(todo, flow) {
-    debugLog('PROCESS unresolved ', debugID(todo), todo, this, flow);
+    debugLog('PROCESS unresolved ', getDebugID(todo), todo, this, flow);
     // the target of the next message is unresolved so
     // this flow is now waiting for shortTarget
     this.blockedFlows.push(flow);
@@ -196,24 +203,27 @@ class FulfilledHandler {
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
-  fulfill(value) {
+  /* eslint-disable-next-line class-methods-use-this */
+  fulfill(_value) {
     insist(false, 'Fulfill only applies to unresolved promise');
   }
 
   // Fulfill the vow. Reschedule any flows that were blocked on this vow.
-  forwardTo(valueInner) {
+  /* eslint-disable-next-line class-methods-use-this */
+  forwardTo_(_valueInner) {
     insist(false, 'Forward only applies to unresolved promise');
   }
 
+  /* eslint-disable-next-line class-methods-use-this */
   processBlockedFlows(blockedFlows) {
-    for (const flow of blockedFlows) {
+    blockedFlows.forEach(flow => {
       // debugLog(`Processing blocked flow ${flow}`);
       flow.scheduleUnblocked();
-    }
+    });
   }
 
-  processSingle(todo, flow) {
-    debugLog('PROCESS single ', debugID(todo), todo, this);
+  processSingle(todo, _flow) {
+    debugLog('PROCESS single ', getDebugID(todo), todo, this);
     scheduleTodo(this.value, todo);
     return true;
   }
@@ -233,16 +243,16 @@ class FarRemoteHandler extends UnresolvedHandler {
   // TODO: flow interation here must be fixed when we enforce ordering
   processBlockedFlows(blockedFlows) {
     if (this.value) {
-      for (const flow of blockedFlows) {
+      blockedFlows.forEach(flow => {
         flow.scheduleUnblocked();
-      }
+      });
     } else {
       return super.processBlockedFlows(blockedFlows);
     }
   }
 
   processSingle(todo, flow) {
-    debugLog('PROCESS remote ', debugID(todo), todo, this);
+    debugLog('PROCESS remote ', getDebugID(todo), todo, this);
 
     if (todo.isMessageSend) {
       const { methodName, args } = todo;
@@ -425,7 +435,7 @@ function shortenForwards(firstResolver, optVow) {
 }
 
 function makeResolver(innerResolver) {
-  const resolver = function(value) {
+  const resolver = value => {
     // TODO how do we detect cycles
     // TODO use 'this' for the identity
     innerResolver = innerResolver.resolve(value);
@@ -494,6 +504,7 @@ class InnerVow {
           // TODO don't make an outer resolver
           const resultR = makeResolver(handler);
           this.flow.enqueue(this, new PendingDelivery(op, args, handler));
+          /* eslint-disable-next-line no-constant-condition */
           if (0) {
             // ordering hack, want to remove this
             return new Vow(this.flow, handler);
@@ -502,13 +513,15 @@ class InnerVow {
         };
   }
 
-  getOwnPropertyDescriptor(target, name, receiver) {
+  /* eslint-disable-next-line class-methods-use-this */
+  getOwnPropertyDescriptor(_target, _name, _receiver) {
     // debugLog(`GET ${typeof prop === 'symbol' ? prop.toString() : prop}`);
   }
 
   enqueueThen(onFulfill, onReject) {
     const handler = new UnresolvedHandler();
     this.flow.enqueue(this, new PendingThen(onFulfill, onReject, handler));
+    /* eslint-disable-next-line no-constant-condition */
     if (0) {
       // didn't need the ordering hack here, not sure why
       return new Vow(this.flow, handler);
@@ -554,7 +567,8 @@ class Vow {
       answerPs.forEach((answerP, index) => {
         Vow.resolve(answerP).then(answer => {
           answers[index] = answer;
-          if (--countDown === 0) {
+          countDown -= 1;
+          if (countDown === 0) {
             resolve(answers);
           }
         });
@@ -573,9 +587,9 @@ class Vow {
 
   static race(answerPs) {
     return new Flow().makeVow((resolve, reject) => {
-      for (const answerP of answerPs) {
+      answerPs.forEach(answerP => {
         Vow.resolve(answerP).then(resolve, reject);
-      }
+      });
     });
   }
 
@@ -586,7 +600,7 @@ class Vow {
     // todo this could be more efficient by looking at farVows[val] and
     // grabbing the handler directly
     const f = new Flow();
-    return f.makeVow((resolve, reject) => resolve(val));
+    return f.makeVow((resolve, _reject) => resolve(val));
   }
 
   static fromFn(fn) {
