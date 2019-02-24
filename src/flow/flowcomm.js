@@ -241,6 +241,8 @@ class FarRemoteHandler extends UnresolvedHandler {
 
   // Unblock flows so that messages are delivered
   // TODO: flow interation here must be fixed when we enforce ordering
+
+  /* eslint-disable-next-line consistent-return */
   processBlockedFlows(blockedFlows) {
     if (this.value) {
       blockedFlows.forEach(flow => {
@@ -449,6 +451,7 @@ const vowToInner = new WeakMap();
 const resolverToInner = new WeakMap();
 
 // TODO change to throw TypeError if these aren't present.
+/* eslint-disable-next-line no-unused-vars */
 function validInnerResolver(value) {
   const result = resolverToInner.get(value);
   insist(result, 'Valid instance required');
@@ -502,6 +505,7 @@ class InnerVow {
       : (...args) => {
           const handler = new UnresolvedHandler();
           // TODO don't make an outer resolver
+          /* eslint-disable-next-line no-unused-vars */
           const resultR = makeResolver(handler);
           this.flow.enqueue(this, new PendingDelivery(op, args, handler));
           /* eslint-disable-next-line no-constant-condition */

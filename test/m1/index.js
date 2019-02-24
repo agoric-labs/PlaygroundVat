@@ -1,5 +1,6 @@
 import { m2 } from './m2';
 
+/* eslint-disable-next-line no-unused-vars */
 const a = 2;
 
 export function foo() {

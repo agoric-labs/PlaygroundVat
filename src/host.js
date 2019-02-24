@@ -1,5 +1,3 @@
-/* global def */
-
 // this defines the endowments that live in the primal realm and may be
 // granted to the Vat host. It is the "airlock" or Membrane that sits between
 // the primal realm and the SES realm, specialized for the specific
@@ -16,7 +14,6 @@ import bs58 from 'bs58';
 export function hash58(s) {
   // this takes a string (unicode), encodes it to UTF-8, then hashes it.
   // We use SHA256 truncated to 128 bits for our swissnums.
-  const buf = Buffer.from(s, 'utf8');
   const h = crypto.createHash('sha256');
   h.update(s);
   return bs58.encode(h.digest().slice(0, 16));
@@ -44,14 +41,16 @@ export function makeVatEndowments(s, req, output, comms) {
     },
   };
 
+  /* eslint-disable-next-line no-shadow */
   function build(power) {
+    /* eslint-disable-next-line global-require, import/no-extraneous-dependencies */
     const harden = require('@agoric/harden');
     function eventually(f) {
       Promise.resolve().then(_ => f());
     }
     return harden({
-      hash58(s) {
-        return power.hash58(s);
+      hash58(str) {
+        return power.hash58(str);
       },
       comms: {
         registerManager(m) {
@@ -96,8 +95,8 @@ export function makeVatEndowments(s, req, output, comms) {
           eventually(_ => power.comms.wantConnection(`${hostID}`));
         },
       },
-      writeOutput(s) {
-        power.output.write(s);
+      writeOutput(str) {
+        power.output.write(str);
         power.output.write('\n');
       },
       exit(rc, message) {

@@ -55,7 +55,7 @@ test('promise pipelining', async t => {
     hash58,
   };
   const s = makeRealm();
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const v1 = await buildVat(
     s,
     req,
@@ -226,7 +226,7 @@ test('promise pipelining to third party', async t => {
     hash58,
   };
   const s = makeRealm();
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const v1 = await buildVat(
     s,
     req,

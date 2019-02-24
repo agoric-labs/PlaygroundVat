@@ -68,7 +68,7 @@ define('contract/simple_auction', ['Q'], function(Q) {
               maxBid = bid;
             });
           } else {
-            throw new Error("bid too low. Minimum bid: " + maxBid));
+            throw new Error("bid too low. Minimum bid: " + maxBid);
           }
         });
       
@@ -133,7 +133,7 @@ define('contract/simple_auction', ['Q'], function(Q) {
                    moneyDstP: purse,
                    moneyNeeded: maxBid,
                    good: good,
-                   cancellationP: ...
+                   cancellationP: {}, //TODO: {} is just a placeholder
                  }));
               });
             },
