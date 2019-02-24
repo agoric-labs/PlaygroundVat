@@ -19,7 +19,7 @@ async function buildContractVat(source = '../examples/contract') {
     outputTranscript.push(line);
   }
   const s = makeRealm({ consoleMode: 'allow', errorStackMode: 'allow' });
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const contractTestSource = await bundleCode(require.resolve(source));
   const endow = { writeOutput, comms: { registerManager() {} }, hash58 };
   const v = await buildVat(

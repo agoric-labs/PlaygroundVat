@@ -1,14 +1,7 @@
-
+/* eslint-disable-next-line import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
 import { makeSwissnum, makeSwissbase, doSwissHashing } from './swissCrypto';
-import {
-  isVow,
-  asVow,
-  Flow,
-  Vow,
-  makePresence,
-  makeUnresolvedRemoteVow,
-} from '../flow/flowcomm';
+import { isVow, makePresence, makeUnresolvedRemoteVow } from '../flow/flowcomm';
 
 // objects can only be passed in one of two/three forms:
 // 1: pass-by-presence: all properties (own and inherited) are methods,

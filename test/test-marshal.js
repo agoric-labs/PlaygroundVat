@@ -20,6 +20,7 @@ test('marshal', async t => {
   const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
   const e = confineVatSource(s, req, code);
   const endowments = makeVatEndowments(s, req, null, null);
+  /* eslint-disable-next-line no-unused-vars */
   const { hash58: hash58Endowed } = endowments;
 
   function helpers() {

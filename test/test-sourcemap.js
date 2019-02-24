@@ -6,6 +6,7 @@ test('build source map from module', async t => {
   const s = SES.makeSESRootRealm();
   const code = await bundleCode(require.resolve('./m1'), true);
   // console.log(code);
+  /* eslint-disable-next-line no-unused-vars */
   const exports = confineVatSource(s, code);
   // exports.foo();
   const lines = code.split('\n');
