@@ -1,6 +1,6 @@
+/* eslint-disable-next-line import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
 import { makeScoreboard } from './scoreboard';
-import { insist } from '../insist';
 import { vatMessageIDHash } from './swissCrypto';
 import { parseVatID } from './id';
 
@@ -43,7 +43,6 @@ export function makeRemoteForVatID(vatID, logConflict) {
 
   function gotHostMessage(evidence, msgID, hostMessageAndWire) {
     const { hostMessage, wireMessage } = hostMessageAndWire;
-    const fromVatID = hostMessage.fromVatID;
     if (hostMessage.seqnum === undefined) {
       throw new Error(`message is missing seqnum: ${hostMessage}`);
     }
@@ -57,7 +56,7 @@ export function makeRemoteForVatID(vatID, logConflict) {
       );
       return undefined; // todo: sulk a bit, maybe drop the connection
     }
-    const fromHostID = evidence.fromHostID;
+    const { fromHostID } = evidence;
 
     if (
       scoreboard.acceptProtoMsg(fromHostID, hostMessage.seqnum, msgID, {
@@ -113,7 +112,9 @@ export function makeDecisionList(
         return;
       }
       let found = false;
+      /* eslint-disable-next-line no-restricted-syntax */
       for (const [vatID, sm, consume] of getReadyMessages()) {
+        // getReadyMessages is a generator
         // console.log(' looking at', sm);
         // console.log(' comparing ', next.vatMessageID);
         if (sm.id === next.vatMessageID) {
@@ -221,6 +222,56 @@ export function makeDecisionList(
   };
 }
 
+// this is just for outbound messages, but todo future maybe acks too
+function makeRemoteForHostID(hostID, comms, _managerWriteInput) {
+  let queuedMessages = [];
+  const nextInboundSeqnum = 0;
+
+  // TODO: handle queued inbound messages
+  /* eslint-disable-next-line no-unused-vars */
+  const queuedInboundMessages = new Map(); // seqnum -> msg
+  let connection;
+
+  const remote = harden({
+    connectionMade(c) {
+      connection = c;
+      if (nextInboundSeqnum > 0) {
+        // I'm using JSON.stringify instead of marshal.serialize because that
+        // now requires extra stuff like target vatID, in case the thing
+        // being serialized includes unresolved Vows, and for opAck we know
+        // we don't need that
+        const ackBodyJson = buildAck(nextInboundSeqnum);
+        connection.send(ackBodyJson);
+      }
+      queuedMessages.forEach(msg => connection.send(msg));
+    },
+
+    connectionLost() {
+      connection = undefined;
+    },
+
+    // inbound
+
+    // outbound
+
+    sendHostMessage(msg) {
+      queuedMessages.push(msg);
+      if (connection) {
+        connection.send(msg);
+      } else {
+        comms.wantConnection(hostID);
+      }
+    },
+
+    // inbound acks remove outbound messages from the pending queue
+
+    ackOutbound(_hostID, ackSeqnum) {
+      queuedMessages = queuedMessages.filter(m => m.seqnum !== ackSeqnum);
+    },
+  });
+  return remote;
+}
+
 export function makeRemoteManager(
   myVatID,
   myHostID,
@@ -236,7 +287,7 @@ export function makeRemoteManager(
   const parsed = parseVatID(myVatID);
   const leaderHostID = parsed.leader;
   const isLeader = leaderHostID === myHostID;
-  const followers = parsed.followers;
+  const { followers } = parsed;
 
   function getHostRemote(hostID) {
     if (!hostRemotes.has(hostID)) {
@@ -259,6 +310,7 @@ export function makeRemoteManager(
   }
 
   function* getReadyMessages() {
+    /* eslint-disable-next-line no-restricted-syntax */
     for (const [vatID, r] of vatRemotes.entries()) {
       const sm = r.getReadyMessage();
       if (sm) {
@@ -273,15 +325,6 @@ export function makeRemoteManager(
     const wireMessage = `${DECIDE}${decisionMessage}`;
     getHostRemote(toHostID).sendHostMessage(wireMessage);
   }
-
-  const dl = makeDecisionList(
-    myVatID,
-    isLeader,
-    followers,
-    getReadyMessages,
-    deliver,
-    sendDecisionTo,
-  );
 
   function deliver(fromVatID, hostMessage, wireMessage) {
     // todo: retain the serialized form, for the transcript
@@ -308,9 +351,18 @@ export function makeRemoteManager(
     // todo: now send an ack
   }
 
+  const dl = makeDecisionList(
+    myVatID,
+    isLeader,
+    followers,
+    getReadyMessages,
+    deliver,
+    sendDecisionTo,
+  );
+
   function commsReceived(fromHostID, wireMessage) {
     // console.log(`commsReceived ${fromHostID}, ${wireMessage}`);
-    const hr = getHostRemote(fromHostID);
+    getHostRemote(fromHostID); // TODO: do we need the side-effects of this?
     // 'wireMessage' is one of:
     // * op JSON(vatMessage)
     // * decide JSON(leaderDecision)
@@ -319,8 +371,8 @@ export function makeRemoteManager(
       const hostMessageAndWire = { hostMessage, wireMessage };
       const msgID = vatMessageIDHash(wireMessage.slice(OP.length), hash58);
       // todo: assert that toVatID === myVatID
-      const toVatID = hostMessage.toVatID;
-      const fromVatID = hostMessage.fromVatID;
+      // const { toVatID } = hostMessage;
+      const { fromVatID } = hostMessage;
       const r = getVatRemote(fromVatID);
       const evidence = { fromHostID }; // todo future: cert chain
 
@@ -356,7 +408,10 @@ export function makeRemoteManager(
   }
 
   function sendTo(vatID, body) {
-    if (typeof body !== 'object' || !body.hasOwnProperty('op')) {
+    if (
+      typeof body !== 'object' ||
+      !Object.prototype.hasOwnProperty.call(body, 'op') // TODO: can we just use 'op' in body?
+    ) {
       throw new Error('sendTo must be given an object');
     }
     const vatRemote = getVatRemote(vatID);
@@ -385,12 +440,12 @@ export function makeRemoteManager(
     // console.log(`sendTo ${vatID} [${seqnum}] ${wireMessage}`);
     managerWriteOutput(wireMessage);
 
-    for (const hostID of vatRemote.hostIDs) {
-      // now add to a per-targetHostID queue, and if we have a current
-      // connection, send it. The HostRemote will tell comms if it wants a
-      // new connection.
+    // now add to a per-targetHostID queue, and if we have a current
+    // connection, send it. The HostRemote will tell comms if it wants a
+    // new connection.
+    vatRemote.hostIDs.forEach(hostID => {
       getHostRemote(hostID).sendHostMessage(wireMessage);
-    }
+    });
   }
 
   const manager = harden({
@@ -408,53 +463,4 @@ export function makeRemoteManager(
     sendTo,
   });
   return manager;
-}
-
-// this is just for outbound messages, but todo future maybe acks too
-function makeRemoteForHostID(hostID, comms, managerWriteInput) {
-  let queuedMessages = [];
-  const nextInboundSeqnum = 0;
-  const queuedInboundMessages = new Map(); // seqnum -> msg
-  let connection;
-
-  const remote = harden({
-    connectionMade(c) {
-      connection = c;
-      if (nextInboundSeqnum > 0) {
-        // I'm using JSON.stringify instead of marshal.serialize because that
-        // now requires extra stuff like target vatID, in case the thing
-        // being serialized includes unresolved Vows, and for opAck we know
-        // we don't need that
-        const ackBodyJson = buildAck(nextInboundSeqnum);
-        connection.send(ackBodyJson);
-      }
-      for (const msg of queuedMessages) {
-        connection.send(msg);
-      }
-    },
-
-    connectionLost() {
-      connection = undefined;
-    },
-
-    // inbound
-
-    // outbound
-
-    sendHostMessage(msg) {
-      queuedMessages.push(msg);
-      if (connection) {
-        connection.send(msg);
-      } else {
-        comms.wantConnection(hostID);
-      }
-    },
-
-    // inbound acks remove outbound messages from the pending queue
-
-    ackOutbound(hostID, ackSeqnum) {
-      queuedMessages = queuedMessages.filter(m => m.seqnum !== ackSeqnum);
-    },
-  });
-  return remote;
 }
