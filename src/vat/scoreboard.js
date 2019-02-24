@@ -1,5 +1,6 @@
-import { insist } from '../insist';
+/* eslint-disable-next-line import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
+import { insist } from '../insist';
 
 /**
  * A scoreboard is an object that accepts proto messages, where each
@@ -37,6 +38,7 @@ export function makeScoreboard(quorumTest, logConflict) {
   function fetchReadyMsg(seqNum) {
     const seqMap = queue.get(seqNum);
     if (seqMap) {
+      /* eslint-disable-next-line no-unused-vars */
       for (const [msgID, { msg, componentIDs }] of seqMap) {
         if (quorumTest(componentIDs)) {
           return msg;
@@ -109,7 +111,8 @@ export function makeScoreboard(quorumTest, logConflict) {
  * joining, old followers leaving, change of leader, change of
  * threshold, or any other change to the quorum rules.
  */
-function makeConsensusLeader(decidedQs) {
+
+/* function makeConsensusLeader(decidedQs) {
   // map from compositeID to scoreboard
   const scoreboards = new Map();
 
@@ -143,6 +146,7 @@ function makeConsensusLeader(decidedQs) {
     },
   });
 }
+*/
 
 /* BOGUS. Needs to be at earlier level of abstraction, trafficking in
  * the allegedly signed message as originally received.
