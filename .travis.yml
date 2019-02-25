@@ -7,9 +7,12 @@ sudo: false
 install:
   - npm install
 
+env:
+  - SCRIPT=test
+  - SCRIPT=lint-check
+
 script:
-#  - npm run shim:lint
-  - npm run test
+  - npm run $SCRIPT
 
 after_success:
 #  - npm run shim:coverage && npm run shim:coveralls
