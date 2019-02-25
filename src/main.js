@@ -13,7 +13,7 @@ import PeerId from 'peer-id';
 import PeerInfo from 'peer-info';
 
 import { createComms } from './comms';
-import { hash58, makeVatEndowments, readAndHashFile } from './host';
+import { hash58, makeVatEndowments } from './host';
 import { parseVatID } from './vat/id';
 import { makeSwissnum } from './vat/swissCrypto';
 
@@ -31,8 +31,11 @@ export function makeRealm() {
 }
 
 export async function bundleCode(filename, appendSourcemap) {
-  const guestBundle = await rollup({ input: filename, treeshake: false,
-                                     external: ['@agoric/nat', '@agoric/harden']});
+  const guestBundle = await rollup({
+    input: filename,
+    treeshake: false,
+    external: ['@agoric/nat', '@agoric/harden'],
+  });
   const { output } = await guestBundle.generate({
     format: 'cjs',
     sourcemap: appendSourcemap,
@@ -44,7 +47,8 @@ export async function bundleCode(filename, appendSourcemap) {
   if (output[0].isAsset) {
     throw Error(`not expecting an asset: ${output[0].fileName}`);
   }
-  let { code: source, map: sourceMap } = output[0];
+  let { code: source } = output[0];
+  const { map: sourceMap } = output[0];
 
   // Rollup will generate inline sourceMappingURLs for you, but only if you
   // write the output to a file. We do it manually to avoid using a tempfile.
@@ -90,7 +94,7 @@ export async function buildVat(
 async function create(argv) {
   const id = await promisify(PeerId.create)();
   const vatID = id.toB58String();
-  const basedir = argv.basedir;
+  const { basedir } = argv;
   await fs.promises.mkdir(basedir);
   let f = await fs.promises.open(path.join(basedir, 'private-id'), 'w');
   const privateId = `${JSON.stringify(id.toJSON(), null, 2)}\n`;
@@ -150,6 +154,7 @@ export async function convertToQuorum(argv) {
   const myVatSecret = argv.vatsecret;
   let basedir = '.';
   if (argv.basedir) {
+    /* eslint-disable-next-line prefer-destructuring */
     basedir = argv.basedir;
     // else we must be run from a vat basedir
   }
@@ -221,6 +226,7 @@ export async function buildArgv(vat, argvJSON, readBaseFile, vatEndowments) {
     } else if ('sturdyref' in v) {
       argv[name] = vat.createPresence(v.sturdyref);
     } else if ('filename' in v) {
+      /* eslint-disable-next-line no-await-in-loop */
       argv[name] = await readBaseFile(v.filename);
     } else if ('exit' in v && v.exit === 'allowed') {
       argv[name] = vatEndowments.exit;
@@ -237,9 +243,9 @@ async function buildComms(
   readBaseLines,
   locatordir,
 ) {
-  const myPeerID_s = await readBaseFile('private-id');
+  const myPeerIDS = await readBaseFile('private-id');
   const myPeerID = await promisify(PeerId.createFromJSON)(
-    JSON.parse(myPeerID_s),
+    JSON.parse(myPeerIDS),
   );
   const myPeerInfo = new PeerInfo(myPeerID);
   const ports = await readBaseLines('listen-ports');
@@ -255,16 +261,20 @@ async function buildComms(
       const idFile = path.join(locatordir, d, 'host-id');
       let f;
       try {
+        /* eslint-disable-next-line no-await-in-loop */
         f = await fs.promises.readFile(idFile, { encoding: 'utf-8' });
       } catch (ex) {
         if (ex.code !== 'ENOENT' && ex.code !== 'ENOTDIR') {
           throw ex;
         }
+        /* eslint-disable-next-line no-continue */
         continue;
       }
       const id = f.split('\n')[0];
+      /* eslint-disable-next-line no-continue */
       if (id !== hostID) continue;
       const portsFile = path.join(locatordir, d, 'addresses'); // todo: fake symlink
+      /* eslint-disable-next-line no-await-in-loop */
       const data = await fs.promises.readFile(portsFile, { encoding: 'utf-8' });
       const addresses = data.split('\n').filter(address => address); // remove blank lines
       return addresses;
@@ -273,12 +283,13 @@ async function buildComms(
     return [];
   }
 
-  return await createComms(myPeerInfo, getAddressesForHostID);
+  return createComms(myPeerInfo, getAddressesForHostID); // a promise
 }
 
 async function run(argv) {
   let basedir = '.';
   if (argv.basedir) {
+    /* eslint-disable-next-line prefer-destructuring */
     basedir = argv.basedir;
     // else we must be run from a vat basedir
   }
@@ -315,7 +326,7 @@ async function run(argv) {
   const rootSturdyRef = await readBaseLine('root-sturdyref');
 
   const s = makeRealm();
-  const req = s.makeRequire({'@agoric/nat': Nat, '@agoric/harden': true});
+  const req = s.makeRequire({ '@agoric/nat': Nat, '@agoric/harden': true });
 
   // todo: how do we set encoding=utf-8 on an open()?
   const output = await fs.promises.open(
@@ -385,6 +396,7 @@ export async function main() {
     .command(
       'create <basedir> <addr> <port>',
       'create a new Vat in BASEDIR',
+      /* eslint-disable-next-line no-shadow */
       yargs => {
         yargs
           .positional('basedir', {
@@ -398,6 +410,7 @@ export async function main() {
             describe: 'TCP port to listen on, choose something unique',
           })
           .coerce('addr', addr => {
+            /* eslint-disable-next-line no-useless-escape */
             if (!/^[\d\.]+$/.test(addr)) {
               throw new Error(
                 `addr=${addr} must be a dotted-quad numeric IP address, not a hostname`,
@@ -413,6 +426,8 @@ export async function main() {
     .command(
       'run [basedir]',
       'run a Vat (in current directory, or from BASEDIR)',
+      // shadowing style from yargs docs https://yargs.js.org/docs/#api-commandmodule
+      /* eslint-disable-next-line no-shadow */
       yargs => {
         yargs.option('basedir', {
           describe: 'base directory, created by "vat create"',
@@ -423,6 +438,7 @@ export async function main() {
     .command(
       'convert-to-quorum <vatid> <vatsecret> [basedir]',
       'convert a Solo Vat (in current directory, or from BASEDIR) to the new Quorum VatID',
+      /* eslint-disable-next-line no-shadow */
       yargs => {
         yargs
           .positional('vatid', {
@@ -449,7 +465,7 @@ export async function main() {
       '*',
       false,
       () => {},
-      argv => {
+      _argv => {
         console.log(
           'no subcommand specified, try "vat create", "vat run", or "vat convert-to-quorum"',
         );
