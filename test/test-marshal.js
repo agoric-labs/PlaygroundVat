@@ -63,10 +63,6 @@ test('marshal', async t => {
   const m = e.makeWebkeyMarshal(
     hash58, // hash58 or hash58Endowed?
     Vow,
-    isVow,
-    Flow,
-    makePresence,
-    makeUnresolvedRemoteVow,
     'v1',
     myVatSecret,
     h.serializer,

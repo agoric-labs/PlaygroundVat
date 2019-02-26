@@ -62,10 +62,6 @@ export function makeEngine(
   const marshal = makeWebkeyMarshal(
     hash58,
     Vow,
-    isVow,
-    Flow,
-    makePresence,
-    makeUnresolvedRemoteVow,
     myVatID,
     myVatSecret,
     serializer,

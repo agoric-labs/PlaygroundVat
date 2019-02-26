@@ -82,15 +82,29 @@ const QCLASS = '@qclass';
 // directly
 export function makeWebkeyMarshal(
   hash58,
-  _Vow,
-  _isVow,
-  _Flow,
-  _makePresence,
-  _makeUnresolvedRemoteVow,
+  Vow,
   myVatID,
   myVatSecret,
   serializer,
 ) {
+  const { makePresence, makeRemote, shorten } = Vow.makeHook();
+
+  // we remember:
+  // * RemoteVows we created
+  // * FarVows we created
+  // * objects that our FarVow/RemoteVows have been resolved to
+
+  // categories of things to serialize
+  // known
+  //  previous pass-by-presence
+  //  previous local Vow
+  //  inbound Presence (we make these and remember them)
+  //  inbound FarVow (ditto)
+  //  inbound RemoteVow (ditto)
+  // pass-by-value
+  // local pass-by-presence
+
+
   // Record: { value, vatID, swissnum, serialized }
   // holds both objects (pass-by-presence) and unresolved promises
   const val2Record = new WeakMap();
@@ -109,6 +123,13 @@ export function makeWebkeyMarshal(
 
   function serializePassByPresence(val, swissnum = undefined) {
     // we are responsible for new serialization of pass-by-presence objects
+
+    // since we're using webkeys, we serialize everything identically
+    // regardless of which toVatID we're sending it to. This will change when
+    // we switch to c-lists. We'll need to keep track of inbound Vows
+    // independently of their serialized representation, and remember which
+    // Vat they came from, so we know whether to use their c-list index, or a
+    // three-party handoff.
 
     let type;
     if (isVow(val)) {
