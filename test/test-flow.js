@@ -118,14 +118,7 @@ test('remote vow', t => {
     registerRemoteVow(targetVatID, swissnum, val) {
       console.log(`registerRemoteVow: ${targetVatID}, ${swissnum}, ${val}`);
     },
-    opSend(
-      resultSwissbase,
-      targetVatID,
-      targetSwissnum,
-      methodName,
-      args,
-      _resolutionOf,
-    ) {
+    opSend(resultSwissbase, targetVatID, targetSwissnum, methodName, args) {
       results.push({
         resultSwissbase,
         targetVatID,

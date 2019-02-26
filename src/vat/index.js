@@ -12,7 +12,6 @@ import {
   Vow,
   makePresence,
   makeUnresolvedRemoteVow,
-  resolutionOf, // todo unclean
   handlerOf, // todo unclean
 } from '../flow/flowcomm';
 import { makeRemoteManager } from './remotes';
@@ -159,7 +158,6 @@ export function makeVat(
     makePresence,
     makeUnresolvedRemoteVow,
     handlerOf,
-    resolutionOf,
     myVatID,
     myVatSecret,
     manager,

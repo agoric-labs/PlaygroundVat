@@ -13,7 +13,6 @@ export function makeEngine(
   makePresence,
   makeUnresolvedRemoteVow,
   handlerOf,
-  resolutionOf,
   myVatID,
   myVatSecret,
   manager,
@@ -35,11 +34,9 @@ export function makeEngine(
     targetSwissnum,
     methodName,
     args,
-    /* eslint-disable-next-line no-shadow */
-    resolutionOf,
   ) {
     /* eslint-disable-next-line no-use-before-define */
-    const argsS = marshal.serialize(harden(args), resolutionOf);
+    const argsS = marshal.serialize(harden(args));
     const body = harden({
       op: 'send',
       targetSwissnum,
@@ -81,7 +78,7 @@ export function makeEngine(
   function opResolve(targetVatID, targetSwissnum, value) {
     // todo: rename targetSwissnum to mySwissnum? The thing being resolved
     // lives on the sender, not the recipient.
-    const valueS = marshal.serialize(harden(value), resolutionOf);
+    const valueS = marshal.serialize(harden(value));
     const body = harden({ op: 'resolve', targetSwissnum, valueS });
     manager.sendTo(targetVatID, body);
   }
@@ -125,7 +122,7 @@ export function makeEngine(
         // if they care about the result, they'll send an opWhen hot on the
         // heels of this opSend, which will register their interest in the
         // Vow
-        marshal.registerTarget(res, resolverSwissnum, resolutionOf);
+        marshal.registerTarget(res, resolverSwissnum);
         // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
       } else {
         // else it was really a sendOnly
@@ -173,7 +170,7 @@ export function makeEngine(
       return marshal.createPresence(sturdyref);
     },
     registerTarget(target, swissnum) {
-      marshal.registerTarget(target, swissnum, resolutionOf);
+      marshal.registerTarget(target, swissnum);
     },
     // temporary
     marshal,
@@ -181,7 +178,7 @@ export function makeEngine(
     ext,
     // tests
     serialize(val) {
-      return marshal.serialize(val, resolutionOf);
+      return marshal.serialize(val);
     },
   };
 

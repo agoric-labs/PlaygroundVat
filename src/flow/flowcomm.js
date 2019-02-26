@@ -287,7 +287,6 @@ class FarRemoteHandler extends UnresolvedHandler {
         this.swissnum,
         methodName,
         args,
-        resolutionOf,
       );
       this.serializer.registerRemoteVow(
         this.vatID,
@@ -460,16 +459,6 @@ function validInnerResolver(value) {
 
 function getInnerVow(value) {
   return vowToInner.get(value);
-}
-
-export function resolutionOf(value) {
-  const inner = getInnerVow(value);
-  if (!inner) {
-    return undefined;
-  }
-  const firstR = inner.resolver;
-  const shortHandler = shortenForwards(firstR, inner);
-  return shortHandler.value;
 }
 
 export function handlerOf(value) {

@@ -71,11 +71,8 @@ test('marshal', async t => {
     myVatSecret,
     h.serializer,
   );
-  function resolutionOf(val) {
-    return val;
-  }
   function ser(what) {
-    return m.serialize(what, resolutionOf);
+    return m.serialize(what);
   }
   t.equal(ser(1), '1');
   t.equal(ser('abc'), '"abc"');
