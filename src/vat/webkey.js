@@ -1,3 +1,5 @@
+/* global BigInt */
+
 /* eslint-disable-next-line import/no-extraneous-dependencies */
 import harden from '@agoric/harden';
 import { makeSwissnum, makeSwissbase, doSwissHashing } from './swissCrypto';
@@ -78,15 +80,20 @@ function mustPassByPresence(val) {
 // decoding.
 const QCLASS = '@qclass';
 
-// TODO: remove these Vow/Flow parameters now that we can import them
-// directly
-export function makeWebkeyMarshal(
+export function makeEngine(
   hash58,
   Vow,
   myVatID,
   myVatSecret,
-  serializer,
+  manager,
 ) {
+
+  function makePair() {
+    let r;
+    const v = new Vow(r0 => r = r0);
+    return {v, r};
+  }
+
   const { makePresence, makeRemote, shorten } = Vow.makeHook();
 
   // we remember:
@@ -105,10 +112,23 @@ export function makeWebkeyMarshal(
   // local pass-by-presence
 
 
-  // Record: { value, vatID, swissnum, serialized }
-  // holds both objects (pass-by-presence) and unresolved promises
-  const val2Record = new WeakMap();
-  const webkey2Record = new Map();
+  // val2Serialized tracks every vow and presence we receive, and every vow
+  // and presence we send. It maps them to the serialization we were given,
+  // or generated. It also tracks the "answer" vows we create on behalf of
+  // the target of an opSend (to hold their result), since we decide the
+  // serialization of that vow. For FarVow/Presence pairs we receive, each
+  // has a separate entry.
+  const val2Serialized = new WeakMap();
+
+  // webkey2Vow is only used for inbound vows
+  const webkey2Vow = new Map();
+
+  // webkey2Presence is only used for inbound presences
+  const webkey2Presence = new Map();
+
+  // this is used for inbound Vows, to track the resolver we created for
+  // them. We delete this once the Vow is resolved (opResolve is call-once).
+  const webkey2Resolver = new Map();
 
   let swissCounter = 0;
   function allocateSwissnum() {
@@ -121,6 +141,27 @@ export function makeWebkeyMarshal(
     return makeSwissbase(myVatSecret, swissCounter, hash58);
   }
 
+  function makeWebkey(data) {
+    // todo: use a cheaper (but still safe/reversible) combiner
+    return JSON.stringify({ vatID: data.vatID, swissnum: data.swissnum });
+  }
+
+  function serializeVowData(vatID, swissnum) {
+    return harden({
+      [QCLASS]: 'vow',
+      vatID: vatID,
+      swissnum,
+    });
+  }
+
+  function serializePresenceData(vatID, swissnum) {
+    return harden({
+      [QCLASS]: 'presence',
+      vatID: vatID,
+      swissnum,
+    });
+  }
+
   function serializePassByPresence(val, swissnum = undefined) {
     // we are responsible for new serialization of pass-by-presence objects
 
@@ -131,37 +172,30 @@ export function makeWebkeyMarshal(
     // Vat they came from, so we know whether to use their c-list index, or a
     // three-party handoff.
 
-    let type;
+    if (typeof swissnum === 'undefined') {
+      swissnum = allocateSwissnum();
+    }
+
+    let table, serialized;
     if (isVow(val)) {
       // This must be a new Local Vow (if it were remote, it would have been
       // added to our table upon receipt, and we wouldn't get here) (and if
       // we'd already serialized it once, it would also be in the table). We
       // must allocate a new swissnum.
-      type = 'vow';
+      table = webkey2Vow;
+      serialized = serializeVowData(myVatID, swissnum);
     } else {
       // This must be a new local pass-by-presence object
-      type = 'presence';
+      table = webkey2Presence;
+      serialized = serializePresenceData(myVatID, swissnum);
     }
 
-    if (typeof swissnum === 'undefined') {
-      swissnum = allocateSwissnum();
-    }
+    const key = makeWebkey({ vatID: myVatID, swissnum });
+    // console.log(`assigning key ${key}`);
 
-    const rec = harden({
-      value: val,
-      vatID: myVatID,
-      swissnum,
-      serialized: {
-        [QCLASS]: type,
-        vatID: myVatID,
-        swissnum,
-      },
-    });
-    // console.log(`assigning rec ${JSON.stringify(rec)}`);
-    val2Record.set(val, rec);
-    const key = JSON.stringify({ vatID: myVatID, swissnum });
-    webkey2Record.set(key, rec);
-    return rec;
+    val2Serialized.set(val, serialized);
+    table.set(key, val);
+    return serialized;
   }
 
   function makeReplacer() {
@@ -262,9 +296,8 @@ export function makeWebkeyMarshal(
 
       // if we've serialized it before, or if it arrived from the outside
       // (and is thus in the table), use the previous serialization
-      if (val2Record.has(val)) {
-        const rec = val2Record.get(val);
-        return rec.serialized;
+      if (val2Serialized.has(val)) {
+        return val2Serialized.get(val);
       }
 
       // We can serialize some things as plain pass-by-copy: arrays, and
@@ -300,57 +333,151 @@ export function makeWebkeyMarshal(
       // serialize pass-by-reference objects, including cache/table
       // management
 
-      const rec = serializePassByPresence(val);
-      return rec.serialized;
+      return serializePassByPresence(val);
     };
   }
 
-  function makeWebkey(data) {
-    // todo: use a cheaper (but still safe/reversible) combiner
-    return JSON.stringify({ vatID: data.vatID, swissnum: data.swissnum });
+  // type suffixes:
+  //  -Data: {vatID, swissnum}
+  //  -WebKey: a "webkey" string, JSON.stringify({vatID, swissnum})
+  //  -Serialized: a "qclass" object, { "@qclass": type, vatID, swissnum }
+  //               created by serializeVowData/serializePresenceData/replacer
+
+  // FarVows and Presences are created in pairs. We remember the Presence in
+  // a table which maps it to a serialization of {'@qclass': 'presence',
+  // vatID, swissnum}. The FarVow (which can only be obtained with
+  // presence.then) would be serialized like any other Vow.
+
+  function makeRemoteVowHandler(targetData) {
+    return harden({
+      call(op, name, args) {
+        if (op === 'post') {
+          // create a synthetic RemoteVow, as if we'd received swissnum from
+          // targetvat. We register it with the comms tables so that when the
+          // other end sends their {type:'resolve'} message, it will cause
+          // this resultVow to resolve, and any queued messages we put into
+          // it will be delivered. We choose the swissnum because we're
+          // allocating the object, but we do it with a swissbase so we can't
+          // deliberately collide with anything currently allocated on the
+          // other end
+
+          const { swissnum: answerSwissnum,
+                  swissbase: answerSwissbase } = allocateSwissStuff();
+          const answerData = { vatID: targetData.vatID,
+                               swissnum: answerSwissnum };
+          const answerWebKey = makeWebkey(answerData);
+          const answerSerialized = serializeVowData(answerData.vatID,
+                                                    answerSwissnum);
+
+          const handler = makeRemoteVowHandler(answerWebKey, flow);
+          const {p, r} = makePair();
+          const answerVow = makeRemote(handler, p);
+
+          // Make sure we can send the answerVow elsewhere. This would
+          // normally happen when the Vow was sent or received as an argument
+          // or a return value, but answerVow is synthetic: the target does
+          // not send it to us, we merely pretend they sent it to us. So we
+          // must do all the same registration ourselves.
+          val2Serialized.set(answerVow, answerSerialized);
+
+          // this prepares for the case where we send our answerVow
+          // elsewhere, then someone references it in a message to us
+          webkey2Vow.set(answerWebKey, answerVow);
+
+          // This prepares for the target to resolve our answerVow. It is
+          // safe to use the same webkey for both Vow and resolver because we
+          // only accept opResolve for Vows owned by the sender.
+          webkey2Resolver.set(answerWebKey, r);
+
+          // send the message, and immediately subscribe to hear the answer
+          opSend(targetData, name, args, answerSwissbase);
+          opWhen(targetData.vatID, answerSwissnum);
+
+          return answerVow;
+
+        } else {
+          throw Error(`unknown op ${op}`);
+        }
+      },
+    });
   }
 
   function unserializeVow(data) {
     const key = makeWebkey(data);
-    if (webkey2Record.has(key)) {
-      return webkey2Record.get(key).value;
+    if (webkey2Vow.has(key)) {
+      return webkey2Vow.get(key);
     }
-    const v = makeUnresolvedRemoteVow(serializer, data.vatID, data.swissnum);
-    const rec = harden({
-      value: v,
-      vatID: data.vatID,
-      swissnum: data.swissnum,
-      serialized: data,
-    });
-    val2Record.set(v, rec);
-    webkey2Record.set(key, rec);
-    serializer.opWhen(data.vatID, data.swissnum);
+    const handler = makeRemoteVowHandler(key);
+    const {p, r} = makePair();
+    const v = makeRemote(handler, p);
+
+    // remember their serialization so we use it again if we ever send this
+    // value
+    val2Serialized.set(v, data);
+
+    // remember the Vow we created, so if this serialization ever arrives
+    // again, we'll deliver the same Vow
+    webkey2Vow.set(key, v);
+
+    // remember the resolver we'll use when they send an opResolve for this
+    // Vow
+    webkey2Resolver.set(key, r);
+
+    // this is the first time we've seen this Vow, so subscribe to hear about
+    // its resolution
+    opWhen(data.vatID, data.swissnum); // subscribe
     return v;
   }
 
-  function unserializePresence(data) {
-    // console.log(`unserializePresence ${JSON.stringify(data)}`);
-    const key = makeWebkey(data);
-    if (webkey2Record.has(key)) {
-      // console.log(` found previous`);
-      return webkey2Record.get(key).value;
-    }
-    // console.log(` did not find previous`);
-    // for (const k of webkey2Record.keys()) {
-    //   console.log(` had: ${k}`);
-    // }
-
-    // todo: maybe pre-generate the FarVow and stash it for quick access
-    const p = makePresence(serializer, data.vatID, data.swissnum);
-    const rec = harden({
-      value: p,
-      vatID: data.vatID,
-      swissnum: data.swissnum,
-      serialized: data,
+  // todo: queue this until finishTurn, stall outbound messages until the
+  // turn succeeds
+  function opSend(target, name, args, answerSwissbase) {
+    /* eslint-disable-next-line no-use-before-define */
+    const argsS = serialize(harden(args));
+    const body = harden({
+      op: 'send',
+      targetSwissnum: target.swissnum,
+      methodName: name,
+      argsS,
+      resultSwissbase: answerSwissbase,
     });
-    val2Record.set(p, rec);
-    webkey2Record.set(key, rec);
-    return p;
+    manager.sendTo(target.vatID, body);
+  }
+
+  function opWhen(targetVatID, targetSwissnum) {
+    // subscribe to get an opResolve when the target Vow is resolved
+    const body = harden({ op: 'when', targetSwissnum });
+    manager.sendTo(targetVatID, body);
+  }
+
+  function opResolve(targetVatID, targetSwissnum, value) {
+    // todo: rename targetSwissnum to mySwissnum? The thing being resolved
+    // lives on the sender, not the recipient.
+    const valueS = serialize(harden(value));
+    const body = harden({ op: 'resolve', targetSwissnum, valueS });
+    manager.sendTo(targetVatID, body);
+  }
+
+
+  function makeFarVowHandler(key) {
+    // I think these behave the same way. RemoteVowHandler's target is a Vow,
+    // while FarVowHandler's target is a pass-by-presence object.
+    return makeRemoteVowHandler(key);
+  }
+
+  function unserializePresence(data) {
+    const key = makeWebkey(data);
+    if (webkey2Presence.has(key)) {
+      return webkey2Presence.get(key);
+    }
+
+    const handler = makeFarVowHandler(key);
+    const { presence, vow } = makePresence(handler);
+
+    val2Serialized.set(presence, data);
+    webkey2Presence.set(key, presence);
+
+    return presence;
   }
 
   function makeReviver() {
@@ -439,15 +566,15 @@ export function makeWebkeyMarshal(
   }
 
   function createPresence(sturdyref) {
-    // used to create initial argv references
+    // used to create initial argv references: we just pretend we've received
+    // a serialized presence record, which stores it in the tables so we can
+    // send it back out again later
     const { vatID, swissnum } = parseSturdyref(sturdyref);
-    const serialized = {
+    const serialized = harden({
       [QCLASS]: 'presence',
       vatID,
       swissnum,
-    };
-    // this creates the Presence, and also stores it into the tables, so we
-    // can send it back out again later
+    });
     return unserializePresence(serialized);
   }
 
@@ -458,58 +585,109 @@ export function makeWebkeyMarshal(
   }
 
   function registerTarget(val, swissnum) {
+    // used to register the Vat's root object (to bootstrap other vats
+    // pointing at us), as well as to register the answer promise created
+    // when someone sends us an opSend (for which the sender allocates the
+    // swissnum, not us)
     serializePassByPresence(val, swissnum);
   }
 
-  function getOutboundResolver(vatID, swissnum, handlerOf) {
+  function getOutboundResolver(vatID, swissnum) {
     // console.log(`getOutboundResolver looking up ${vatID} / ${swissnum}`);
     const key = makeWebkey({ vatID, swissnum });
     // console.log(` with key ${key}`);
-    const rec = webkey2Record.get(key);
-    if (rec) {
-      // console.log(` found record`);
-      return handlerOf(rec.value);
+    const r = webkey2Resolver.get(key);
+    if (r) {
+      webkey2Resolver.delete(key);
     }
-    // console.log(` did not find record`);
-    return undefined;
+    return r;
   }
 
   function getMyTargetBySwissnum(swissnum) {
+    // used when we receive opWhen, to find which Vow they're subscribing to
     const key = makeWebkey({ vatID: myVatID, swissnum });
-    const rec = webkey2Record.get(key);
-    if (rec) {
-      return rec.value;
-    }
-    return undefined;
+    return webkey2Vow.get(key);
   }
 
-  function registerRemoteVow(targetVatID, swissnum, val) {
-    // console.log(`registerRemoteVow: ${targetVatID} / ${swissnum} as ${val}`);
-    const rec = harden({
-      value: val,
-      vatID: targetVatID,
-      swissnum,
-      serialized: {
-        [QCLASS]: 'vow',
-        vatID: targetVatID,
-        swissnum,
-      },
-    });
-    val2Record.set(val, rec);
-    const key = JSON.stringify({ vatID: targetVatID, swissnum });
-    // console.log(` with key ${key}`);
-    webkey2Record.set(key, rec);
-    serializer.opWhen(targetVatID, swissnum);
+
+  function doSendInternal(opMsg) {
+    const target = getMyTargetBySwissnum(opMsg.targetSwissnum);
+    if (!target) {
+      throw new Error(`unrecognized target, swissnum=${opMsg.targetSwissnum}`);
+    }
+    if (!opMsg.argsS) {
+      throw new Error('opMsg is missing .argsS');
+    }
+    const args = unserialize(opMsg.argsS);
+    // todo: sometimes causes turn delay, could fastpath if target is
+    // resolved
+    return Vow.resolve(target).e[opMsg.methodName](...args);
   }
+
+  function rxMessage(senderVatID, opMsg) {
+    // opMsg is { op: 'send', targetSwissnum, methodName, argsS,
+    // resultSwissbase, answerR }, or { op: 'resolve', targetSwissnum, valueS
+    // } . Pass argsS/valueS to marshal.unserialize
+
+    // We are strictly given messages in-order from each sender
+
+    // todo: It does not include seqnum (which must be visible to the manager).
+    // sent messages are assigned a seqnum by the manager
+    // txMessage(recipientVatID, message)
+
+    // console.log(`op ${opMsg.op}`);
+    let done;
+    if (opMsg.op === 'send') {
+      const res = doSendInternal(opMsg);
+      if (opMsg.resultSwissbase) {
+        const resolverSwissnum = doSwissHashing(opMsg.resultSwissbase, hash58);
+        // if they care about the result, they'll send an opWhen hot on the
+        // heels of this opSend, which will register their interest in the
+        // Vow
+        registerTarget(res, resolverSwissnum);
+        // note: BrokenVow is pass-by-copy, so Vow.resolve(rej) causes a BrokenVow
+      } else {
+        // else it was really a sendOnly
+        console.log(`commsReceived got sendOnly, dropping result`);
+      }
+      done = res; // for testing
+    } else if (opMsg.op === 'when') {
+      const v = getMyTargetBySwissnum(opMsg.targetSwissnum);
+      // todo: assert that it's a Vow, but really we should tolerate peer
+      // being weird
+      Vow.resolve(v).then(res =>
+                          opResolve(senderVatID, opMsg.targetSwissnum, res),
+      );
+      // todo: rejection
+    } else if (opMsg.op === 'resolve') {
+      // console.log('-- got op resolve');
+      // console.log(' senderVatID', senderVatID);
+      // console.log(' valueS', opMsg.valueS);
+      const r = getOutboundResolver(senderVatID, opMsg.targetSwissnum);
+      // console.log(`r: ${r}`);
+      // console.log('found target');
+      let value;
+      try {
+        value = unserialize(opMsg.valueS);
+      } catch (ex) {
+        console.log('exception in unserialize of:', opMsg.valueS);
+        console.log(ex);
+        throw ex;
+      }
+      // console.log('found value', value);
+      r(value);
+      // console.log('did resolve');
+    }
+    return done; // for testing, to wait until things are done
+  }
+
+
 
   return harden({
     serialize,
     unserialize,
-    allocateSwissStuff,
-    registerRemoteVow,
-    getMyTargetBySwissnum,
-    registerTarget,
-    getOutboundResolver,
-    createPresence,
+    rxMessage,
+    registerTarget, // opSend registers the resolver, Vat registers the root
+    createPresence, // for bootstrap(argv), and tests
   });
 }

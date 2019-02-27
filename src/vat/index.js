@@ -15,7 +15,7 @@ import {
   handlerOf, // todo unclean
 } from '../flow/flowcomm';
 import { makeRemoteManager } from './remotes';
-import { makeEngine } from './executionEngine';
+import { makeEngine } from './webkey';
 
 // const msgre = /^msg: (\w+)->(\w+) (.*)$/;
 
@@ -153,11 +153,6 @@ export function makeVat(
   const engine = makeEngine(
     endowments.hash58,
     Vow,
-    isVow,
-    Flow,
-    makePresence,
-    makeUnresolvedRemoteVow,
-    handlerOf,
     myVatID,
     myVatSecret,
     manager,
