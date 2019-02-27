@@ -1,8 +1,7 @@
 module.exports = {
   extends: ['airbnb', 'plugin:prettier/recommended'],
   env: {
-    es6: true,
-    mocha: true,
+    es6: true, // supports new ES6 globals (e.g., new types such as Set)
   },
   rules: {
     'implicit-arrow-linebreak': 'off',
@@ -10,12 +9,10 @@ module.exports = {
     'arrow-parens': 'off',
     strict: 'off',
     'no-console': 'off',
-
-    // revisit the following later
     'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     'no-return-assign': 'off',
     'no-param-reassign': 'off',
-    'import/prefer-default-export': 'off',
     'no-restricted-syntax': ['off', 'ForOfStatement'],
+    'import/prefer-default-export': 'off', // contrary to Agoric standard
   },
 };
