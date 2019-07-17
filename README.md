@@ -1,3 +1,6 @@
+Note: this repository is no longer in use. Development work has moved to
+https://github.com/Agoric/SwingSet instead.
+
 # The Agoric "Playground" Vat
 
 [![Build Status][travis-svg]][travis-url]
